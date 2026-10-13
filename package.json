@@ -1,0 +1,10 @@
+{
+  "name": "worldforge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check ai-harness.mjs && node --check prompt-settings.mjs && node --check image-context.mjs && node --check dist/geography.js && node --check dist/chronicle.js && node --check dist/cards.js && node --check dist/app.js && node --test tests/*.test.mjs"
+  },
+  "engines": { "node": ">=22.5" }
+}

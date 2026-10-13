@@ -1,0 +1,22 @@
+id: CARD-W##-####
+name: 候选卡名
+status: proposed
+world_id: W##
+set_id: null
+faction_ids: []
+card_type: minion
+cost: 0
+stats:
+  attack: 0
+  health: 1
+rarity: common
+# 每项可选 detail；用于“关键词：本卡附加说明”，不修改关键词通用定义。
+keywords: []
+effects: []
+rules_text: ""
+flavor_text: ""
+art_asset_id: null
+balance_status: untested
+# 可引用多个人物、物品、地点、事件或其他设定；仅表示创作来源，不改变来源条目的状态。
+lore_refs: []
+notes: []

@@ -1,0 +1,45 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { ContentConflictError, createContentStore } from '../storage.mjs';
+
+async function withStore(run) {
+  const directory = await mkdtemp(join(tmpdir(), 'worldforge-sqlite-'));
+  const store = createContentStore(join(directory, 'worldforge.sqlite'));
+  try { await run(store); } finally { store.close(); await rm(directory, { recursive: true, force: true }); }
+}
+
+test('SQLite content store persists structured world data', async () => withStore(store => {
+  assert.equal(store.read().initialized, false);
+  const saved = store.replace({
+    expectedRevision: 0,
+    loreEntries: [
+      { id: 'CHR-W01-001', name: '测试角色', type: 'character', status: 'proposed', truthScope: 'objective', worldId: 'W01' },
+      { id: 'STORY-W01-001', name: '测试传记', type: 'story', status: 'proposed', truthScope: 'unknown', worldId: 'W01', relationIds: ['CHR-W01-001'] }
+    ],
+    cardDrafts: [{ id: 'CARD-W01-0001', name: '测试卡', type: 'unit', status: 'proposed', worldId: 'W01' }],
+    keywords: [{ id: 'KEY-001', name: '测试词', status: 'proposed', definition: '仅用于测试。' }],
+    notes: { combat: '测试备注' }
+  });
+  assert.equal(saved.revision, 1);
+  assert.equal(saved.loreEntries[0].name, '测试角色');
+  assert.deepEqual(saved.loreEntries[1].relationIds, ['CHR-W01-001']);
+  assert.equal(saved.cardDrafts[0].id, 'CARD-W01-0001');
+  assert.equal(saved.keywords[0].definition, '仅用于测试。');
+  assert.equal(saved.notes.combat, '测试备注');
+  assert.equal(store.health().ok, true);
+  const asset = store.createArtAsset({ id: 'ART-00000000-0000-0000-0000-000000000001', cardId: 'CARD-W01-0001', prompt: '测试插画', model: 'doubao-seedream-test', size: '1872x1248', mimeType: 'image/png', fileName: 'asset.png', status: 'proposed', createdAt: '2026-10-13T00:00:00.000Z', provenance: 'ai_generated' });
+  assert.equal(store.getArtAsset(asset.id).prompt, '测试插画');
+  assert.equal(store.listArtAssets().length, 1);
+  const loreAsset=store.createArtAsset({id:'ART-00000000-0000-0000-0000-000000000002',targetType:'lore',targetId:'CHR-W01-001',purpose:'portrait',prompt:'人物原型',model:'test',size:'2K',mimeType:'image/png',fileName:'lore.png',status:'proposed',createdAt:'2026-10-13T00:00:01.000Z'});
+  assert.equal(loreAsset.targetId,'CHR-W01-001');
+  assert.equal(store.listArtAssets()[0].targetType,'lore');
+}));
+
+test('SQLite content store rejects stale revisions and duplicate IDs', async () => withStore(store => {
+  store.replace({ expectedRevision: 0, loreEntries: [], cardDrafts: [], keywords: [], notes: {} });
+  assert.throws(() => store.replace({ expectedRevision: 0, loreEntries: [], cardDrafts: [], keywords: [], notes: {} }), ContentConflictError);
+  assert.throws(() => store.replace({ expectedRevision: 1, loreEntries: [{ id: 'W01' }, { id: 'W01' }], cardDrafts: [], keywords: [], notes: {} }), /重复 ID/);
+}));

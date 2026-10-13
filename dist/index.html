@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Worldforge 世界观与卡牌设计工具">
+  <meta name="theme-color" content="#ffffff">
+  <script>
+    const pageSegment = location.pathname.split('/').pop();
+    if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
+  </script>
+  <title>Worldforge</title>
+  <link rel="stylesheet" href="./styles.css?v=14">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="app-header">
+    <a class="brand" href="#" aria-label="Worldforge 首页"><span class="brand-icon" aria-hidden="true">W</span><span>Worldforge</span></a>
+    <nav class="module-tabs" aria-label="功能模块">
+      <button class="module-tab active" type="button" data-module="world"><span class="tab-icon" aria-hidden="true">◫</span>世界观架构</button>
+      <button class="module-tab" type="button" data-module="cards"><span class="tab-icon" aria-hidden="true">▤</span>卡牌设计</button>
+    </nav>
+    <div class="header-actions"><span class="local-status saving" id="storageStatus"><i></i><span>正在连接 SQLite…</span></span><button class="button secondary compact" id="openSettings" type="button">设置</button><button class="button secondary compact" id="exportData" type="button">导出数据</button></div>
+  </header>
+
+  <main id="main">
+    <section class="module-page active" id="worldModule" data-page="world" aria-labelledby="worldTitle">
+      <div class="page-heading">
+        <div><p class="breadcrumb">项目 / 设定资料库</p><h1 id="worldTitle">世界设定编辑器</h1><p>像整理写作资料一样建立世界、势力、地图与角色，并用关联保持设定可追溯。</p></div>
+        <div class="heading-actions">
+          <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="loreSearch" placeholder="搜索名称、标签或正文" aria-label="搜索设定条目"></label>
+          <button class="button primary" id="newLoreEntry" type="button">新建资料</button>
+        </div>
+      </div>
+
+      <div class="lore-tabs" id="loreTabs" role="tablist" aria-label="资料类型">
+        <button class="lore-tab active" type="button" data-lore-type="world" role="tab" aria-selected="true"><span>◎</span>世界<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="location" role="tab" aria-selected="false"><span>◇</span>世界地图<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="faction" role="tab" aria-selected="false"><span>旗</span>势力<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="character" role="tab" aria-selected="false"><span>人</span>角色<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="species" role="tab" aria-selected="false"><span>种</span>种族<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="culture" role="tab" aria-selected="false"><span>文</span>文化<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="religion" role="tab" aria-selected="false"><span>祈</span>宗教<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="magic" role="tab" aria-selected="false"><span>术</span>魔法<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="technology" role="tab" aria-selected="false"><span>械</span>科技<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="item" role="tab" aria-selected="false"><span>物</span>物品<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="event" role="tab" aria-selected="false"><span>事</span>事件<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="timeline" role="tab" aria-selected="false"><span>史</span>编年史<em>0</em></button>
+        <button class="lore-tab" type="button" data-lore-type="story" role="tab" aria-selected="false"><span>篇</span>背景故事<em>0</em></button>
+      </div>
+
+      <div class="lore-workspace">
+        <aside class="panel lore-library-panel">
+          <div class="panel-title"><div><h2 id="loreLibraryTitle">世界观</h2><small>本地资料库</small></div><button class="panel-action" id="quickNewLore" type="button">＋ 新建</button></div>
+          <section class="geography-intro" id="geographyIntro" hidden>
+            <strong>世界大地图框架</strong>
+            <p>先定义大陆，再在大陆内部建立国家、地区、区域、城市与地点。地图绘制将在层级框架稳定后接入。</p>
+            <div><button class="button secondary compact" id="newContinent" type="button">＋ 建立大陆</button><button class="button secondary compact" id="generateGeography" type="button">AI 生成大陆框架</button></div>
+          </section>
+          <section class="geography-intro" id="chronicleIntro" hidden>
+            <strong>编年史结构</strong>
+            <p>先建立一部编年史，再在其中添加带纪年和排序值的节点；节点会按排序值由早到晚排列。</p>
+            <div><button class="button secondary compact" id="newChronicle" type="button">＋ 新建编年史</button></div>
+          </section>
+          <div class="lore-list" id="loreList"></div>
+          <div class="lore-empty" id="loreEmpty"><strong>还没有这类资料</strong><p>新资料默认保存为 proposed。</p><button class="button secondary compact" type="button" id="emptyNewLore">建立第一条</button></div>
+        </aside>
+
+        <section class="panel lore-editor-panel" aria-labelledby="loreEditorHeading">
+          <div class="panel-title editor-title"><div><h2 id="loreEditorHeading">资料编辑器</h2><span id="loreEditorState">新资料</span></div><div><span class="status proposed" id="loreStatusBadge">proposed</span><button class="button secondary compact" id="createCardFromLore" type="button" hidden>生成卡牌草案</button><button class="button secondary compact" id="deleteLore" type="button" hidden>删除</button><button class="button primary compact" id="saveLore" type="button">保存资料</button></div></div>
+          <form class="lore-form" id="loreForm">
+            <div class="lore-form-row identity-row">
+              <label><span id="loreNameLabel">名称</span><input id="loreName" maxlength="80" placeholder="给这条设定一个明确名称" required></label>
+              <label class="story-hidden">稳定 ID<input id="loreId" maxlength="60" placeholder="保存时自动生成"></label>
+            </div>
+            <div class="lore-form-row triple-row story-hidden">
+              <label>状态<select id="loreStatus"><option value="proposed">proposed · 草案</option><option value="unknown">unknown · 留白</option><option value="canon">canon · 已批准</option><option value="deprecated">deprecated · 已废弃</option></select></label>
+              <label>事实层次<select id="loreTruthScope"><option value="objective">objective · 客观</option><option value="in_world_belief">in_world_belief · 世界内观点</option><option value="unknown">unknown · 未知</option></select></label>
+              <label>所属世界<input id="loreWorldId" value="W01" maxlength="20"></label>
+            </div>
+            <div class="lore-form-row triple-row story-hidden" id="typeAttributes">
+              <label><span id="attributeALabel">题材</span><input id="attributeA" maxlength="120"></label>
+              <label><span id="attributeBLabel">时代</span><input id="attributeB" maxlength="120"></label>
+              <label><span id="attributeCLabel">尺度</span><input id="attributeC" maxlength="120"></label>
+            </div>
+            <div class="map-fields" id="mapFields" hidden>
+              <div class="lore-form-row">
+                <label>地理层级<select id="locationKind"><option value="continent">大陆</option><option value="country">国家</option><option value="region">地区</option><option value="area">区域</option><option value="city">城市</option><option value="site">地点</option><option value="route">路线 / 通道</option></select></label>
+                <label>所属上级<select id="locationParent"></select><small id="locationParentHelp">大陆直接属于世界；其他层级必须选择上级。</small></label>
+              </div>
+              <div class="lore-form-row">
+                <label>地图坐标 X<input id="locationX" type="number" step="0.1" placeholder="可选"></label>
+                <label>地图坐标 Y<input id="locationY" type="number" step="0.1" placeholder="可选"></label>
+              </div>
+              <label>环境与交通<input id="locationEnvironment" maxlength="180" placeholder="地貌、气候、资源、交通或危险"></label>
+            </div>
+            <div class="map-fields" id="chronicleFields" hidden>
+              <div class="lore-form-row">
+                <label>记录类型<select id="chronicleKind"><option value="chronicle">编年史</option><option value="entry">编年史节点</option></select></label>
+                <label>所属编年史<select id="chronicleParent"></select><small id="chronicleParentHelp">编年史是容器；节点必须选择所属编年史。</small></label>
+              </div>
+              <div class="lore-form-row">
+                <label>纪年文本<input id="chronicleDate" maxlength="80" placeholder="例如：炉历 112 年 / 第三潮汐纪末"></label>
+                <label>排序值<input id="chronicleOrder" type="number" step="any" placeholder="例如：112；可使用负数"></label>
+              </div>
+              <small>纪年文本负责展示，排序值只负责先后顺序，因此可兼容虚构历法与不确定日期。</small>
+            </div>
+            <label class="story-hidden">摘要<textarea id="loreSummary" rows="3" maxlength="800" placeholder="用一段话说明它是什么，以及它在世界中的作用"></textarea></label>
+            <label><span id="loreDetailsLabel">详细设定</span><textarea id="loreDetails" rows="9" placeholder="记录历史、运作方式、文化、动机、冲突或其他正文……"></textarea></label>
+            <div class="lore-form-row story-hidden">
+              <label>约束<textarea id="loreConstraints" rows="4" placeholder="每行一项：不可违反的限制、成本或边界"></textarea></label>
+              <label>开放问题<textarea id="loreQuestions" rows="4" placeholder="每行一项：仍待作者裁定的问题"></textarea></label>
+            </div>
+            <div class="lore-form-row relation-row">
+              <label class="story-hidden">标签<input id="loreTags" placeholder="用逗号分隔，例如：魔导工业, 能源"></label>
+              <label><span id="loreRelationsLabel">关联资料</span><select id="loreRelations" multiple size="4" aria-describedby="relationHelp"></select><small id="relationHelp">按 Ctrl / Command 可多选；只建立引用，不改写被关联条目。</small></label>
+            </div>
+            <section class="attached-stories" id="attachedStories" aria-labelledby="attachedStoriesTitle">
+              <div><div><strong id="attachedStoriesTitle">挂载的背景故事</strong><small id="attachedStoriesHelp">保存资料后，可为它建立多篇独立故事。</small></div><button class="button secondary compact" id="newAttachedStory" type="button">＋ 新建故事</button></div>
+              <div class="attached-story-list" id="attachedStoryList"></div>
+              <p id="attachedStoryEmpty">尚无关联故事。故事会独立保存，并可继续关联其他故事。</p>
+            </section>
+            <section class="lore-visuals" id="loreVisuals" aria-labelledby="loreVisualsTitle">
+              <div class="lore-visuals-heading"><div><strong id="loreVisualsTitle">视觉原型</strong><small id="loreVisualsHelp">保存资料后，可依据正文、关联资料和背景故事生成多张 proposed 候选图。</small></div></div>
+              <div class="lore-visual-controls">
+                <label>用途<select id="loreArtPurpose"><option value="portrait">人物 / 生物原型</option><option value="environment">环境 / 建筑</option><option value="item">物品 / 技术</option><option value="scene">故事场景</option><option value="concept">综合概念</option></select></label>
+                <label>生成通道<select id="loreArtProvider"><option value="seedream">火山方舟 Seedream</option><option value="comfyui">本地 ComfyUI</option></select></label>
+                <label>画面尺寸<select id="loreArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select></label>
+                <label class="full">本次画面要求<textarea id="loreArtPrompt" rows="5" maxlength="3000" placeholder="可选：补充姿态、镜头、时间、天气、材质或希望避免的内容"></textarea></label>
+                <div class="full art-actions"><button class="button secondary compact" id="prepareLoreArtPrompt" type="button">根据设定准备提示词</button><button class="button secondary compact" id="optimizeLoreArtPrompt" type="button">语言模型优化</button><button class="button primary compact" id="generateLoreArt" type="button" disabled>生成 1 张（可能付费）</button></div>
+                <p class="full art-status" id="loreArtStatus" role="status">请先保存并选择一个设定条目。</p>
+              </div>
+              <div class="art-candidates lore-art-candidates" id="loreArtCandidates"></div><p class="art-empty" id="loreArtEmpty">当前条目暂无视觉原型。</p>
+            </section>
+          </form>
+        </section>
+
+        <aside class="panel ai-panel">
+          <div class="panel-title"><div><h2>AI 设定助手</h2><small id="aiStatus">正在检查配置…</small></div><span class="ai-dot" id="aiDot"></span></div>
+          <div class="ai-body">
+            <div class="info-callout"><strong>草案边界</strong><p>AI 只返回 proposed 建议，不会自动保存、覆盖正文或晋升正史。</p></div>
+            <label>协助方式<select id="aiAction"><option value="brainstorm">扩写候选方向</option><option value="background_story">生成背景故事</option><option value="polish">润色当前设定</option><option value="conflict_check">检查冲突与缺口</option><option value="relations">建议关联与剧情钩子</option></select></label>
+            <label>候选数量<select id="aiVariantCount"><option value="2">2 份</option><option value="3" selected>3 份</option><option value="4">4 份</option><option value="5">5 份</option></select></label>
+            <label>补充要求<textarea id="aiPrompt" rows="5" maxlength="3000" placeholder="例如：提供三种互相区分的政治结构，并说明代价"></textarea></label>
+            <label>本次补充示例<textarea id="aiExamples" rows="4" maxlength="6000" placeholder="可选：粘贴希望本次生成参考的片段、写法或结构示例"></textarea><small id="aiExampleMeta">还会自动参考同世界、同类型的 canon 条目。</small></label>
+            <button class="button primary" id="runAi" type="button">生成候选方案</button>
+            <div class="ai-result" id="aiResult" hidden><div class="ai-result-heading"><div><strong>候选方案</strong><small id="aiContextMeta"></small></div><span id="aiSelectionCount">0 项已选</span></div><div class="ai-variant-list" id="aiVariantList"></div><button class="button primary" id="saveAiSelections" type="button" disabled>保存所选为独立草案</button><p class="field-help">可多选或全部不选。只有点击保存后，所选方案才会进入本地资料库。</p></div>
+            <p class="ai-config-help">模型设置可在右上角“设置”中修改；密钥只由本地服务读取。</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="module-page" id="cardsModule" data-page="cards" aria-labelledby="cardsTitle" hidden>
+      <div class="page-heading">
+        <div><p class="breadcrumb">项目 / W01 / 卡牌</p><h1 id="cardsTitle">卡牌设计</h1><p>编辑卡牌数值、描述和关键词。所有本地草案均为 proposed / untested。</p></div>
+        <div class="heading-actions"><label class="search-box"><span aria-hidden="true">⌕</span><input type="search" placeholder="搜索已保存卡牌" data-search-input="cards" aria-label="搜索已保存卡牌"></label><button class="button secondary" id="newCard" type="button">新建卡牌</button></div>
+      </div>
+      <div class="metric-row" aria-label="卡牌设计统计">
+        <article><span>卡牌草案</span><strong id="draftCardCount">0</strong><small>本地保存</small></article>
+        <article><span>关键词</span><strong id="keywordCount">0</strong><small>可加入描述</small></article>
+        <article><span>基础字段</span><strong>3</strong><small>费用 / 攻击 / 血量</small></article>
+        <article><span>平衡状态</span><strong>—</strong><small>全部 untested</small></article>
+      </div>
+
+      <div class="card-workspace">
+        <aside class="panel keyword-panel">
+          <div class="panel-title"><h2>关键词</h2><button class="panel-action" id="newKeyword" type="button">定义关键词</button></div>
+          <p class="panel-help">点击关键词可加入或移出当前卡牌。需要时可为本卡填写附加说明。</p>
+          <div class="keyword-library" id="keywordLibrary"></div>
+          <div class="keyword-empty" id="keywordEmpty"><strong>暂无关键词</strong><p>先定义关键词名称和规则说明。</p></div>
+        </aside>
+
+        <section class="panel editor-panel" aria-labelledby="editorHeading">
+          <div class="panel-title editor-title"><div><h2 id="editorHeading">卡牌编辑器</h2><span id="editorState">新卡牌</span></div><div><span class="status proposed">proposed</span><button class="button primary compact" id="saveCard" type="button">保存卡牌</button></div></div>
+          <div class="editor-body">
+            <div class="card-stage">
+              <article class="editable-card" id="cardPreview" aria-label="可编辑卡牌预览">
+                <label class="card-stat cost-stat"><span>费用</span><input id="cardCost" type="number" min="0" value="0" aria-label="费用"></label>
+                <label class="card-name-field"><span>卡牌名称</span><input id="cardName" maxlength="40" value="未命名卡牌" aria-label="卡牌名称"></label>
+                <div class="card-art-placeholder"><img id="cardArtImage" hidden alt="当前卡牌插画"><span id="cardArtPlaceholder" aria-hidden="true">W01</span></div>
+                <div class="card-description-field">
+                  <div class="card-keyword-preview" id="cardKeywordPreview"></div>
+                  <label><span>卡牌描述</span><textarea id="cardRules" rows="5" placeholder="输入卡牌描述……" aria-label="卡牌描述"></textarea></label>
+                </div>
+                <label class="card-stat attack-stat"><span>攻击</span><input id="cardAttack" type="number" min="0" value="0" aria-label="攻击"></label>
+                <label class="card-stat health-stat"><span>血量</span><input id="cardHealth" type="number" min="1" value="1" aria-label="血量"></label>
+              </article>
+              <p class="preview-help">直接修改卡面中的费用、攻击、血量和描述。保存后会出现在右侧卡牌列表。</p>
+            </div>
+
+            <div class="card-options">
+              <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">装备</option></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" value="W01" maxlength="20"></div>
+              <div class="option-group"><label for="cardLoreRefs">设定来源</label><select id="cardLoreRefs" multiple size="5" aria-describedby="cardLoreHelp"></select><p class="field-help" id="cardLoreHelp">可关联多个设定条目；从世界观生成时只预填草案，不会自动保存或晋升正史。</p></div>
+              <div class="option-group"><span>已选关键词</span><div class="selected-keywords" id="selectedKeywords"><p>未选择关键词</p></div></div>
+              <div class="option-group card-art-controls"><span>AI 候选卡面</span><label for="cardArtProvider">生成通道</label><select id="cardArtProvider"><option value="seedream">火山方舟 Seedream（API Key）</option><option value="comfyui">本地 ComfyUI</option></select><label for="cardArtPrompt">插画提示词</label><textarea id="cardArtPrompt" rows="6" maxlength="3000" placeholder="描述主体、场景、构图、材质、色彩与光影……"></textarea><label for="cardArtSize">画面尺寸</label><select id="cardArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select><div class="art-actions"><button class="button secondary compact" id="optimizeCardArtPrompt" type="button">语言模型优化</button><button class="button primary compact" id="generateCardArt" type="button" disabled>生成 1 张（可能付费）</button></div><p class="art-status" id="seedreamCardStatus" role="status">正在读取图像服务…</p><div class="art-candidates" id="cardArtCandidates"></div><p class="art-empty" id="cardArtEmpty">当前卡牌暂无候选插画。</p></div>
+              <div class="info-callout"><strong>关键词显示</strong><p>附加说明为可选；填写后显示为“关键词：附加说明”，并随卡牌一起保存。</p></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel saved-cards-panel">
+          <div class="panel-title"><h2>已保存卡牌</h2><span id="savedCardLabel">0 张</span></div>
+          <div class="saved-card-list" id="cardList"></div>
+          <div class="saved-card-empty" id="cardEmpty"><strong>暂无卡牌</strong><p>在中间卡面直接编辑并保存。</p></div>
+          <p class="no-results" id="cardNoResults" hidden>没有匹配的卡牌。</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="noteDialog"><form method="dialog" class="dialog-card"><div class="dialog-header"><div><p class="eyebrow">本地备注</p><h2 id="noteTitle">编辑备注</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div><p class="dialog-description" id="noteDescription"></p><label for="noteText">备注内容</label><textarea id="noteText" rows="7" placeholder="记录倾向、约束、反例或待验证项……"></textarea><p class="field-help">内容保存在服务端 SQLite，不会自动写入仓库。</p><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button class="button primary" id="saveNote" value="default">保存备注</button></div></form></dialog>
+  <dialog id="keywordDialog"><form method="dialog" class="dialog-card" id="keywordForm"><div class="dialog-header"><div><p class="eyebrow">关键词定义</p><h2>新建关键词</h2></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="form-grid"><label class="full">关键词名称<input id="keywordName" required maxlength="20" placeholder="例如：过载"></label><label class="full">规则说明<textarea id="keywordDefinition" required rows="4" placeholder="明确说明触发时机、效果和持续时间"></textarea></label></div><p class="field-help">关键词保存在服务端 SQLite，默认状态为 proposed。</p><div class="dialog-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="saveKeyword" value="default">保存关键词</button></div></form></dialog>
+  <dialog id="settingsDialog" class="settings-dialog"><form method="dialog" class="dialog-card settings-card" id="settingsForm"><div class="dialog-header"><div><p class="eyebrow">Worldforge</p><h2>设置</h2><p>模型密钥与创作内容保存在本机服务端；编辑偏好只保存在当前浏览器。</p></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="settings-layout"><nav class="settings-nav" aria-label="设置分类"><button class="active" type="button" data-settings-tab="ai">语言模型</button><button type="button" data-settings-tab="prompts">提示词工程</button><button type="button" data-settings-tab="image">图像生成</button><button type="button" data-settings-tab="editor">编辑偏好</button><button type="button" data-settings-tab="data">数据管理</button></nav><div class="settings-content">
+    <section class="settings-section active" data-settings-panel="ai"><h3>AI 服务</h3><p>支持 OpenAI Responses API 和兼容 Chat Completions 的服务。</p><div class="settings-grid"><label class="full">API Key<input id="settingApiKey" type="password" autocomplete="new-password" placeholder="未修改时留空"><small id="settingKeyState">正在读取状态…</small></label><label class="check-label full"><input id="settingClearKey" type="checkbox">清除已经保存的 API Key</label><label class="full">Base URL<input id="settingBaseUrl" type="url" required placeholder="https://api.openai.com/v1"></label><label>模型<input id="settingModel" required placeholder="gpt-5-mini"></label><label>API 类型<select id="settingApiStyle"><option value="responses">Responses API</option><option value="chat">Chat Completions</option></select></label></div><div class="settings-inline-status" id="settingsSaveStatus" role="status"></div></section>
+    <section class="settings-section" data-settings-panel="prompts" hidden><h3>提示词工程</h3><p>文字生成与视觉原型分别使用可编辑提示；固定安全边界不会被这些内容替换。</p><div class="settings-grid prompt-settings-grid"><label class="full">文字设定部分<select id="settingPromptType"><option value="world">世界</option><option value="location">世界地图</option><option value="faction">势力</option><option value="character">角色</option><option value="species">种族</option><option value="culture">文化</option><option value="religion">宗教</option><option value="magic">魔法</option><option value="technology">科技</option><option value="item">物品</option><option value="event">事件</option><option value="timeline">时间线</option><option value="story">背景故事</option></select></label><label class="full">当前文字分类提示词<textarea id="settingTypePrompt" rows="7" maxlength="8000" placeholder="为当前设定类型提供写作重点、结构和边界"></textarea></label><div class="full prompt-reset-row"><button class="button secondary compact" id="resetTypePrompt" type="button">恢复文字分类默认提示</button></div><label class="full">统一个性化文字提示词<textarea id="settingPersonalizedPrompt" rows="5" maxlength="8000" placeholder="例如：语言克制、重视普通人的生活细节"></textarea></label><div class="full prompt-divider"><strong>视觉提示词</strong><small>生成时会与当前条目、卡牌来源及其一跳关联资料一起组合。</small></div><label class="full">统一视觉风格提示词<textarea id="settingVisualStylePrompt" rows="5" maxlength="8000" placeholder="定义整个项目共用的材质、色彩、构图和原创性方向"></textarea></label><label class="full">生图部分<select id="settingImagePromptType"><option value="card">卡牌插画</option><option value="world">世界</option><option value="location">世界地图</option><option value="faction">势力</option><option value="character">角色</option><option value="species">种族</option><option value="culture">文化</option><option value="religion">宗教</option><option value="magic">魔法</option><option value="technology">科技</option><option value="item">物品</option><option value="event">事件</option><option value="timeline">编年史</option><option value="story">背景故事</option><option value="other">其他</option></select></label><label class="full">当前生图分类提示词<textarea id="settingImagePrompt" rows="7" maxlength="8000" placeholder="规定这一类视觉原型的主体、尺度、构图与表现重点"></textarea></label><div class="full prompt-reset-row"><button class="button secondary compact" id="resetImagePrompt" type="button">恢复生图分类默认提示</button></div></div><div class="settings-inline-status" id="promptSettingsStatus" role="status"></div></section>
+    <section class="settings-section" data-settings-panel="image" hidden><h3>图像生成</h3><p>Seedream 使用火山方舟 API Key；ComfyUI 使用本地 API Format 工作流。两者生成结果都会下载到持久卷并登记为 proposed 候选资产。</p><div class="settings-grid"><label class="full">Seedream API Key<input id="settingSeedreamApiKey" type="password" autocomplete="new-password" placeholder="未修改时留空"><small id="settingSeedreamKeyState">正在读取状态…</small></label><label class="check-label full"><input id="settingClearSeedreamKey" type="checkbox">清除已经保存的 Seedream API Key</label><label class="full">Seedream Base URL<input id="settingSeedreamBaseUrl" type="url" required value="https://ark.cn-beijing.volces.com/api/v3"></label><label class="full">Seedream 模型<input id="settingSeedreamModel" required value="doubao-seedream-5-0-flash-260915"></label><label class="full">ComfyUI Base URL<input id="settingComfyUiBaseUrl" type="url" required value="http://host.docker.internal:8188"><small id="settingComfyUiState">尚未配置工作流</small></label><label class="full">ComfyUI API Format 工作流<textarea id="settingComfyUiWorkflow" rows="10" spellcheck="false" placeholder="在 ComfyUI 中导出 API Format JSON，并把正向提示词改成 {{PROMPT}}；可选 {{NEGATIVE_PROMPT}}、{{WIDTH}}、{{HEIGHT}}、{{SEED}}。"></textarea></label></div></section>
+    <section class="settings-section" data-settings-panel="editor" hidden><h3>编辑偏好</h3><p>这些偏好作用于新建资料，不会修改已保存条目。</p><div class="settings-grid"><label>主题<select id="settingTheme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label><label>界面密度<select id="settingDensity"><option value="comfortable">舒适</option><option value="compact">紧凑</option></select></label><label>默认所属世界<input id="settingWorldId" maxlength="20" value="W01"></label><label>新资料状态<select id="settingDefaultStatus"><option value="proposed">proposed</option><option value="unknown">unknown</option></select></label><label>默认事实层次<select id="settingTruthScope"><option value="objective">objective</option><option value="in_world_belief">in_world_belief</option><option value="unknown">unknown</option></select></label></div></section>
+    <section class="settings-section" data-settings-panel="data" hidden><h3>数据管理</h3><p>设定、背景故事、卡牌、关键词、备注与美术元数据保存在服务端 SQLite；图片文件保存在同一持久卷，不会自动写入仓库或晋升正史。</p><div class="data-summary"><article><strong id="settingLoreCount">0</strong><span>设定资料</span></article><article><strong id="settingStoryCount">0</strong><span>背景故事</span></article><article><strong id="settingCardCount">0</strong><span>卡牌草案</span></article><article><strong id="settingKeywordCount">0</strong><span>关键词</span></article><article><strong id="settingArtCount">0</strong><span>美术资产</span></article></div><button class="button secondary" id="settingsExport" type="button">导出完整 JSON</button></section>
+  </div></div><div class="dialog-actions settings-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="saveSettings" value="default">保存设置</button></div></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="./geography.js?v=2"></script>
+  <script src="./chronicle.js?v=1"></script>
+  <script src="./cards.js?v=1"></script>
+  <script src="./app.js?v=19"></script>
+</body>
+</html>

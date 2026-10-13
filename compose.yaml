@@ -1,0 +1,29 @@
+services:
+  worldforge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: worldforge:local
+    container_name: worldforge
+    ports:
+      - "127.0.0.1:4173:8080"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      WORLDFORGE_CONFIG_PATH: /data/.env.local
+      WORLDFORGE_DB_PATH: /data/worldforge.sqlite
+      WORLDFORGE_ASSETS_PATH: /data/assets/cards
+      WORLDFORGE_COMFY_WORKFLOW_PATH: /data/comfyui-workflow.json
+      WORLDFORGE_PROMPT_SETTINGS_PATH: /data/prompt-settings.json
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - worldforge-data:/data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  worldforge-data:

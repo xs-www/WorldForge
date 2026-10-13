@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env.local
+.openai
+docs
+universe
+worlds
+mechanics
+cards
+templates
+scripts
+exports
+tests
+*.md
+*.tar.gz
+todo.md
+compose.yaml
