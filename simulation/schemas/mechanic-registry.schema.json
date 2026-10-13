@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldforge.local/schemas/mechanic-registry.schema.json",
+  "title": "WorldForge Mechanic Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registryVersion", "mechanics"],
+  "properties": {
+    "registryVersion": { "type": "string" },
+    "mechanics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "parameterSchema", "dependencies", "actionNamespace", "effectNamespace"],
+        "properties": {
+          "id": { "type": "string" },
+          "version": { "type": "string" },
+          "parameterSchema": { "type": "object" },
+          "dependencies": { "type": "array" },
+          "actionNamespace": { "type": "string" },
+          "effectNamespace": { "type": "string" }
+        }
+      }
+    }
+  }
+}

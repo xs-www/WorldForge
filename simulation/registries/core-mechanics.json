@@ -1,0 +1,5 @@
+{
+  "$schema": "../schemas/mechanic-registry.schema.json",
+  "registryVersion": "0.1.0",
+  "mechanics": []
+}

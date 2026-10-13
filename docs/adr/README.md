@@ -9,5 +9,6 @@
 - [ADR-0007：卡牌三分类、稀有度与设定来源联动](ADR-0007-card-types-rarity-lore-linkage.md) — canon
 - [ADR-0008：作者工作区与世界定义包的发布边界](ADR-0008-authoring-definition-boundary.md) — canon（技术边界）
 - [ADR-0009：内容库显式迁移与模拟域命名边界](ADR-0009-content-schema-migrations.md) — canon（技术边界）
+- [ADR-0010：发布清单与 World Package 使用 JSON 契约](ADR-0010-json-world-package-contract.md) — canon（技术边界）
 
-新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0010` 开始。
+新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0011` 开始。

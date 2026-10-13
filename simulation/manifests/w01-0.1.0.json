@@ -1,0 +1,23 @@
+{
+  "$schema": "../schemas/publish-manifest.schema.json",
+  "manifestVersion": 1,
+  "worldId": "W01",
+  "definitionVersion": "0.1.0",
+  "sourceCommit": "d8826ba",
+  "compilerVersion": "0.1.0",
+  "contentSources": ["../content/w01-core.json"],
+  "selection": {
+    "defaultStatus": "canon",
+    "experimentalIncludes": []
+  },
+  "mechanics": {
+    "registry": "../registries/core-mechanics.json",
+    "registryVersion": "0.1.0",
+    "modules": []
+  },
+  "initialState": {
+    "regions": [],
+    "entities": [],
+    "events": []
+  }
+}

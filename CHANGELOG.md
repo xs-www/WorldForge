@@ -5,6 +5,10 @@
 ## [Unreleased]
 
 ### Added
+- 完成 WorldForge 2.0 V2.0-M0B：新增 JSON 发布清单、内容源、机制注册表与 World Package Schema，并由 ADR-0010 固化 JSON 契约。
+- 新增确定性 World Package 编译器和 CLI：默认只发布 `canon`，显式隔离实验 `proposed`，按事实层次分区，校验 ID、引用、世界边界、机制版本/参数/依赖，并计算 SHA-256 内容哈希。
+- 新增独立模拟 SQLite 存档：`sim_schema_migrations`、实例、地区、实体和事件基础表；实例嵌入完整定义包、定义哈希、随机种子与当前 Tick 0。
+- 新增 W01 0.1.0 最小 JSON 发布清单及现有 canon 的机器投影；新增 8 项编译、依赖图和实例化测试，Node 测试总数增至 38。
 - 完成 WorldForge 2.0 第一阶段 V2.0-M0A：新增 ADR-0008 定义作者工作区、Git 审核内容与 World Package 的发布边界，新增 ADR-0009 定义内容库迁移和未来 `sim_` 模拟命名边界。
 - 新增 `storage-migrations.mjs`，按版本顺序、逐步事务化执行内容库 `0 → 1 → 2` 迁移，并拒绝打开高于当前服务支持版本的数据库。
 - 新增迁移测试，覆盖新建库的有序迁移报告、v1 内容无损升级和未来版本拒绝；Node 测试总数增至 30。

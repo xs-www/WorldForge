@@ -1,0 +1,19 @@
+{
+  "$schema": "../schemas/content-source.schema.json",
+  "sourceVersion": 1,
+  "entries": [
+    {
+      "id": "W01",
+      "title": "魔导工业世界",
+      "status": "canon",
+      "truthScope": "objective",
+      "worldId": "W01",
+      "type": "world",
+      "refs": [],
+      "payload": {
+        "summary": "蒸汽工业与魔法长期共存、近代才兴起魔导工艺的世界。",
+        "sourcePath": "worlds/w01-magitech/overview.md"
+      }
+    }
+  ]
+}

@@ -17,6 +17,9 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 | `server.mjs` | 静态服务、内容 API、本机设置持久化、AI 状态与模型请求代理 |
 | `storage.mjs` | SQLite Schema、输入校验、事务化快照读写、revision 冲突保护与健康检查 |
 | `storage-migrations.mjs` | 内容域 Schema 的有序前向迁移、版本检测、逐步事务升级与未来版本拒绝 |
+| `simulation/compiler/world-package.mjs` | JSON 发布清单校验、内容筛选、机制依赖编译、确定性 World Package 与内容哈希 |
+| `simulation/storage/instance-store.mjs` | 独立模拟 SQLite Schema、定义包实例化、基础地区/实体/事件读取 |
+| `scripts/compile-world-package.mjs` | 从命令行把 JSON 发布清单编译到指定 World Package 文件 |
 | `ai-harness.mjs` | AI 上下文排序与预算、提示边界、候选 Schema、解析和校验 |
 | `prompt-settings.mjs` | 13 类默认提示词、个性化提示词规范化、分类白名单与长度校验 |
 | `.env.example` | LLM 服务配置模板；实际密钥使用不入库的 `.env.local` |
@@ -156,6 +159,17 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `UnsupportedContentSchemaError`：数据库版本高于当前程序支持版本时抛出的明确错误，防止旧程序误写未来格式。
 - `validateContentSnapshot(value)`：限制数组规模、备注长度、稳定 ID 和重复 ID，避免非法快照进入数据库。
 
+### World Package 与实例函数
+
+- `canonicalJson(value)`：递归按对象键排序并生成无空白规范 JSON，作为可重复内容寻址输入。
+- `packageHash(value)`：对规范 JSON 计算 SHA-256；编译产物和实例化入口共同使用该哈希检测定义篡改。
+- `compileWorldPackage({ manifest, contentSources, mechanicRegistry })`：执行纯内存编译；校验 JSON 清单、稳定 ID、世界边界、发布状态、引用、事实层次、机制参数与依赖，并返回递归冻结的 World Package。
+- `compileWorldPackageFile(manifestPath)`：读取清单中的相对 JSON 内容源和机制注册表后调用纯编译器；依赖路径限制在清单目录的上一级边界内，不读取 SQLite 作者工作区或边界外文件。
+- `writeWorldPackageFile(manifestPath, outputPath)`：编译并把格式化 JSON 包写入显式输出路径。
+- `createWorldInstanceStore(databasePath)`：打开独立模拟数据库、执行 `sim_schema_migrations`，返回实例化、读取、健康检查和关闭接口。
+- `instantiate(worldPackage, { instanceId, randomSeed })`：复核包哈希，并在单一事务中写入实例元数据、内嵌定义包、初始地区、实体和事件。
+- `read(instanceId)`：返回实例锁定的定义版本/哈希、随机种子、当前 Tick 和基础状态；不存在时返回 `null`。
+
 ### `apiUrl(path: string): URL`
 
 - 位置：`dist/app.js`
@@ -176,6 +190,10 @@ SQLite 是运行时内容的权威数据源。Docker 使用 `/data/worldforge.sq
 内容库从版本 0 按 `0 → 1 → 2` 顺序升级，版本号只在对应迁移事务成功后更新。版本 1 的既有内容会原位保留并补充版本 2 的美术资产表；高于版本 2 的数据库会被拒绝打开。`GET /api/health` 的数据库信息会返回本次启动的迁移起点、当前版本和已应用步骤。
 
 `PRAGMA user_version` 只属于现有作者内容域。未来模拟状态使用 `sim_` 表名前缀、独立的 `sim_schema_migrations` 账本与 `simulation/storage/` 边界；M0A 没有创建任何模拟表，也没有把作者草案当作可运行世界状态。
+
+M0B 发布清单与定义包使用 UTF-8 JSON。清单固定声明世界、Definition 版本、源 commit、编译器、内容源、状态选择、机制和初始状态；默认只选择 `canon`，显式实验条目会使包标记为 `experimental`。编译输出按 `objectiveDefinitions / beliefSeeds / unresolvedMetadata` 保存事实层次，并带确定性 `packageHash`。
+
+模拟存档 Schema 版本 1 使用独立数据库和 `sim_schema_migrations`，包含 `sim_instances`、`sim_regions`、`sim_entities`、`sim_events`。`sim_instances` 内嵌完整只读定义包，因此读取存档不依赖当前工作区内容。当前 `current_tick` 固定从 0 开始，尚无 Tick 推进、Action、Snapshot 或 Replay 写入语义。
 
 浏览器缓存键 `worldforge-decisions-v1` 的数据结构为：
 
@@ -864,3 +882,40 @@ AI 固定返回 `{ variants: [...] }`。每个候选必须包含 `key`、`title`
 - `npm run check` 通过：核心脚本语法检查及 30 项 Node 测试全部成功；新增覆盖新库有序迁移、v1 数据无损升级与未来版本拒绝。
 - `docker compose config` 通过；本阶段未重建或启动容器，也未调用真实 LLM 或图像服务。
 - 本机 `.data/worldforge.sqlite` 未纳入版本库，测试均使用临时数据库；尚未实现 World Package Schema、编译器、模拟状态迁移或运行时。
+
+## 27. 2026-10-13 V2.0-M0B 定义编译与实例基础归档
+
+本阶段响应作者“发布清单使用 JSON，继续开发 M0B”的决定，交付从经审核内容到确定性定义包、再到独立 SQLite 实例的最小纵向链路。它没有实现世界时钟、行动结算、资源系统、快照、重放或任何 LLM 模拟。
+
+### JSON 发布与编译
+
+- 新增 ADR-0010，将发布清单、编译内容源、机制注册表和 World Package 固定为 UTF-8 JSON，并提供四份 Draft 2020-12 JSON Schema。
+- `compileWorldPackage` 默认只选择 `canon`；`proposed` 必须由 `experimentalIncludes` 精确列出，`deprecated` 始终排除。所选条目的引用必须也在包内，跨世界内容会被拒绝。
+- `objective / in_world_belief / unknown` 分别写入权威定义、信念种子和未决元数据；初始状态只能引用已发布的 `objective` 条目。
+- 产物不包含构建时间等不稳定字段，使用规范 JSON 的 SHA-256 作为 `packageHash`。相同输入得到相同哈希，实例化前再次校验。
+- 新增 `npm run compile:world -- <manifest.json> <output.json>`；W01 0.1.0 示例清单引用 `d8826ba` 基线中的既有 W01 canon，只做最小机器投影，不新增正史。
+
+### 机制注册编译层
+
+- 注册表记录稳定机制 ID、精确版本、参数 Schema、依赖、Action 命名空间和 Effect 命名空间。
+- 编译器验证注册表版本、模块版本、参数类型/必填/枚举/数值边界、命名空间唯一性，并按依赖拓扑顺序输出模块。
+- 缺失依赖、依赖版本不兼容和循环依赖均会在编译期失败。M0B 尚未实现运行时 `SimulationMechanic`、Validator 或统一 Resolver。
+
+### 独立世界实例
+
+- `instance-store.mjs` 使用独立模拟数据库和 `sim_schema_migrations`，不占用内容库 `PRAGMA user_version`。
+- 首个迁移建立实例、地区、实体和事件表。实例保存 `instanceId`、`worldId`、Definition 版本/哈希、完整包、随机种子、Tick 0 和创建时间。
+- 定义包及初始状态在单一事务中写入；重复实例 ID、篡改包和未来模拟 Schema 会被拒绝。事件表当前只承载定义包初始事件，不代表事件源或重放已经完成。
+
+### 修改文件
+
+- 新增：`simulation/compiler/world-package.mjs`、`simulation/storage/instance-store.mjs`、`scripts/compile-world-package.mjs`、四份 `simulation/schemas/*.json`、W01 JSON 内容投影/清单、空核心机制注册表、`tests/world-package.test.mjs`、`docs/adr/ADR-0010-json-world-package-contract.md`。
+- 更新：`AGENTS.md`、`package.json`、`Dockerfile`、`README.md`、`simulation/` 与 `exports/` 说明、项目设计/进展/2.0 设计、ADR 索引、测试说明、`CHANGELOG.md`、`todo.md` 与本静态文档。
+- `AGENTS.md` 根据作者新要求增加：每次代码开发在测试、静态归档和 TODO 更新后创建 Git 提交，但不自动推送。
+
+### 检查与边界
+
+- `npm run check` 通过：核心脚本语法检查及 38 项 Node 测试全部成功；M0B 新增 8 项测试。
+- W01 清单通过 CLI 编译，独立重复编译得到相同哈希；输出写入临时目录，未把生成包误作内容源提交。
+- `docker compose config --quiet` 通过；没有启动容器、真实模型或图像服务。
+- JSON Schema 当前是公开契约和编辑器提示，关键约束由零依赖编译器执行；尚未接入完整第三方 Draft 2020-12 验证引擎。

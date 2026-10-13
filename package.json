@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check storage.mjs && node --check storage-migrations.mjs && node --check ai-harness.mjs && node --check prompt-settings.mjs && node --check image-context.mjs && node --check dist/geography.js && node --check dist/chronicle.js && node --check dist/cards.js && node --check dist/app.js && node --test tests/*.test.mjs"
+    "compile:world": "node scripts/compile-world-package.mjs",
+    "check": "node --check server.mjs && node --check storage.mjs && node --check storage-migrations.mjs && node --check simulation/compiler/world-package.mjs && node --check simulation/storage/instance-store.mjs && node --check scripts/compile-world-package.mjs && node --check ai-harness.mjs && node --check prompt-settings.mjs && node --check image-context.mjs && node --check dist/geography.js && node --check dist/chronicle.js && node --check dist/cards.js && node --check dist/app.js && node --test tests/*.test.mjs"
   },
   "engines": { "node": ">=22.5" }
 }

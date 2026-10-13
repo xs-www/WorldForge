@@ -31,8 +31,8 @@ WorldForge 同时存在三种不同语义的数据：Git 中可审查的 Markdow
 - SQLite 作者工作区、Git 内容文件与模拟实例之间的数据边界。
 - 后续内容同步 UI、导出、审核和定义版本迁移。
 
-## 未解决问题
+## 后续决策与未解决问题
 
-- 发布清单使用 JSON 还是 YAML，由 M0B 原型决定。
+- 发布清单已由作者确定使用 JSON，详细契约见 [ADR-0010](ADR-0010-json-world-package-contract.md)。
 - 工作台中的“提交审核”界面和 SQLite 到 Git 的差异视图尚未实现。
 - 背景故事当前固定为 `proposed / unknown`，只能进入实验包的叙事元数据，不得直接影响规则。

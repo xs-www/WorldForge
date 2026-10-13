@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldforge.local/schemas/world-package.schema.json",
+  "title": "WorldForge World Package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "compilerVersion", "worldId", "definitionVersion", "sourceCommit", "experimental", "experimentalIncludes", "content", "mechanics", "initialState", "packageHash"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "compilerVersion": { "const": "0.1.0" },
+    "worldId": { "type": "string", "pattern": "^W[0-9]{2}$" },
+    "definitionVersion": { "type": "string" },
+    "sourceCommit": { "type": "string" },
+    "experimental": { "type": "boolean" },
+    "experimentalIncludes": { "type": "array", "items": { "type": "string" } },
+    "content": {
+      "type": "object",
+      "required": ["objectiveDefinitions", "beliefSeeds", "unresolvedMetadata"],
+      "properties": {
+        "objectiveDefinitions": { "type": "array" },
+        "beliefSeeds": { "type": "array" },
+        "unresolvedMetadata": { "type": "array" }
+      }
+    },
+    "mechanics": { "type": "object", "required": ["registryVersion", "modules"] },
+    "initialState": { "type": "object", "required": ["regions", "entities", "events"] },
+    "packageHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

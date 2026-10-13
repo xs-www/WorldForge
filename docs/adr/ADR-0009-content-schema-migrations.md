@@ -18,6 +18,10 @@
 5. M0A 只预留模拟域命名与目录，不创建任何 `sim_` 表。首个模拟表迁移属于 M0B/M1，必须随实例数据模型与回滚/备份方案一起审查。
 6. 迁移是前向的、非交互的并且可重复验证。破坏性迁移必须在新版本中提供显式备份/恢复步骤，不得在启动过程中静默删除用户内容。
 
+## 实施记录
+
+M0B 已按上述边界在 `simulation/storage/instance-store.mjs` 建立独立 `sim_schema_migrations` 及版本 1 的实例、地区、实体和事件表；内容库 `user_version` 未被复用。该迁移只提供实例化基础，不包含 Tick、快照或重放语义。
+
 ## 影响范围
 
 - `storage-migrations.mjs`、`storage.mjs` 和 SQLite 健康信息。

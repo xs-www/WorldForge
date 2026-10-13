@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldforge.local/schemas/content-source.schema.json",
+  "title": "WorldForge Compiler Content Source",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sourceVersion", "entries"],
+  "properties": {
+    "sourceVersion": { "const": 1 },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "status", "truthScope", "worldId", "type", "refs", "payload"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "enum": ["canon", "proposed", "deprecated"] },
+          "truthScope": { "enum": ["objective", "in_world_belief", "unknown"] },
+          "worldId": { "type": "string" },
+          "type": { "type": "string" },
+          "refs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "payload": { "type": "object" }
+        }
+      }
+    }
+  }
+}

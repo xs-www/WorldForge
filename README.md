@@ -8,7 +8,9 @@
 
 当前实现基线、2.0 能力缺口与建议的增量迁移顺序见 `docs/PROJECT_PROGRESS_2026-10-13.md`；`docs/WorldForge_2.0_Design_Document_V1.0.md` 已按该基线校正为 V1.2 草案，并增加模拟机制注册、LLM 预算调度和内外 Agent 知识隔离。
 
-WorldForge 2.0 第一阶段 V2.0-M0A 已完成：首次 `init` Git 基线、作者工作区到 World Package 的发布边界、SQLite 显式有序迁移，以及独立 `simulation/` 命名边界已建立。当前尚未实现 World Package 编译器或任何模拟能力。
+WorldForge 2.0 第一阶段 V2.0-M0A 已完成：首次 `init` Git 基线、作者工作区到 World Package 的发布边界、SQLite 显式有序迁移，以及独立 `simulation/` 命名边界已建立；该阶段本身不包含模拟能力。
+
+V2.0-M0B 已完成最小定义编译与实例基础：JSON 发布清单可编译为带版本和内容哈希的只读 World Package，默认排除未显式发布的 `proposed` 内容；机制注册表会校验版本、参数与依赖图；定义包可实例化到独立 SQLite 存档。当前仍未实现 Tick、行动结算、快照或重放。
 
 ## HTML 产品
 

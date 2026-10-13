@@ -98,6 +98,8 @@ worldforge/
 
 `simulation/` 不直接修改作者内容表。Git 审核内容、SQLite 作者工作区与只读 World Package 的发布边界见 [ADR-0008](adr/ADR-0008-authoring-definition-boundary.md)；内容库显式迁移和未来 `sim_` 表命名边界见 [ADR-0009](adr/ADR-0009-content-schema-migrations.md)。
 
+发布清单和 World Package 固定使用 JSON，契约见 [ADR-0010](adr/ADR-0010-json-world-package-contract.md)。M0B 编译器默认只选择 `canon`，将三个事实层次分区输出，并通过显式 `experimentalIncludes` 管理实验性 `proposed` 内容。
+
 ## 4. 内容数据规范
 
 ### 4.1 Lore 条目示例
