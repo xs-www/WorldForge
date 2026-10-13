@@ -1,8 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { applyContentMigrations, CONTENT_SCHEMA_VERSION } from './storage-migrations.mjs';
 
-const SCHEMA_VERSION = 2;
 const MAX_ITEMS = 10000;
 
 export class ContentConflictError extends Error {
@@ -54,67 +54,18 @@ export function validateContentSnapshot(value) {
 export function createContentStore(databasePath) {
   mkdirSync(dirname(databasePath), { recursive: true });
   const db = new DatabaseSync(databasePath);
-  db.exec(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA synchronous = NORMAL;
-    PRAGMA foreign_keys = ON;
-    CREATE TABLE IF NOT EXISTS metadata (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    ) STRICT;
-    CREATE TABLE IF NOT EXISTS lore_entries (
-      id TEXT PRIMARY KEY,
-      position INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      status TEXT NOT NULL,
-      truth_scope TEXT NOT NULL,
-      world_id TEXT NOT NULL,
-      payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
-      updated_at TEXT NOT NULL
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS lore_world_type_idx ON lore_entries(world_id, type);
-    CREATE INDEX IF NOT EXISTS lore_status_idx ON lore_entries(status);
-    CREATE TABLE IF NOT EXISTS card_drafts (
-      id TEXT PRIMARY KEY,
-      position INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      card_type TEXT NOT NULL,
-      status TEXT NOT NULL,
-      world_id TEXT NOT NULL,
-      payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
-      updated_at TEXT NOT NULL
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS cards_world_type_idx ON card_drafts(world_id, card_type);
-    CREATE TABLE IF NOT EXISTS keywords (
-      id TEXT PRIMARY KEY,
-      position INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      status TEXT NOT NULL,
-      definition TEXT NOT NULL,
-      payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
-      updated_at TEXT NOT NULL
-    ) STRICT;
-    CREATE TABLE IF NOT EXISTS notes (
-      note_key TEXT PRIMARY KEY,
-      body TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    ) STRICT;
-    CREATE TABLE IF NOT EXISTS art_assets (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL,
-      prompt TEXT NOT NULL,
-      model TEXT NOT NULL,
-      size TEXT NOT NULL,
-      mime_type TEXT NOT NULL,
-      file_name TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      metadata_json TEXT NOT NULL CHECK (json_valid(metadata_json))
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS art_assets_card_idx ON art_assets(card_id, created_at);
-    PRAGMA user_version = ${SCHEMA_VERSION};
-  `);
+  let migration;
+  try {
+    db.exec(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA synchronous = NORMAL;
+      PRAGMA foreign_keys = ON;
+    `);
+    migration = applyContentMigrations(db);
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 
   const getMeta = db.prepare('SELECT value FROM metadata WHERE key = ?');
   const putMeta = db.prepare('INSERT INTO metadata(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
@@ -134,7 +85,7 @@ export function createContentStore(databasePath) {
 
   function read() {
     return {
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion: CONTENT_SCHEMA_VERSION,
       initialized: meta('initialized') === '1',
       revision: Number(meta('revision', '0')),
       updatedAt: meta('updated_at'),
@@ -170,7 +121,12 @@ export function createContentStore(databasePath) {
   }
 
   function health() {
-    return { ok: db.prepare('PRAGMA quick_check').get().quick_check === 'ok', databasePath, schemaVersion: SCHEMA_VERSION };
+    return {
+      ok: db.prepare('PRAGMA quick_check').get().quick_check === 'ok',
+      databasePath,
+      schemaVersion: CONTENT_SCHEMA_VERSION,
+      migration
+    };
   }
 
   function normalizeArtAsset(value){

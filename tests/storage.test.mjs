@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
 import { ContentConflictError, createContentStore } from '../storage.mjs';
+import { CONTENT_SCHEMA_VERSION, UnsupportedContentSchemaError } from '../storage-migrations.mjs';
 
 async function withStore(run) {
   const directory = await mkdtemp(join(tmpdir(), 'worldforge-sqlite-'));
@@ -43,3 +45,53 @@ test('SQLite content store rejects stale revisions and duplicate IDs', async () 
   assert.throws(() => store.replace({ expectedRevision: 0, loreEntries: [], cardDrafts: [], keywords: [], notes: {} }), ContentConflictError);
   assert.throws(() => store.replace({ expectedRevision: 1, loreEntries: [{ id: 'W01' }, { id: 'W01' }], cardDrafts: [], keywords: [], notes: {} }), /重复 ID/);
 }));
+
+test('SQLite content store applies ordered migrations and reports them', async () => withStore(store => {
+  const health = store.health();
+  assert.equal(health.schemaVersion, CONTENT_SCHEMA_VERSION);
+  assert.equal(health.migration.startingVersion, 0);
+  assert.deepEqual(health.migration.applied.map(item => item.version), [1, 2]);
+}));
+
+test('SQLite content store upgrades a version 1 database without losing content', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'worldforge-sqlite-v1-'));
+  const databasePath = join(directory, 'worldforge.sqlite');
+  let store = createContentStore(databasePath);
+  store.replace({
+    expectedRevision: 0,
+    loreEntries: [{ id: 'W01', name: '测试世界', type: 'world', status: 'canon', truthScope: 'objective', worldId: 'W01' }],
+    cardDrafts: [],
+    keywords: [],
+    notes: {}
+  });
+  store.close();
+  store = null;
+
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec('DROP TABLE art_assets; PRAGMA user_version = 1;');
+  legacy.close();
+
+  try {
+    store = createContentStore(databasePath);
+    assert.equal(store.read().loreEntries[0].id, 'W01');
+    assert.equal(store.health().migration.startingVersion, 1);
+    assert.deepEqual(store.health().migration.applied.map(item => item.version), [2]);
+    assert.deepEqual(store.listArtAssets(), []);
+  } finally {
+    store?.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('SQLite content store rejects databases from a newer schema version', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'worldforge-sqlite-future-'));
+  const databasePath = join(directory, 'worldforge.sqlite');
+  const future = new DatabaseSync(databasePath);
+  future.exec(`PRAGMA user_version = ${CONTENT_SCHEMA_VERSION + 1}`);
+  future.close();
+  try {
+    assert.throws(() => createContentStore(databasePath), UnsupportedContentSchemaError);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

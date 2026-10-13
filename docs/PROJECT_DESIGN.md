@@ -89,11 +89,14 @@ worldforge/
 │  ├─ card.yaml
 │  └─ adr.md
 ├─ scripts/                # 未来可添加离线 schema 检查/索引/导出
+├─ simulation/             # 2.0 世界定义编译、规则、运行时与独立存储边界
 ├─ exports/                # 机器生成产物，不作为内容源文件
 └─ tests/                  # 规则示例、卡牌交互和结构检查
 ```
 
 说明：上面是**目标结构**，Codex 首次搭建可以先建基础空文档与模板，避免编造大量 lore。
+
+`simulation/` 不直接修改作者内容表。Git 审核内容、SQLite 作者工作区与只读 World Package 的发布边界见 [ADR-0008](adr/ADR-0008-authoring-definition-boundary.md)；内容库显式迁移和未来 `sim_` 表命名边界见 [ADR-0009](adr/ADR-0009-content-schema-migrations.md)。
 
 ## 4. 内容数据规范
 

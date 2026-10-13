@@ -38,10 +38,10 @@
 ## 后续
 
 - [x] 审查本机数据与忽略项，通过 `init` 首次提交为 `main` 分支建立可追溯 Git 基线。
-- [ ] 通过 ADR 定义 Git canon、SQLite 作者工作区与可实例化 World Package 之间的发布/编译边界。
+- [x] 通过 ADR-0008 定义 Git canon、SQLite 作者工作区与可实例化 World Package 之间的发布/编译边界。
 - [ ] 实现最小只读 World Package 编译器：版本、稳定 ID、引用校验、内容状态筛选与 JSON 产物。
 - [ ] 定义并实现首版模拟机制注册系统：稳定 ID/版本、参数 Schema、依赖图、只读上下文、Action/Effect 命名空间与统一 Resolver。
-- [ ] 为 SQLite 增加显式 Schema 迁移策略与独立模拟命名空间，不复用当前整体内容快照语义。
+- [x] 为 SQLite 增加显式有序 Schema 迁移，通过 ADR-0009 预留独立 `sim_` / `sim_schema_migrations` 模拟命名空间，不复用当前整体内容快照语义。
 - [ ] 实现单城市、单资源、纯规则的能源危机纵切切片，覆盖 Tick、Action、Validator、Event、Snapshot、重放和主体 `KnowledgeView`。
 - [ ] 实现内外 Agent 统一的模拟知识隔离：信息来源、观测 Tick、置信度、保密等级、过期、欺骗和可重放传播事件。
 - [ ] 实现 LLM 模拟预算调度器：能力标签路由、实例/区域/任务/全局多层配额、`local_only` 边界、降级链与实耗审计。

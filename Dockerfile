@@ -1,6 +1,6 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY package.json server.mjs storage.mjs seedream.mjs comfyui.mjs ai-harness.mjs prompt-settings.mjs ./
+COPY package.json server.mjs storage.mjs storage-migrations.mjs seedream.mjs comfyui.mjs ai-harness.mjs prompt-settings.mjs ./
 COPY dist/ ./dist/
 
 EXPOSE 8080

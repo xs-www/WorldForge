@@ -16,6 +16,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 | `dist/chronicle.js` | 编年史容器/节点规范化、父级校验、纪年排序、搜索与旧数据兼容 |
 | `server.mjs` | 静态服务、内容 API、本机设置持久化、AI 状态与模型请求代理 |
 | `storage.mjs` | SQLite Schema、输入校验、事务化快照读写、revision 冲突保护与健康检查 |
+| `storage-migrations.mjs` | 内容域 Schema 的有序前向迁移、版本检测、逐步事务升级与未来版本拒绝 |
 | `ai-harness.mjs` | AI 上下文排序与预算、提示边界、候选 Schema、解析和校验 |
 | `prompt-settings.mjs` | 13 类默认提示词、个性化提示词规范化、分类白名单与长度校验 |
 | `.env.example` | LLM 服务配置模板；实际密钥使用不入库的 `.env.local` |
@@ -149,7 +150,10 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `parseAiResponse(raw, allowedRelationIds)`：解析 JSON 或兼容代码围栏，并统一执行严格校验。
 - `callAi(payload)`：执行结构化请求、兼容降级、一次格式修复和候选数量复核。
 - `serveStatic(req, res)`：安全解析路径并提供 `dist/` 静态文件。
-- `createContentStore(databasePath)`：初始化 SQLite Schema 与索引，返回快照读取、事务替换、健康检查和关闭接口。
+- `createContentStore(databasePath)`：打开 SQLite、设置连接参数并执行内容域前向迁移；迁移失败时关闭连接，成功后返回快照读取、事务替换、健康检查和关闭接口。
+- `contentSchemaVersion(database)`：读取 `PRAGMA user_version`，作为现有作者内容域的 Schema 版本。
+- `applyContentMigrations(database)`：从当前版本顺序应用缺失迁移；每一步在独立事务中完成 DDL、索引和版本提交，并返回本次启动的迁移报告。
+- `UnsupportedContentSchemaError`：数据库版本高于当前程序支持版本时抛出的明确错误，防止旧程序误写未来格式。
 - `validateContentSnapshot(value)`：限制数组规模、备注长度、稳定 ID 和重复 ID，避免非法快照进入数据库。
 
 ### `apiUrl(path: string): URL`
@@ -168,6 +172,10 @@ SQLite 是运行时内容的权威数据源。Docker 使用 `/data/worldforge.sq
 - `keywords`：关键词稳定 ID、名称、状态、定义和完整 JSON；
 - `notes`：固定问题键、正文和更新时间。
 - `art_assets`：AI 卡面候选元数据；图片本体保存在持久卷文件目录。
+
+内容库从版本 0 按 `0 → 1 → 2` 顺序升级，版本号只在对应迁移事务成功后更新。版本 1 的既有内容会原位保留并补充版本 2 的美术资产表；高于版本 2 的数据库会被拒绝打开。`GET /api/health` 的数据库信息会返回本次启动的迁移起点、当前版本和已应用步骤。
+
+`PRAGMA user_version` 只属于现有作者内容域。未来模拟状态使用 `sim_` 表名前缀、独立的 `sim_schema_migrations` 账本与 `simulation/storage/` 边界；M0A 没有创建任何模拟表，也没有把作者草案当作可运行世界状态。
 
 浏览器缓存键 `worldforge-decisions-v1` 的数据结构为：
 
@@ -828,3 +836,31 @@ AI 固定返回 `{ variants: [...] }`。每个候选必须包含 `key`、`title`
 
 - 提交前重新执行 `npm run check`；核心脚本语法检查和 27 项 Node 测试必须全部通过后才创建提交。
 - 提交后检查 `git status`，确认基线工作区清洁。
+
+## 26. 2026-10-13 V2.0-M0A 第一阶段归档
+
+本阶段完成“基线固化与数据边界”的最小实现：把作者工作区、可发布定义和未来模拟状态分开，并将现有 SQLite 从隐式建表改为可验证的前向迁移。没有实现 Definition 编译器、世界实例、Tick、规则结算或 Agent，也没有改变任何世界观 canon。
+
+### 发布与模拟边界
+
+- 新增 `ADR-0008`：SQLite 是作者工作区，不是模拟 Definition 的直接来源；默认发布只接纳 `canon`，`proposed` 只能通过显式实验清单进入带实验标记的包。
+- `objective`、`in_world_belief` 与 `unknown` 在未来编译中分别进入权威初始定义、知识/信念种子和未决元数据；`unknown` 不得成为可执行规则或确定初值。
+- 新增 `simulation/README.md` 与 `simulation/storage/README.md`，预留编译、机制、运行时和模拟存储边界。模拟表未来使用 `sim_` 前缀和独立迁移账本，不共享内容库版本号。
+
+### 内容库迁移
+
+- 新增 `storage-migrations.mjs`，将原有内容 Schema 拆成版本 1（核心内容）和版本 2（美术资产）的有序迁移。
+- 新库从版本 0 依次应用两个迁移；版本 1 数据库原位升级并保留内容；高于当前支持版本的数据库通过 `UnsupportedContentSchemaError` 拒绝打开。
+- 每个迁移步骤使用独立 `BEGIN IMMEDIATE` 事务，`PRAGMA user_version` 与该步结构变更共同提交，避免失败后留下虚假版本。
+- `storage.mjs` 启动时委托迁移模块，失败会关闭数据库；健康信息增加本次启动的迁移报告。Docker 镜像与语法检查入口同步纳入新模块。
+
+### 修改文件
+
+- 新增：`storage-migrations.mjs`、`docs/adr/ADR-0008-authoring-definition-boundary.md`、`docs/adr/ADR-0009-content-schema-migrations.md`、`simulation/README.md`、`simulation/storage/README.md`。
+- 更新：`storage.mjs`、`tests/storage.test.mjs`、`tests/README.md`、`Dockerfile`、`package.json`、`README.md`、`docs/PROJECT_DESIGN.md`、`docs/WorldForge_2.0_Design_Document_V1.0.md`、`docs/PROJECT_PROGRESS_2026-10-13.md`、`docs/adr/README.md`、`CHANGELOG.md`、`todo.md` 与本静态文档。
+
+### 检查与未实现项
+
+- `npm run check` 通过：核心脚本语法检查及 30 项 Node 测试全部成功；新增覆盖新库有序迁移、v1 数据无损升级与未来版本拒绝。
+- `docker compose config` 通过；本阶段未重建或启动容器，也未调用真实 LLM 或图像服务。
+- 本机 `.data/worldforge.sqlite` 未纳入版本库，测试均使用临时数据库；尚未实现 World Package Schema、编译器、模拟状态迁移或运行时。
