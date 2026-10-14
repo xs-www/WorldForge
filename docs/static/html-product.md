@@ -2,7 +2,7 @@
 
 ## 1. 产品定位
 
-Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为“世界设定编辑器”和“卡牌设计”。设定编辑器覆盖 13 类资料，包括可挂载到人物、地点等条目的独立背景故事；AI 功能由零依赖 Node 服务代理，运行时创作内容由 SQLite 统一持久化；它不会自动修改仓库或把草案晋升为正史。
+Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为“世界设定编辑器”“卡牌设计”和“自由创作”。设定编辑器覆盖 13 类资料，包括可挂载到人物、地点等条目的独立背景故事；自由创作提供不受模块 Schema 限制的对话 Agent 与常用工具。AI 功能由零依赖 Node 服务代理，运行时创作内容由 SQLite 统一持久化；它不会自动修改仓库或把草案晋升为正史。
 
 ## 2. 文件入口
 
@@ -26,6 +26,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 | `simulation/storage/instance-store.mjs` | 独立模拟 SQLite Schema、定义包实例化、基础地区/实体/事件读取 |
 | `scripts/compile-world-package.mjs` | 从命令行把 JSON 发布清单编译到指定 World Package 文件 |
 | `ai-harness.mjs` | AI 上下文排序与预算、提示边界、候选 Schema、解析和校验 |
+| `ai-content-specs.mjs` | 13 类资料的内容块定义、标签、字段说明与动态 Schema 类型 |
 | `prompt-settings.mjs` | 13 类默认提示词、个性化提示词规范化、分类白名单与长度校验 |
 | `.env.example` | LLM 服务配置模板；实际密钥使用不入库的 `.env.local` |
 | `.openai/hosting.json` | 静态站点发布目录声明 |
@@ -68,7 +69,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 ### `switchModule(moduleName): void`
 
 - 位置：`dist/app.js`
-- 在“世界观架构”和“卡牌设计”页面之间切换。
+- 在“世界观架构”“卡牌设计”和“自由创作”页面之间切换。
 - 同步顶部导航状态与文档标题。
 
 ### `openNote(key: string): void`
@@ -134,14 +135,17 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `populateRelations(selected)`：生成跨类型关联选项。
 - `renderAttachedStories(id)`：根据故事的正向引用及故事间双向引用，为当前资料渲染挂载故事或相关故事；列表只显示标题与正文片段。
 - `createAttachedStory()`：从当前已保存资料建立 `proposed / unknown` 的故事草案，并预选当前资料为关联。
-- `refreshAiStatus()` / `runAi()`：读取服务端配置状态，提交当前草案、资料库、候选数量和作者要求。
-- `renderAiVariants(data)`：把通过校验的结构化候选渲染为可多选方案卡。
+- `refreshAiStatus()` / `runAi()`：读取服务端配置状态，提交当前草案、资料库、候选数量、作者要求和作者勾选的内容块；背景故事动作自动切换为只含标题与正文的故事契约。
+- `renderAiContentBlocks()` / `selectedAiBlocks()`：根据当前资料类型与编年史容器/节点状态渲染可生成内容块，并读取作者选择。
+- `renderAiVariants(data)`：按服务端返回的内容块契约渲染可多选方案卡，不再假定所有模块都具有摘要、约束或开放问题。
 - `updateAiSelection()`：同步已选数量，仅在至少选择一项时允许保存。
 - `saveAiSelections()`：把最终选中的每份方案分别保存为独立 `proposed` 草案；背景故事模式只保存标题、正文和锚点关系，未选方案不写入存储。
 - `readPreferences()` / `applyPreferences()`：读取主题、密度和新资料默认值并应用到界面。
 - `openSettings()` / `saveSettings(event)`：载入安全的服务端配置摘要、13 类提示词及个性化风格，保存 AI 配置与浏览器编辑偏好。
 - `captureTypePrompt()` / `showTypePrompt(type, capture)`：在设置页切换设定分类时保留尚未保存的编辑，并显示当前分类提示词。
 - `updateAiExampleMeta()`：统计当前世界和类型可作为示例的 canon 条目，并在生成面板说明自动示例数量。
+- `renderFreeChat()` / `sendFreeMessage(event)`：维护当前页面内的自由 Agent 对话并调用非结构化生成接口；对话不会写入 SQLite 内容库。
+- `runNameTool()`：按对象类型、数量、命名要求与关联信息生成名称；候选可复制，在世界观模块可回填当前名称输入框。
 
 ### 服务端函数
 
@@ -152,11 +156,15 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `validateSettings(payload)`：限制 URL、模型、Key 长度及换行字符，并委托提示词设置校验拒绝未知分类或超长文本。
 - `normalizePromptSettings(value)` / `validatePromptSettings(value)`：保证 13 类提示词齐全，保留作者空值和精调内容，限制分类白名单与每段 8000 字符。
 - `buildContextBundle(payload, budget)`：先抽取最多 4 条同世界、同类型 canon 条目作为独立示例，再按显式关联、同世界 canon、同世界、同类型和共享标签排序其他上下文，隔离无关世界并按预算裁剪。
-- `buildPrompt(payload, bundle)`：分层组合固定任务、作者补充要求、分类提示、个性化风格、自动/临时示例和普通上下文包。
-- `createModelBody(config, prompt, structured)`：为 Responses 或 Chat Completions 构造原生 JSON Schema 请求；兼容服务可降级。
-- `validateAiResponse(value, allowedRelationIds)`：验证固定候选字段、数量、长度、唯一 key 和引用白名单。
-- `parseAiResponse(raw, allowedRelationIds)`：解析 JSON 或兼容代码围栏，并统一执行严格校验。
+- `contentSpec(type, draft)` / `normalizeSelectedBlocks(type, selected, draft)`：返回类型专属内容块，并在编年史容器中移除只属于节点的纪年与排序字段。
+- `generationContract(payload)` / `createLoreResponseSchema(payload)`：把作者勾选项编译为本次唯一允许返回的动态内容块契约与严格 JSON Schema。
+- `buildPrompt(payload, bundle)`：分层组合模块写作重点、选中内容块说明、作者要求、分类提示、个性化风格、示例和上下文，并禁止元说明进入正文。
+- `createModelBody(config, prompt, options)`：为 Responses 或 Chat Completions 构造动态原生 JSON Schema 或自由文本请求；兼容服务可降级。
+- `validateAiResponse(value, payload)` / `parseAiResponse(raw, payload)`：验证候选数量、唯一 key、选中字段的类型，并拒绝缺失块或任何未选择字段。
+- `parseNameResponse(raw, expectedCount)`：验证名称生成器的候选数量、名称与简短说明。
 - `callAi(payload)`：执行结构化请求、兼容降级、一次格式修复和候选数量复核。
+- `callFreeAgent(payload)`：裁剪最近 20 条对话、作者关联信息及可选资料库摘要，以自由文本方式调用模型。
+- `callNameGenerator(payload)`：按命名类型、数量、要求和上下文执行独立的结构化名称生成。
 - `serveStatic(req, res)`：安全解析路径并提供 `dist/` 静态文件。
 - `createContentStore(databasePath)`：打开 SQLite、设置连接参数并执行内容域前向迁移；迁移失败时关闭连接，成功后返回快照读取、事务替换、健康检查和关闭接口。
 - `contentSchemaVersion(database)`：读取 `PRAGMA user_version`，作为现有作者内容域的 Schema 版本。
@@ -243,7 +251,7 @@ M1 每次推进恰好增加一个 Tick 和一个状态版本。行动状态变�
 
 提示词设置保存在本机服务端 `prompt-settings.json`；Docker 默认位于 `worldforge-data` 卷。结构为 `{ version, personalizedPrompt, typePrompts }`，其中 `typePrompts` 固定覆盖 13 类 lore。提示词不是 lore、不会进入 SQLite 内容快照或统一 JSON 导出，也不会自动晋升为正史；`GET /api/settings` 会把这些非敏感文本返回设置界面。
 
-AI 固定返回 `{ variants: [...] }`。每个候选必须包含 `key`、`title`、`summary`、`details`、`constraints`、`openQuestions`、`relationSuggestions`、`conflicts` 和 `assumptions`。`relationSuggestions.id` 只能引用本次上下文中实际存在的条目。
+模块 AI 返回 `{ variants: [{ key, content }] }`；`content` 的必填键和允许键都由本次勾选内容块动态决定。当前支持名称、摘要、正文、三个类型属性、限制、开放问题、白名单关联建议，以及地图环境、编年纪年与排序等类型专属块。返回未选字段、遗漏选中字段或引用上下文外 ID 都会被拒绝。自由创作接口返回自然语言 `reply`，不使用模块 Schema；名称工具返回 `{ names: [{ name, note }] }`。
 
 ## 14. 2026-10-12 AI 上下文工程与候选选择归档
 
@@ -979,3 +987,38 @@ AI 固定返回 `{ variants: [...] }`。每个候选必须包含 `key`、`title`
 - 测试证明三种 Action 可发现、同 seed 冲突结果一致、总能源恒为 12、旧状态版本被拒绝、拒绝文本不泄露储备、主体视图不同、知识会过期，以及 Tick 0 快照可重放到 Tick 2 并匹配权威哈希。
 - `docker compose config --quiet` 通过；没有调用真实 LLM、图像服务或创建 W01 正史内容。
 - 当前每 Tick 保存完整快照，只适合原型；尚无分支、快照压缩、生产/价格/人口模型、通用 Action/Effect JSON Schema、UI 或外部实例 API。
+
+## 29. 2026-10-14 AI 生成助手革新归档
+
+本次改造响应作者对模块内容质量、部分生成、自由创作和常用工具的要求。它改变 AI 请求/响应契约与 HTML 产品界面，但不创建设定内容、不修改 canon、不调用真实模型，也不改变 SQLite 物理 Schema。
+
+### 模块内容块与部分生成
+
+- 新增 `ai-content-specs.mjs`，为世界、地图、势力、角色、种族、文化、宗教、魔法、科技、物品、事件、编年史和背景故事分别声明内容块、显示名称、生成要求与数据类型。
+- 世界正文强调底层法则与社会条件；地图正文和环境交通分离；势力、人物、种族、文化、宗教、魔法、科技、物品和事件各自使用面向该模块的正文与三个专业属性；编年史节点独立提供纪年文本和排序值；背景故事只有标题与正文。
+- 模块侧栏新增“生成内容块”多选区。服务端根据本次勾选项构建动态严格 JSON Schema；模型必须返回且只能返回选中的字段。
+- 保存候选时把生成字段合并到请求时的表单快照，未选择字段保持原值。候选仍分别保存为 `proposed`；部分生成不会直接覆盖当前条目。
+- AI Harness 升级为 `2.0.0`，响应由统一的九字段候选改为 `{ key, content }`。提示明确要求正文可直接回填，并禁止“本候选”“层次位置”“设计说明”、Schema 或字段解释进入成品内容。
+- 背景故事动作仍以已保存条目为锚点，但请求时切换到故事专属契约；编年史容器不显示节点专用的纪年和排序块。
+
+### 自由创作 Agent 与常用工具
+
+- 顶部新增“自由创作”模块。作者可提供关联信息、选择是否附带资料库条目索引，并在当前页面中进行连续对话。
+- `POST /api/ai/free` 使用独立的自由文本系统边界，不要求 JSON 或资料模块格式；服务端最多携带最近 20 条消息、裁剪后的作者信息和最多 120 条资料索引。回复不会自动写入资料库。
+- 常用工具区首批提供名称生成器。`POST /api/ai/tools/names` 接受对象类型、3/5/8/10 个候选、命名要求与关联信息，返回 `{ name, note }`；候选可复制，在世界观模块打开时可回填名称输入框。
+- 自由 Agent 与名称生成器复用现有语言模型配置，但不复用模块候选 Schema；三类入口均不自动晋升正史。
+
+### 文件与接口
+
+- 新增：`ai-content-specs.mjs`。
+- 修改：`ai-harness.mjs`、`server.mjs`、`dist/index.html`、`dist/styles.css`、`dist/app.js`、`package.json`。
+- 修改测试：`tests/ai-harness.test.mjs`、`tests/subpath-routing.test.mjs`、`tests/README.md`。
+- 更新文档：`README.md`、`docs/PROJECT_DESIGN.md`、`CHANGELOG.md`、`todo.md` 与本静态文档。
+- 新增 HTTP 接口：`POST /api/ai/free`、`POST /api/ai/tools/names`；原 `POST /api/ai` 保留路径但使用动态内容块响应。
+
+### 验证与限制
+
+- `npm run check` 通过，43 项 Node 测试全部成功；新增覆盖类型专属块、编年史容器过滤、部分字段 Schema、未选字段拒绝、关联 ID 白名单、自由文本请求格式和名称数量校验。
+- HTML 静态检查确认 201 个 `id` 唯一；子路径回归测试覆盖两个新增 API，并确认加载 `app.js?v=20`。
+- 使用隔离临时 SQLite 路径启动 Node 服务成功，随后停止服务并删除临时 QA 数据库。由于浏览器自动化环境无法访问该隔离端口，且重建共享的 tailnet Docker 服务未获安全审批，本次没有声称完成真实浏览器视觉验收或外部模型端到端调用。
+- 自由对话当前只保留在页面内，刷新即清空；名称生成器是首个常用工具，其他工具需根据作者实际使用频率逐项加入。

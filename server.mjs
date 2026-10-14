@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildContextBundle, buildPrompt, createModelBody, HARNESS_VERSION, parseAiResponse } from './ai-harness.mjs';
+import { buildContextBundle, buildPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_INSTRUCTIONS, HARNESS_VERSION, NAME_RESPONSE_SCHEMA, parseAiResponse, parseNameResponse } from './ai-harness.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
 import { createContentStore } from './storage.mjs';
 import { composeImagePrompt } from './image-context.mjs';
@@ -165,9 +165,9 @@ async function serveArtAsset(id, res) {
   } catch (error) { if (error.code === 'ENOENT') return json(res, 404, { error: '美术文件不存在' }); throw error; }
 }
 
-async function requestModel(config, prompt, structured) {
+async function requestModel(config, prompt, options = {}) {
   const endpoint = config.style === 'chat' ? `${config.baseUrl}/chat/completions` : `${config.baseUrl}/responses`;
-  const body = createModelBody(config, prompt, structured);
+  const body = createModelBody(config, prompt, options);
   const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(data.error?.message || `模型服务返回 ${response.status}`); error.status = response.status; throw error; }
@@ -201,25 +201,52 @@ async function callAi(payload) {
   const bundle = buildContextBundle(payload);
   const promptSettings = await loadPromptSettings();
   const prompt = buildPrompt({ ...payload, typePrompt: promptSettings.typePrompts[payload?.draft?.type] || '', personalizedPrompt: promptSettings.personalizedPrompt }, bundle);
-  const allowedIds = [...bundle.examples, ...bundle.entries].map(entry => entry.id);
+  const validationPayload = { ...payload, allowedRelationIds: [...bundle.examples, ...bundle.entries].map(entry => entry.id) };
   const expectedCount = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3));
-  const parseExpected = value => { const parsed = parseAiResponse(value, allowedIds); if (parsed.variants.length !== expectedCount) throw new Error(`候选数量应为 ${expectedCount}，实际为 ${parsed.variants.length}`); return parsed; };
+  const schema = createLoreResponseSchema(payload);
+  const parseExpected = value => { const parsed = parseAiResponse(value, validationPayload); if (parsed.variants.length !== expectedCount) throw new Error(`候选数量应为 ${expectedCount}，实际为 ${parsed.variants.length}`); return parsed; };
   let structured = true;
   let raw;
-  try { raw = await requestModel(config, prompt, true); }
+  try { raw = await requestModel(config, prompt, { structured: true, schema, payload }); }
   catch (error) {
     if (![400, 404, 422].includes(error.status)) throw error;
     structured = false;
-    raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, false);
+    raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, { structured: false, payload });
   }
   let result;
   try { result = parseExpected(raw); }
   catch (firstError) {
-    const repair = `下面的模型输出未通过 Worldforge JSON Schema 校验。只修复格式和非法关联，不新增事实。\n校验错误：${firstError.message}\n原始输出：\n${String(raw).slice(0, 50000)}`;
-    const repaired = await requestModel(config, repair, structured);
+    const repair = `下面的模型输出未通过 Worldforge JSON Schema 校验。只修复格式、缺失内容块或多余内容块，不新增事实。\n校验错误：${firstError.message}\n原始输出：\n${String(raw).slice(0, 50000)}`;
+    const repaired = await requestModel(config, repair, { structured, schema, payload });
     result = parseExpected(repaired);
   }
   return { ...result, harnessVersion: HARNESS_VERSION, contextMeta: bundle.contextMeta };
+}
+
+async function callFreeAgent(payload) {
+  const config = aiConfig();
+  if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
+  const messages = Array.isArray(payload?.messages) ? payload.messages.slice(-20).map(item => ({ role: item?.role === 'assistant' ? 'assistant' : 'user', content: String(item?.content || '').trim().slice(0, 12000) })).filter(item => item.content) : [];
+  if (!messages.length || messages.at(-1).role !== 'user') throw new Error('请先输入创作需求');
+  const related = String(payload?.relatedInformation || '').trim().slice(0, 20000);
+  const library = payload?.includeLibrary && Array.isArray(payload?.library) ? payload.library.slice(0, 120).map(entry => ({ id: String(entry?.id || '').slice(0, 100), type: String(entry?.type || '').slice(0, 40), name: String(entry?.name || '').slice(0, 100), status: String(entry?.status || '').slice(0, 20), truthScope: String(entry?.truthScope || '').slice(0, 30), worldId: String(entry?.worldId || '').slice(0, 30), summary: String(entry?.summary || '').slice(0, 1200) })) : [];
+  const transcript = messages.map(item => `${item.role === 'assistant' ? '助手' : '作者'}：${item.content}`).join('\n\n');
+  const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<library_context>\n${JSON.stringify(library, null, 2)}\n</library_context>\n<conversation>\n${transcript}\n</conversation>\n请直接回复作者的最后一条消息。`;
+  const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
+  if (!reply) throw new Error('模型没有返回内容');
+  return { reply: reply.slice(0, 50000), model: config.model };
+}
+
+async function callNameGenerator(payload) {
+  const config = aiConfig();
+  if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
+  const count = [3, 5, 8, 10].includes(Number(payload?.count)) ? Number(payload.count) : 5;
+  const category = String(payload?.category || '设定').trim().slice(0, 80), requirements = String(payload?.requirements || '').trim().slice(0, 4000), context = String(payload?.context || '').trim().slice(0, 8000);
+  const prompt = `为原创世界观生成 ${count} 个“${category}”名称。名称之间要有明显差异，并符合作者要求与关联信息。每个名称附一条简短命名说明；不要引用商业 IP 专有名称。\n作者要求：${requirements || '无'}\n<related_information>\n${context || '无'}\n</related_information>`;
+  let raw;
+  try { raw = await requestModel(config, prompt, { structured: true, schema: NAME_RESPONSE_SCHEMA, name: 'worldforge_names' }); }
+  catch (error) { if (![400, 404, 422].includes(error.status)) throw error; raw = await requestModel(config, `${prompt}\n严格返回 JSON：{"names":[{"name":"名称","note":"说明"}]}`, { structured: false }); }
+  return { ...parseNameResponse(raw, count), model: config.model };
 }
 
 async function serveStatic(req, res) {
@@ -274,6 +301,8 @@ createServer(async (req, res) => {
       await savePromptSettings(settings.prompts);
       const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT });
     }
+    if (req.method === 'POST' && req.url === '/api/ai/free') return json(res, 200, await callFreeAgent(await readBody(req)));
+    if (req.method === 'POST' && req.url === '/api/ai/tools/names') return json(res, 200, await callNameGenerator(await readBody(req)));
     if (req.method === 'POST' && req.url === '/api/ai') { const payload = await readBody(req); return json(res, 200, await callAi(payload)); }
     if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: '不支持的请求方法' });
     return serveStatic(req, res);

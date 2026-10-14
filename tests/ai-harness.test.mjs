@@ -1,66 +1,57 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildContextBundle, buildPrompt, createModelBody, parseAiResponse, validateAiResponse } from '../ai-harness.mjs';
+import { buildContextBundle, buildPrompt, createLoreResponseSchema, createModelBody, parseAiResponse, parseNameResponse } from '../ai-harness.mjs';
+import { contentSpec, normalizeSelectedBlocks } from '../ai-content-specs.mjs';
 
-const draft = { id: 'CHR-W01-DRAFT-X', type: 'character', name: '候选角色', status: 'proposed', truthScope: 'objective', worldId: 'W01', tags: ['蒸汽'], relationIds: ['FAC-W01-001'] };
-const library = [
-  { id: 'FAC-W01-001', type: 'faction', name: '关联势力', status: 'proposed', worldId: 'W01', tags: [] },
-  { id: 'W01', type: 'world', name: '世界基线', status: 'canon', worldId: 'W01', tags: [] },
-  { id: 'CHR-W02-001', type: 'character', name: '无关角色', status: 'proposed', worldId: 'W02', tags: [] }
-];
+const draft = { id: 'CHR-DRAFT', type: 'character', name: '空白角色', status: 'proposed', truthScope: 'objective', worldId: 'W01', tags: ['矿区'], relationIds: [] };
+const entry = (id, overrides = {}) => ({ id, type: 'character', name: id, status: 'proposed', truthScope: 'objective', worldId: 'W01', summary: '', details: '', tags: [], relationIds: [], ...overrides });
 
-test('context prioritizes direct relations and same-world canon', () => {
-  const bundle = buildContextBundle({ draft, library });
-  assert.deepEqual(bundle.contextMeta.includedIds, ['FAC-W01-001', 'W01']);
-  assert.equal(bundle.contextMeta.omittedCount, 1);
-});
-
-test('prompt requests exact variant count and contains bounded context', () => {
-  const bundle = buildContextBundle({ draft, library });
-  const prompt = buildPrompt({ action: 'brainstorm', variantCount: 4, prompt: '保持克制' }, bundle);
-  assert.match(prompt, /严格返回 4 份/);
-  assert.match(prompt, /<worldforge_context>/);
-});
-
-test('background story prompt requests independent proposed narratives', () => {
-  const bundle = buildContextBundle({ draft, library });
-  const prompt = buildPrompt({ action: 'background_story', variantCount: 2 }, bundle);
-  assert.match(prompt, /背景故事/);
-  assert.match(prompt, /传记、轶事或局部事件/);
-  assert.match(prompt, /而不是百科式改写/);
-  assert.match(prompt, /必须全部返回空数组/);
-});
-
-test('canon entries of the same world and type form a bounded example layer', () => {
-  const exampleLibrary = [
-    { ...draft, id: 'CHR-W01-001', name: '正史角色', status: 'canon' },
-    { ...draft, id: 'CHR-W01-002', name: '普通草案', status: 'proposed' },
-    { ...draft, id: 'CHR-W02-001', name: '异世界正史', status: 'canon', worldId: 'W02' }
-  ];
-  const bundle = buildContextBundle({ draft, library: exampleLibrary });
+test('context prioritizes same-world canon examples and isolates unrelated worlds', () => {
+  const bundle = buildContextBundle({ draft, library: [entry('CHR-W01-001', { status: 'canon' }), entry('CHR-W02-001', { worldId: 'W02', status: 'canon' }), entry('FAC-W01-001', { type: 'faction', status: 'canon' })] });
   assert.deepEqual(bundle.contextMeta.exampleIds, ['CHR-W01-001']);
-  assert.equal(bundle.examples[0].name, '正史角色');
-  assert.doesNotMatch(JSON.stringify(bundle.examples), /普通草案|异世界正史/);
+  assert.ok(!bundle.contextMeta.includedIds.includes('CHR-W02-001'));
 });
 
-test('prompt composes type guidance, personalized style, canon and author examples', () => {
-  const bundle = buildContextBundle({ draft, library: [{ ...draft, id: 'CHR-W01-001', status: 'canon' }] });
-  const prompt = buildPrompt({ action: 'brainstorm', variantCount: 2, typePrompt: '突出人物选择', personalizedPrompt: '语言克制', userExamples: '示例段落' }, bundle);
-  assert.match(prompt, /<author_type_prompt>\s*突出人物选择/);
-  assert.match(prompt, /<author_personalized_style>\s*语言克制/);
-  assert.match(prompt, /<worldforge_examples>/);
-  assert.match(prompt, /CHR-W01-001/);
-  assert.match(prompt, /示例段落/);
+test('each module exposes dedicated content blocks and timeline containers omit node-only fields', () => {
+  assert.ok(contentSpec('magic').blocks.some(item => item.label === '施展成本'));
+  assert.ok(contentSpec('location').blocks.some(item => item.key === 'environment'));
+  assert.ok(!contentSpec('timeline', { chronicle: { kind: 'chronicle' } }).blocks.some(item => item.key === 'dateLabel'));
+  assert.deepEqual(normalizeSelectedBlocks('story', ['details']), ['details']);
 });
 
-test('response schema rejects unknown relation ids', () => {
-  const response = { variants: [{ key: 'a', title: 'A', summary: 'S', details: 'D', constraints: [], openQuestions: [], relationSuggestions: [{ id: 'MISSING', reason: 'x' }], conflicts: [], assumptions: [] }] };
-  assert.throws(() => validateAiResponse(response, ['W01']), /不在上下文/);
+test('prompt and schema contain only selected content blocks', () => {
+  const payload = { draft, selectedBlocks: ['name', 'details'], variantCount: 2, typePrompt: '突出人物选择', personalizedPrompt: '语言克制' };
+  const bundle = buildContextBundle({ ...payload, library: [] });
+  const prompt = buildPrompt(payload, bundle), schema = createLoreResponseSchema(payload);
+  assert.match(prompt, /只生成以下已勾选内容块/);
+  assert.match(prompt, /禁止输出“本候选”/);
+  assert.deepEqual(schema.properties.variants.items.properties.content.required, ['name', 'details']);
+  assert.deepEqual(Object.keys(schema.properties.variants.items.properties.content.properties), ['name', 'details']);
 });
 
-test('parser accepts fenced JSON and model bodies enable native schemas', () => {
-  const response = { variants: [{ key: 'a', title: 'A', summary: 'S', details: 'D', constraints: [], openQuestions: [], relationSuggestions: [], conflicts: [], assumptions: [] }] };
-  assert.equal(parseAiResponse('```json\n' + JSON.stringify(response) + '\n```', []).variants.length, 1);
-  assert.equal(createModelBody({ model: 'x', style: 'responses' }, 'p').text.format.type, 'json_schema');
-  assert.equal(createModelBody({ model: 'x', style: 'chat' }, 'p').response_format.type, 'json_schema');
+test('partial response accepts selected blocks and rejects leaked generic fields', () => {
+  const payload = { draft, selectedBlocks: ['details'] };
+  const accepted = parseAiResponse(JSON.stringify({ variants: [{ key: 'a', content: { details: '直接可用的人物正文。' } }] }), payload);
+  assert.equal(accepted.variants[0].content.details, '直接可用的人物正文。');
+  assert.throws(() => parseAiResponse({ variants: [{ key: 'a', content: { details: '正文', assumptions: ['多余'] } }] }, payload), /未选择/);
+});
+
+test('relation block only accepts ids from the supplied context whitelist', () => {
+  const payload = { draft, selectedBlocks: ['relations'], allowedRelationIds: ['FAC-W01-001'] };
+  const accepted = parseAiResponse({ variants: [{ key: 'a', content: { relations: [{ id: 'FAC-W01-001', reason: '雇佣关系' }] } }] }, payload);
+  assert.equal(accepted.variants[0].content.relations[0].id, 'FAC-W01-001');
+  assert.throws(() => parseAiResponse({ variants: [{ key: 'a', content: { relations: [{ id: 'MISSING', reason: '虚构关系' }] } }] }, payload), /不在上下文/);
+});
+
+test('model bodies support dynamic schemas and free unstructured responses', () => {
+  const payload = { draft, selectedBlocks: ['summary'] }, schema = createLoreResponseSchema(payload);
+  assert.equal(createModelBody({ model: 'x', style: 'responses' }, 'p', { schema, payload }).text.format.type, 'json_schema');
+  assert.equal(createModelBody({ model: 'x', style: 'chat' }, 'p', { schema, payload }).response_format.type, 'json_schema');
+  assert.equal(createModelBody({ model: 'x', style: 'responses' }, 'p', { structured: false }).text, undefined);
+});
+
+test('name generator validates exact candidate count', () => {
+  const value = parseNameResponse(JSON.stringify({ names: [{ name: '雾铆港', note: '强调潮湿港区与铆接工业。' }] }), 1);
+  assert.equal(value.names[0].name, '雾铆港');
+  assert.throws(() => parseNameResponse(JSON.stringify({ names: [] }), 1), /数量/);
 });

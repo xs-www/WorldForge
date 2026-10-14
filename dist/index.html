@@ -19,6 +19,7 @@
     <nav class="module-tabs" aria-label="功能模块">
       <button class="module-tab active" type="button" data-module="world"><span class="tab-icon" aria-hidden="true">◫</span>世界观架构</button>
       <button class="module-tab" type="button" data-module="cards"><span class="tab-icon" aria-hidden="true">▤</span>卡牌设计</button>
+      <button class="module-tab" type="button" data-module="free"><span class="tab-icon" aria-hidden="true">✦</span>自由创作</button>
     </nav>
     <div class="header-actions"><span class="local-status saving" id="storageStatus"><i></i><span>正在连接 SQLite…</span></span><button class="button secondary compact" id="openSettings" type="button">设置</button><button class="button secondary compact" id="exportData" type="button">导出数据</button></div>
   </header>
@@ -141,6 +142,7 @@
             <div class="info-callout"><strong>草案边界</strong><p>AI 只返回 proposed 建议，不会自动保存、覆盖正文或晋升正史。</p></div>
             <label>协助方式<select id="aiAction"><option value="brainstorm">扩写候选方向</option><option value="background_story">生成背景故事</option><option value="polish">润色当前设定</option><option value="conflict_check">检查冲突与缺口</option><option value="relations">建议关联与剧情钩子</option></select></label>
             <label>候选数量<select id="aiVariantCount"><option value="2">2 份</option><option value="3" selected>3 份</option><option value="4">4 份</option><option value="5">5 份</option></select></label>
+            <fieldset class="ai-block-fieldset"><legend>生成内容块</legend><p>只生成勾选部分；未勾选字段会保留当前内容。</p><div class="ai-block-grid" id="aiContentBlocks"></div><button class="text-action" id="toggleAiBlocks" type="button">全选 / 全不选</button></fieldset>
             <label>补充要求<textarea id="aiPrompt" rows="5" maxlength="3000" placeholder="例如：提供三种互相区分的政治结构，并说明代价"></textarea></label>
             <label>本次补充示例<textarea id="aiExamples" rows="4" maxlength="6000" placeholder="可选：粘贴希望本次生成参考的片段、写法或结构示例"></textarea><small id="aiExampleMeta">还会自动参考同世界、同类型的 canon 条目。</small></label>
             <button class="button primary" id="runAi" type="button">生成候选方案</button>
@@ -207,6 +209,38 @@
         </aside>
       </div>
     </section>
+
+    <section class="module-page" id="freeModule" data-page="free" aria-labelledby="freeTitle" hidden>
+      <div class="page-heading">
+        <div><p class="breadcrumb">项目 / AI 创作</p><h1 id="freeTitle">自由创作 Agent</h1><p>不受资料模块和固定 JSON 格式限制，用对话完成构思、讨论、改写与分析。</p></div>
+        <div class="heading-actions"><button class="button secondary" id="clearFreeChat" type="button">清空本次对话</button></div>
+      </div>
+      <div class="free-workspace">
+        <section class="panel free-chat-panel" aria-labelledby="freeChatTitle">
+          <div class="panel-title"><div><h2 id="freeChatTitle">创作对话</h2><small id="freeAgentStatus">对话仅保留在当前页面</small></div><span class="ai-dot" id="freeAiDot"></span></div>
+          <div class="free-chat-log" id="freeChatLog" aria-live="polite"><div class="free-empty"><strong>从任何创作需求开始</strong><p>例如比较三套文明冲突、续写一段场景，或分析某个机制为何无趣。</p></div></div>
+          <form class="free-composer" id="freeChatForm">
+            <label>关联信息<textarea id="freeRelatedInfo" rows="4" maxlength="20000" placeholder="可选：粘贴本轮需要参考的设定、摘录、约束或角色关系"></textarea></label>
+            <label class="check-label"><input id="freeIncludeLibrary" type="checkbox">附带资料库条目索引（名称、摘要与状态）</label>
+            <label>给 Agent 的消息<textarea id="freeMessage" rows="5" maxlength="12000" required placeholder="描述你想讨论、生成、改写或分析的内容……"></textarea></label>
+            <div class="free-actions"><small>自由 Agent 不会自动保存资料或晋升正史。</small><button class="button primary" id="sendFreeMessage" type="submit">发送</button></div>
+          </form>
+        </section>
+        <aside class="panel utility-panel">
+          <div class="panel-title"><div><h2>常用工具</h2><small>轻量、可回填</small></div></div>
+          <section class="utility-card" aria-labelledby="nameToolTitle">
+            <h3 id="nameToolTitle">名称生成器</h3>
+            <label>命名对象<select id="nameToolCategory"><option>角色</option><option>地点</option><option>国家 / 势力</option><option>种族</option><option>文化 / 宗教</option><option>魔法 / 科技</option><option>物品</option><option>事件 / 时代</option><option>其他</option></select></label>
+            <label>候选数量<select id="nameToolCount"><option value="3">3 个</option><option value="5" selected>5 个</option><option value="8">8 个</option><option value="10">10 个</option></select></label>
+            <label>命名要求<textarea id="nameToolRequirements" rows="4" maxlength="4000" placeholder="例如：短促、有工业感、避免直接使用以太二字"></textarea></label>
+            <label>关联信息<textarea id="nameToolContext" rows="4" maxlength="8000" placeholder="可选：语言风格、地域、历史或现有名称"></textarea></label>
+            <button class="button primary" id="runNameTool" type="button">生成名称</button>
+            <p class="field-help">点击候选名称可复制；世界观编辑器打开时也可直接回填名称字段。</p>
+            <div class="name-results" id="nameToolResults"></div>
+          </section>
+        </aside>
+      </div>
+    </section>
   </main>
 
   <dialog id="noteDialog"><form method="dialog" class="dialog-card"><div class="dialog-header"><div><p class="eyebrow">本地备注</p><h2 id="noteTitle">编辑备注</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div><p class="dialog-description" id="noteDescription"></p><label for="noteText">备注内容</label><textarea id="noteText" rows="7" placeholder="记录倾向、约束、反例或待验证项……"></textarea><p class="field-help">内容保存在服务端 SQLite，不会自动写入仓库。</p><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button class="button primary" id="saveNote" value="default">保存备注</button></div></form></dialog>
@@ -222,6 +256,6 @@
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
   <script src="./cards.js?v=1"></script>
-  <script src="./app.js?v=19"></script>
+  <script src="./app.js?v=20"></script>
 </body>
 </html>
