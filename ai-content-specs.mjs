@@ -17,7 +17,7 @@ const attributes = (a, b, c) => [
 
 export const CONTENT_SPECS = Object.freeze({
   world: { label: '世界', blocks: [common.name, common.summary, common.details, ...attributes('题材', '时代', '尺度'), common.constraints, common.openQuestions], focus: '正文应从能源与自然法则、生产、运输通信、社会分化、世界间关系和神性干涉边界展开，保留尚未裁定的宇宙真相。' },
-  location: { label: '世界地图', blocks: [common.name, common.summary, block('details', '地理正文', '直接描述地貌结构、聚落与权力、资源流动、历史成因和空间关系，不复述条目层级。'), block('environment', '环境与交通', '简洁填写地貌、气候、资源、交通与主要危险。'), ...attributes('地理角色', '管辖主体', '人口规模'), common.constraints, common.openQuestions], focus: '遵守现有父子地理层级；只写当前条目自身，不把祖先链说明写进正文，也不代替作者批量创建子级。' },
+  location: { label: '世界地图', blocks: [common.name, common.summary, block('details', '详细设定', '直接撰写可回填到地图条目“详细设定”的完整正文，描述地貌结构、聚落与权力、资源流动、历史成因和空间关系，不复述条目层级。'), block('environment', '环境与交通', '简洁填写地貌、气候、资源、交通与主要危险。'), ...attributes('地理角色', '管辖主体', '人口规模'), common.constraints, common.openQuestions], focus: '遵守现有父子地理层级；只写当前条目自身，不把祖先链说明写进正文，也不代替作者批量创建子级。' },
   faction: { label: '势力', blocks: [common.name, common.summary, block('details', '组织正文', '直接描述目标、成员基础、资源、组织方式、内部矛盾、外部关系和当前行动。'), ...attributes('势力类型', '领导者', '总部'), common.constraints, common.openQuestions], focus: '让组织具备可运行的利益、资源与弱点，避免只有口号。' },
   character: { label: '角色', blocks: [common.name, common.summary, block('details', '人物正文', '直接描述经历、欲望、选择、能力边界、关系与正在面对的冲突。'), ...attributes('叙事身份', '年龄阶段', '种族'), common.constraints, common.openQuestions], focus: '人物应能进入具体故事；不要擅自确定未经批准的身世真相。' },
   species: { label: '种族', blocks: [common.name, common.summary, block('details', '种族正文', '直接描述身体或精神特征、寿命繁衍、环境适应、内部差异和群体互动。'), ...attributes('起源', '寿命', '核心特征'), common.constraints, common.openQuestions], focus: '区分生物属性与文化，不把群体写成单一性格。' },

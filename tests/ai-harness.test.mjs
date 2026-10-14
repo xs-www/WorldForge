@@ -14,6 +14,7 @@ test('context prioritizes same-world canon examples and isolates unrelated world
 
 test('each module exposes dedicated content blocks and timeline containers omit node-only fields', () => {
   assert.ok(contentSpec('magic').blocks.some(item => item.label === '施展成本'));
+  assert.equal(contentSpec('location').blocks.find(item => item.key === 'details')?.label, '详细设定');
   assert.ok(contentSpec('location').blocks.some(item => item.key === 'environment'));
   assert.ok(!contentSpec('timeline', { chronicle: { kind: 'chronicle' } }).blocks.some(item => item.key === 'dateLabel'));
   assert.deepEqual(normalizeSelectedBlocks('story', ['details']), ['details']);
