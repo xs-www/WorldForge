@@ -62,6 +62,7 @@
 - 新增 ADR-0003，记录 V0.1 中“已确定 / 推导 / 提案 / 待定”向仓库状态的映射。
 
 ### Changed
+- Docker 构建上下文恢复纳入 World Package 编译 CLI，并把 `ai-content-specs.mjs`、`image-context.mjs` 加入运行时镜像；已重建 `worldforge:local`，保留 `worldforge-data` 卷并通过本机与 tailnet 健康检查。
 - AI Harness 升级到 2.0.0，候选响应改为 `{ key, content }`，严格禁止返回未选内容块，并要求正文避开“本候选”“层次位置”“设计说明”等元话语。
 - `storage.mjs` 不再无条件执行最终 Schema 并直接覆盖 `user_version`，而是委托显式迁移模块；健康信息增加本次启动的迁移起点与已应用步骤。
 - Docker 镜像纳入 `storage-migrations.mjs`，`npm run check` 新增存储与迁移模块语法检查。

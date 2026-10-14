@@ -1022,3 +1022,20 @@ M1 每次推进恰好增加一个 Tick 和一个状态版本。行动状态变�
 - HTML 静态检查确认 201 个 `id` 唯一；子路径回归测试覆盖两个新增 API，并确认加载 `app.js?v=20`。
 - 使用隔离临时 SQLite 路径启动 Node 服务成功，随后停止服务并删除临时 QA 数据库。由于浏览器自动化环境无法访问该隔离端口，且重建共享的 tailnet Docker 服务未获安全审批，本次没有声称完成真实浏览器视觉验收或外部模型端到端调用。
 - 自由对话当前只保留在页面内，刷新即清空；名称生成器是首个常用工具，其他工具需根据作者实际使用频率逐项加入。
+
+## 30. 2026-10-14 AI 助手 Docker 部署修复归档
+
+本次部署不改变产品接口、世界观内容或持久化 Schema，只修复镜像构建清单并将第 29 节的 AI 助手版本部署到现有 Docker 服务。
+
+### 构建修复
+
+- `.dockerignore` 原先整体排除 `scripts/`，与 Dockerfile 复制 `scripts/compile-world-package.mjs` 的指令冲突；现仅对该运行时需要的 CLI 文件增加精确例外，其他脚本仍不进入构建上下文。
+- Dockerfile 的根模块清单加入 `ai-content-specs.mjs` 与 `image-context.mjs`，覆盖 `ai-harness.mjs` 和 `server.mjs` 的直接运行时依赖。
+- 没有修改 Compose 端口、只读文件系统、安全选项或命名卷配置；重新创建容器时继续挂载 `worldforge-data`，不会重置 SQLite、生成图片或服务端提示词设置。
+
+### 验证
+
+- `docker compose config --quiet` 通过；`npm run check` 通过，43 项 Node 测试全部成功。
+- `docker compose up -d --build` 成功构建 `worldforge:local` 并重建 `worldforge` 容器；Docker 健康状态为 `healthy`。
+- 本机 `http://127.0.0.1:4173/api/health` 返回 `status: ok`、数据库 Schema 版本 2；本机首页与 tailnet `/worldforge/` 均返回 HTTP 200，并确认加载 `app.js?v=20` 和“自由创作”入口。
+- 部署验证没有调用真实 LLM 或图像生成服务，也没有生成或修改任何 canon 内容。

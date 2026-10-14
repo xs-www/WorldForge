@@ -9,6 +9,7 @@ mechanics
 cards
 templates
 scripts
+!scripts/compile-world-package.mjs
 exports
 tests
 *.md
