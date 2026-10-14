@@ -100,6 +100,8 @@ worldforge/
 
 发布清单和 World Package 固定使用 JSON，契约见 [ADR-0010](adr/ADR-0010-json-world-package-contract.md)。M0B 编译器默认只选择 `canon`，将三个事实层次分区输出，并通过显式 `experimentalIncludes` 管理实验性 `proposed` 内容。
 
+M1 运行时采用确定性 Tick、统一效果结算、状态版本和主体知识日志，技术契约见 [ADR-0011](adr/ADR-0011-deterministic-m1-runtime.md)。首个 W99 能源危机场景是显式实验测试夹具，不得作为 W01 或宇宙设定引用。
+
 ## 4. 内容数据规范
 
 ### 4.1 Lore 条目示例

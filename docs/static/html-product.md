@@ -18,6 +18,11 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 | `storage.mjs` | SQLite Schema、输入校验、事务化快照读写、revision 冲突保护与健康检查 |
 | `storage-migrations.mjs` | 内容域 Schema 的有序前向迁移、版本检测、逐步事务升级与未来版本拒绝 |
 | `simulation/compiler/world-package.mjs` | JSON 发布清单校验、内容筛选、机制依赖编译、确定性 World Package 与内容哈希 |
+| `simulation/rules/mechanic-runtime.mjs` | 运行时机制注册、确定性冲突样本、白名单 Effect Resolver 与资源守恒 |
+| `simulation/rules/energy-crisis-mechanic.mjs` | M1 合成能源机制及申请、转交、消耗三种行动 |
+| `simulation/runtime/simulation-runtime.mjs` | Tick 批次、状态版本、行动校验/结算、事件提交、快照重放 |
+| `simulation/runtime/knowledge-view.mjs` | 主体知识视图的 Tick/过期过滤与传播接收者计算 |
+| `simulation/scenarios/m1-energy-crisis.mjs` | 非正史 W99 单城市、双主体、单资源实验包 |
 | `simulation/storage/instance-store.mjs` | 独立模拟 SQLite Schema、定义包实例化、基础地区/实体/事件读取 |
 | `scripts/compile-world-package.mjs` | 从命令行把 JSON 发布清单编译到指定 World Package 文件 |
 | `ai-harness.mjs` | AI 上下文排序与预算、提示边界、候选 Schema、解析和校验 |
@@ -170,6 +175,23 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `instantiate(worldPackage, { instanceId, randomSeed })`：复核包哈希，并在单一事务中写入实例元数据、内嵌定义包、初始地区、实体和事件。
 - `read(instanceId)`：返回实例锁定的定义版本/哈希、随机种子、当前 Tick 和基础状态；不存在时返回 `null`。
 
+### M1 规则与运行时函数
+
+- `deterministicSample(seed, tick, scope)`：对实例 seed、目标 Tick 和 Action ID 计算 SHA-256 样本；用于稳定排序同 Tick 竞争行动，样本随 Action/Event 持久化。
+- `createMechanicRuntime(mechanics)`：按 Action 命名空间注册受信任机制，统一调用可用行动、校验和效果候选接口；拒绝缺失方法或重复命名空间。
+- `resourceTotal(state, resourceId)`：汇总地区储备、已消耗池与实体余额，拒绝负数、非整数或不安全总量。
+- `applyWorldEffects(state, effects)`：在状态副本上只执行白名单 `resource.transfer`，检查端点、余额和转移前后总量守恒，不直接写数据库。
+- `createEnergyCrisisMechanic({ resourceId })`：建立 `MEC-001@1.0.0`，提供 `energy.request / transfer / consume`；资源不足的公共储备拒绝原因不返回隐藏余额。
+- `compileKnowledgeView(records, subjectId, atTick)`：只返回属于该主体、已观测且尚未过期的知识，按观测 Tick 和稳定 ID 排序。
+- `knowledgeRecipients(action, state, policy)`：默认只包含行动者；能源转交包含接收者；仅受信任机制返回公开知识策略时广播给全部实体，主体不能自行指定传播或过期策略。
+- `createSimulationRuntime({ store, mechanics })`：组合机制运行时和实例存储，提供 `advance`、`availableActions`、`knowledgeView` 与 `replay`。
+- `advance(instanceId, { expectedStateVersion, actions })`：验证状态版本和 expected Tick，以记录的确定性样本排序，在工作副本中顺序解决冲突，最后原子提交 Action、Event、KnowledgeRecord、状态和 Snapshot。
+- `availableActions(instanceId, subjectId)`：只把冻结的主体资料、KnowledgeView 与当前 Tick 交给决策入口，不提供全局权威状态。
+- `replay(instanceId, targetTick, { snapshotTick })`：从指定快照开始应用已提交的行动效果与知识事件，不重新运行机制/随机数；结果哈希必须匹配目标快照。
+- `replayCommittedEvents(snapshot, events, targetTick)`：纯函数重放器，供运行时和测试复用。
+- `commitTick(...)`：模拟存储的事务提交入口；在事务内再次检查 Tick/状态版本，更新状态并写入完整审计记录和快照。
+- `readSnapshot` / `readEvents` / `readKnowledge` / `readActions`：读取权威快照、事件范围、主体知识原始记录和行动审计。
+
 ### `apiUrl(path: string): URL`
 
 - 位置：`dist/app.js`
@@ -193,7 +215,9 @@ SQLite 是运行时内容的权威数据源。Docker 使用 `/data/worldforge.sq
 
 M0B 发布清单与定义包使用 UTF-8 JSON。清单固定声明世界、Definition 版本、源 commit、编译器、内容源、状态选择、机制和初始状态；默认只选择 `canon`，显式实验条目会使包标记为 `experimental`。编译输出按 `objectiveDefinitions / beliefSeeds / unresolvedMetadata` 保存事实层次，并带确定性 `packageHash`。
 
-模拟存档 Schema 版本 1 使用独立数据库和 `sim_schema_migrations`，包含 `sim_instances`、`sim_regions`、`sim_entities`、`sim_events`。`sim_instances` 内嵌完整只读定义包，因此读取存档不依赖当前工作区内容。当前 `current_tick` 固定从 0 开始，尚无 Tick 推进、Action、Snapshot 或 Replay 写入语义。
+模拟存档 Schema 版本 2 使用独立数据库和 `sim_schema_migrations`。版本 1 的 `sim_instances / regions / entities / events` 继续保留；版本 2 为实例增加 `state_version` 和状态，并新增 `sim_actions`、`sim_knowledge_records`、`sim_snapshots`。实例仍内嵌完整只读定义包；旧 M0B 实例升级时会在当前 Tick 回填状态快照。
+
+M1 每次推进恰好增加一个 Tick 和一个状态版本。行动状态变更、接受/拒绝审计、效果事件、知识观察事件、Tick 提交事件及目标快照在同一 SQLite 事务中提交。快照保存地区/实体权威状态、截至该 Tick 的知识日志和规范状态哈希；重放不会从目标真值补写过去知识。
 
 浏览器缓存键 `worldforge-decisions-v1` 的数据结构为：
 
@@ -919,3 +943,39 @@ AI 固定返回 `{ variants: [...] }`。每个候选必须包含 `key`、`title`
 - W01 清单通过 CLI 编译，独立重复编译得到相同哈希；输出写入临时目录，未把生成包误作内容源提交。
 - `docker compose config --quiet` 通过；没有启动容器、真实模型或图像服务。
 - JSON Schema 当前是公开契约和编辑器提示，关键约束由零依赖编译器执行；尚未接入完整第三方 Draft 2020-12 验证引擎。
+
+## 28. 2026-10-14 V2.0-M1 纯规则纵切归档
+
+本阶段交付可实际推进和重放的最小模拟闭环。为避免擅自补全 W01 社会、城市与势力设定，验收场景使用显式 `experimental` 的 W99 合成世界；其中名称、组织、资源分配均是测试数据，不属于 canon。
+
+### 机制与资源结算
+
+- 新增通用运行时机制注册器，机制通过 Action 命名空间接入并只能读取冻结状态副本、返回效果候选。Action 可用性入口只接收主体资料和 KnowledgeView，不接收全局状态。
+- 新增 `MEC-001@1.0.0` 合成能源机制，固定三种行动：从城市储备申请、主体间转交、把自身能源转入城市已消耗池。
+- 核心 Resolver 首版只允许整数 `resource.transfer`，统一检查端点存在、余额非负和转移前后资源总量不变。机制没有数据库写权限。
+- 同 Tick Action 以 `seed + tick + actionId` 的 SHA-256 样本确定冲突顺序，样本随审计记录保存；相同 seed 和 Action 集得到相同接受者。
+
+### Tick、事件、快照与重放
+
+- 每次 `advance` 要求 Action 的 `expectedTick` 和批次的 `expectedStateVersion`；运行时预检、SQLite 事务内再次校验，过期写入不会静默覆盖新状态。
+- 接受行动产生带 Effects 和随机样本的 `simulation.action_committed`；知识传播产生 `knowledge.observed`；每次推进产生 `simulation.tick_committed`。接受/拒绝 Action 均保留独立审计记录。
+- 模拟 Schema 从 1 升至 2，新增 Action、KnowledgeRecord、Snapshot、状态版本和实例状态。新实例在 Tick 0 建快照，旧 M0B 实例迁移时为当前 Tick 回填快照。
+- 每 Tick 的状态、Action、Event、KnowledgeRecord、实例版本和 Snapshot 在一个事务内提交。重放从显式快照出发，只应用已提交效果/知识事件，并比较目标快照的规范状态哈希。
+
+### 知识隔离
+
+- KnowledgeRecord 保存主体、命题、来源事件、观测 Tick、置信度、保密级别、知识状态和可选过期 Tick。
+- 私有申请结果只对行动者可见；能源转交结果同时传播给接收者；只有受信任机制的公开知识策略才广播，Action 提交者不能自行控制知识范围或过期时间。
+- 同一 Tick 的两个主体可得到不同 KnowledgeView；过期记录从视图消失但仍保留在审计与快照中。Validator 可读权威状态，但公共储备不足只返回通用不可执行原因，不泄露隐藏余量。
+
+### 文件与文档
+
+- 新增：`simulation/rules/mechanic-runtime.mjs`、`simulation/rules/energy-crisis-mechanic.mjs`、`simulation/runtime/simulation-runtime.mjs`、`simulation/runtime/knowledge-view.mjs`、`simulation/scenarios/m1-energy-crisis.mjs`、三个目录说明、`tests/simulation-runtime.test.mjs`、`docs/adr/ADR-0011-deterministic-m1-runtime.md`。
+- 更新：`simulation/storage/instance-store.mjs`、`tests/world-package.test.mjs`、`package.json`、`README.md`、项目设计/进展/2.0 设计、模拟/测试说明、ADR 索引、`CHANGELOG.md`、`todo.md` 与本静态文档。
+
+### 验证与限制
+
+- `npm run check` 通过：核心脚本语法检查及 43 项 Node 测试全部成功；M1 新增 4 项纵切测试和 1 项旧存档迁移回填测试。
+- 测试证明三种 Action 可发现、同 seed 冲突结果一致、总能源恒为 12、旧状态版本被拒绝、拒绝文本不泄露储备、主体视图不同、知识会过期，以及 Tick 0 快照可重放到 Tick 2 并匹配权威哈希。
+- `docker compose config --quiet` 通过；没有调用真实 LLM、图像服务或创建 W01 正史内容。
+- 当前每 Tick 保存完整快照，只适合原型；尚无分支、快照压缩、生产/价格/人口模型、通用 Action/Effect JSON Schema、UI 或外部实例 API。

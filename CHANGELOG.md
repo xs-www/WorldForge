@@ -5,6 +5,11 @@
 ## [Unreleased]
 
 ### Added
+- 完成 WorldForge 2.0 M1 纯规则最小纵切，并由 ADR-0011 固化确定性 Tick、统一效果结算、状态版本、快照重放与主体知识日志边界。
+- 新增 W99 合成能源危机场景：一个城市、两个组织、一种守恒能源，以及申请、转交、消耗三种 Action；该场景显式为 experimental，不属于正史。
+- 新增运行时机制注册、冻结读取上下文、确定性 PRNG 冲突排序、白名单 `resource.transfer` Resolver、非负余额和资源守恒检查。
+- 模拟 SQLite Schema 升至版本 2，新增 Action、KnowledgeRecord、Snapshot、状态版本与实例状态；每 Tick 原子提交并为旧 M0B 实例回填快照。
+- 新增 5 项 M1/迁移测试，覆盖三种行动、同 seed 冲突复现、资源守恒、过期写入拒绝、无隐藏值拒绝原因、知识隔离/过期、Tick 0 事件重放和 M0B 存档快照回填；Node 测试总数增至 43。
 - 完成 WorldForge 2.0 V2.0-M0B：新增 JSON 发布清单、内容源、机制注册表与 World Package Schema，并由 ADR-0010 固化 JSON 契约。
 - 新增确定性 World Package 编译器和 CLI：默认只发布 `canon`，显式隔离实验 `proposed`，按事实层次分区，校验 ID、引用、世界边界、机制版本/参数/依赖，并计算 SHA-256 内容哈希。
 - 新增独立模拟 SQLite 存档：`sim_schema_migrations`、实例、地区、实体和事件基础表；实例嵌入完整定义包、定义哈希、随机种子与当前 Tick 0。

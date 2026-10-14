@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 import {
   compileWorldPackage,
   compileWorldPackageFile,
@@ -163,11 +164,57 @@ test('compiled package instantiates into an independent readable SQLite save', a
     assert.equal(created.regions[0].regionId, 'LOC-W01-001');
     assert.equal(created.entities[0].state.active, true);
     assert.equal(created.events[0].type, 'world.created');
-    assert.equal(store.health().schemaVersion, 1);
+    assert.equal(store.health().schemaVersion, 2);
+    assert.deepEqual(store.health().migrations.map(migration => migration.version), [1, 2]);
     assert.throws(
       () => store.instantiate(worldPackage, { instanceId: 'INST-TEST-001', randomSeed: 'seed-002' }),
       error => error instanceof WorldInstanceError && error.code === 'INSTANCE_ALREADY_EXISTS'
     );
+  } finally {
+    store.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('simulation schema v2 upgrades an M0B instance and backfills its current snapshot', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'worldforge-sim-v1-'));
+  const databasePath = join(directory, 'simulation.sqlite');
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    PRAGMA foreign_keys = ON;
+    CREATE TABLE sim_schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, applied_at TEXT NOT NULL) STRICT;
+    CREATE TABLE sim_instances (
+      instance_id TEXT PRIMARY KEY, world_id TEXT NOT NULL, definition_version TEXT NOT NULL,
+      definition_hash TEXT NOT NULL, definition_json TEXT NOT NULL CHECK (json_valid(definition_json)),
+      random_seed TEXT NOT NULL, current_tick INTEGER NOT NULL DEFAULT 0 CHECK (current_tick >= 0), created_at TEXT NOT NULL
+    ) STRICT;
+    CREATE TABLE sim_regions (
+      instance_id TEXT NOT NULL, region_id TEXT NOT NULL, source_id TEXT NOT NULL,
+      state_json TEXT NOT NULL CHECK (json_valid(state_json)), PRIMARY KEY(instance_id, region_id),
+      FOREIGN KEY(instance_id) REFERENCES sim_instances(instance_id) ON DELETE CASCADE
+    ) STRICT;
+    CREATE TABLE sim_entities (
+      instance_id TEXT NOT NULL, entity_id TEXT NOT NULL, source_id TEXT NOT NULL, region_id TEXT,
+      state_json TEXT NOT NULL CHECK (json_valid(state_json)), PRIMARY KEY(instance_id, entity_id),
+      FOREIGN KEY(instance_id) REFERENCES sim_instances(instance_id) ON DELETE CASCADE,
+      FOREIGN KEY(instance_id, region_id) REFERENCES sim_regions(instance_id, region_id)
+    ) STRICT;
+    CREATE TABLE sim_events (
+      instance_id TEXT NOT NULL, event_id TEXT NOT NULL, source_id TEXT NOT NULL, tick INTEGER NOT NULL CHECK (tick >= 0),
+      event_type TEXT NOT NULL, payload_json TEXT NOT NULL CHECK (json_valid(payload_json)), PRIMARY KEY(instance_id, event_id),
+      FOREIGN KEY(instance_id) REFERENCES sim_instances(instance_id) ON DELETE CASCADE
+    ) STRICT;
+    INSERT INTO sim_schema_migrations VALUES (1, 'instance-foundation', '2026-10-13T00:00:00.000Z');
+    INSERT INTO sim_instances VALUES ('INST-LEGACY', 'W01', '0.1.0', 'legacy-hash', '{}', 'legacy-seed', 0, '2026-10-13T00:00:00.000Z');
+    INSERT INTO sim_regions VALUES ('INST-LEGACY', 'LOC-W01-001', 'W01', '{"resources":{"energy":{"reserve":5,"consumed":0}}}');
+  `);
+  legacy.close();
+
+  const store = createWorldInstanceStore(databasePath);
+  try {
+    assert.deepEqual(store.health().migrations.map(migration => migration.version), [1, 2]);
+    assert.equal(store.read('INST-LEGACY').stateVersion, 0);
+    assert.equal(store.readSnapshot('INST-LEGACY', 0).state.regions[0].state.resources.energy.reserve, 5);
   } finally {
     store.close();
     await rm(directory, { recursive: true, force: true });
