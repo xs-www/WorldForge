@@ -1,5 +1,16 @@
 # HTML 产品静态文档
 
+## 2026-10-15 Agent 视觉原型增量
+
+- 工具集扩展到五个：新增 `list_art_assets`（按目标/目标类型/用途过滤，返回资产编号、用途、绑定目标、生成通道、尺寸与生成时间的索引）与 `get_art_asset`（按编号查看 1–4 张原画的实际画面）。
+- 图像不能放在工具结果消息里，因此 `get_art_asset` 只返回 `imageIds` 与元数据文本；`resolveAgentImages()` 在服务端按编号读取资产文件并转成 data URL，由 `runAgentLoop` 作为**紧随工具结果之后的一条用户消息**附上。工具消息永远不带图。
+- `buildChatMessages` / `buildResponsesInput` 支持带图用户消息：前者产出 `[{type:'text'},{type:'image_url',image_url:{url,detail}}]`，后者产出 `[{type:'input_text'},{type:'input_image',image_url,detail}]`。
+- 单轮附图上限 4 张（`AGENT_LIMITS.maxImages`），附图消息注明「以画面为准；与文字不符时说明差异」。
+- 视觉降级：模型接口拒绝图片（400/404/422）时把已附图的消息改写成文字说明并继续对话，`vision` 返回 `unavailable`；其他错误照常抛出，不会被降级逻辑吞掉。返回值新增 `vision`（`ok`/`unavailable`/`none`）与 `images` 张数，轨迹每条带 `images`。
+- 前端在对话气泡下如实展示「附图 N 张」或「模型接口不接受图片，已移除附图」；`sendFreeMessage()` 上传美术资产元数据索引（上限 200 条，不含文件字节），可见范围沿用 ADR-0021 的授权模型。
+- 缓存版本更新为 `app.js?v=39`。全量 Node 回归测试为 128 项，全部通过。
+- 对真实模型做了两次端到端验证：一次纯文本工具调用（4 轮 / 5 次调用，答出只有读到正文才能知道的事实）；一次视觉验证（2 轮 / 1 次调用，`vision: ok`，附上 1 张真实原画，并且**故意不提供原始提示词**）。视觉验证的回复准确描述了前景翻泥的跪姿人物与木器、灌溉水渠与背陶罐的人、木栅与茅草顶泥墙屋、工坊内唯一的蓝紫色发光晶体、远景大河木桥与方山、以及暖赭＋泥棕＋橄榄绿的色调与低角度暖光，连画面右下角很淡的「AI生成」水印都被识别出来。
+
 ## 2026-10-15 自由创作 Agent 工具调用增量
 
 - 自由创作从单轮问答升级为多轮工具调用。新增 `ai-tools.mjs`：`prepareLibrary(entries)` 规范化并裁剪资料库快照；`FREE_AGENT_TOOLS` 声明 `search_lore`、`get_lore_entry`、`list_lore` 三个只读工具；`runToolCall(name, args, library)` 执行单个调用并返回 `{ ok, content, summary }`，未知工具与非法参数以可恢复错误回给模型而不是抛出。
@@ -383,17 +394,18 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 ### Agent 工具函数
 
 - 位置：`ai-tools.mjs`
-- `AGENT_LIMITS`：条目数、正文长度、搜索/读取条数与单次结果字符的硬上限。
-- `prepareLibrary(entries)`：只保留带稳定 ID 的条目，逐字段裁剪并补齐标签、关联、约束与开放问题。
-- `FREE_AGENT_TOOLS` / `FREE_AGENT_TOOL_NAMES`：三个只读工具的说明与参数 Schema，全部 `additionalProperties: false`。
-- `runToolCall(name, args, library)`：执行单个工具，返回 `{ ok, content, summary }`；未知工具、缺参或越界都以可恢复错误文本交回模型，不抛出。
+- `AGENT_LIMITS`：条目数、正文长度、搜索/读取条数、单次结果字符、美术资产条数与附图张数的硬上限。
+- `prepareLibrary(entries)` / `prepareArtAssets(assets)`：规范化并裁剪资料条目与美术资产索引；后者只接受 `ART-` 前缀编号。
+- `FREE_AGENT_TOOLS` / `FREE_AGENT_TOOL_NAMES`：五个只读工具的说明与参数 Schema，全部 `additionalProperties: false`。
+- `runToolCall(name, args, library, artAssets)`：执行单个工具，返回 `{ ok, content, summary, imageIds? }`；`imageIds` 是需要由调用方解析并附到对话里的资产编号。未知工具、缺参或越界都以可恢复错误文本交回模型，不抛出。
 
 ### Agent 循环与线格式函数
 
 - 位置：`ai-agent.mjs`
-- `runAgentLoop(options)`：多轮编排。模型调用与工具执行由 `callModel` / `runTool` 注入；`maxRounds` 默认 6、`maxToolCalls` 默认 12；返回 `{ reply, trace, rounds, toolCalls, stopped }`，`stopped` 为 `answer` / `tool_budget` / `round_limit`。
+- `runAgentLoop(options)`：多轮编排。模型调用与工具执行由 `callModel` / `runTool` 注入；`maxRounds` 默认 6、`maxToolCalls` 默认 12；单轮附图上限 4 张，附图作为工具结果之后的用户消息发出。返回 `{ reply, trace, rounds, toolCalls, stopped, vision, images }`，`stopped` 为 `answer` / `tool_budget` / `round_limit`，`vision` 为 `ok` / `unavailable` / `none`。
+- `countImages(messages)` / `stripImages(messages)`：统计会话中的附图数量；降级时把附图改写为文字说明，不静默丢图。
 - `toolsForChat(tools)` / `toolsForResponses(tools)`：把统一工具声明转成两种风格的线格式。
-- `buildChatMessages(system, messages)` / `buildResponsesInput(messages)`：把统一会话转成 `tool_calls` + `role: 'tool'`，或 `function_call` + `function_call_output`。
+- `buildChatMessages(system, messages)` / `buildResponsesInput(messages)`：把统一会话转成 `tool_calls` + `role: 'tool'`，或 `function_call` + `function_call_output`；带图用户消息分别产出 `image_url` 与 `input_image` 内容块。
 - `parseChatText(data)` / `parseChatToolCalls(data)` / `parseResponsesText(data)` / `parseResponsesToolCalls(data)`：从两种响应体提取文本与工具调用。
 - `createToolCaller({ config, system, fetchImpl, timeout })`：返回 `callModel({ messages, tools })`；`tools` 为空数组时不发送工具字段，用于强制收尾。
 
@@ -413,7 +425,8 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `validateAiResponse(value, payload)` / `parseAiResponse(raw, payload)`：验证候选数量、唯一 key、选中字段的类型，并拒绝缺失块或任何未选择字段。
 - `parseNameResponse(raw, expectedCount)`：验证名称生成器的候选数量、名称与简短说明。
 - `callAi(payload)`：执行结构化请求、兼容降级、一次格式修复和候选数量复核。
-- `callFreeAgent(payload)`：裁剪最近 20 条对话与作者关联信息；有可检索范围时以只读资料工具驱动多轮调用（`runAgentLoop` + `createToolCaller`），否则退回单轮问答；返回 `{ reply, toolMode, trace, rounds, toolCalls, stopped }`。模型拒绝工具时降级为不带工具的单轮问答并标注 `toolMode: 'unavailable'`。
+- `callFreeAgent(payload)`：裁剪最近 20 条对话与作者关联信息；有可检索范围时以只读资料工具驱动多轮调用（`runAgentLoop` + `createToolCaller`），否则退回单轮问答；返回 `{ reply, toolMode, vision, images, trace, rounds, toolCalls, stopped }`。模型拒绝工具时降级为不带工具的单轮问答并标注 `toolMode: 'unavailable'`。
+- `resolveAgentImages(value, maximum)`：按资产编号从资产目录读取图片并转成 data URL；单个编号失败只记入 `missing`，不影响其余图片。
 - `callNameGenerator(payload)`：按命名类型、数量、要求和上下文执行独立的结构化名称生成。
 - `serveStatic(req, res)`：安全解析路径并提供 `dist/` 静态文件。
 - `createContentStore(databasePath)`：打开 SQLite、设置连接参数并执行内容域前向迁移；迁移失败时关闭连接，成功后返回快照读取、事务替换、健康检查和关闭接口。

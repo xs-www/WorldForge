@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, createLoreResponseSchema, createModelBody, FREE_AGENT_INSTRUCTIONS, HARNESS_VERSION, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
-import { FREE_AGENT_TOOLS, prepareLibrary, runToolCall } from './ai-tools.mjs';
+import { AGENT_LIMITS, FREE_AGENT_TOOLS, prepareArtAssets, prepareLibrary, runToolCall } from './ai-tools.mjs';
 import { createToolCaller, runAgentLoop } from './ai-agent.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
 import { createContentStore } from './storage.mjs';
@@ -132,6 +132,27 @@ async function resolveReferenceImages(value, maximum = 10) {
   const ids=normalizeReferenceAssetIds(value).slice(0,maximum),images=[];
   for(const id of ids){const asset=contentStore.getArtAsset(id);if(!asset)throw new Error(`参考图不存在：${id}`);const file=join(assetsPath,asset.fileName);if(!file.startsWith(assetsPath))throw new Error('参考图路径无效');images.push(toReferenceDataUrl(asset,await readFile(file)))}
   return{ids,images};
+}
+
+// Agent 取图：单个编号失败不影响其余图片，失败项如实回报给模型。
+async function resolveAgentImages(value, maximum = AGENT_LIMITS.maxImages) {
+  const wanted = (Array.isArray(value) ? value : []).slice(0, maximum);
+  const images = [], attached = [], missing = [];
+  for (const raw of wanted) {
+    const id = String(raw || '').trim();
+    if (!/^ART-[A-Fa-f0-9-]+$/.test(id)) { missing.push(id || '(空编号)'); continue; }
+    const asset = contentStore.getArtAsset(id);
+    if (!asset) { missing.push(id); continue; }
+    const file = join(assetsPath, asset.fileName);
+    if (!file.startsWith(assetsPath)) { missing.push(id); continue; }
+    try {
+      images.push(toReferenceDataUrl(asset, await readFile(file)));
+      attached.push(id);
+    } catch {
+      missing.push(id);
+    }
+  }
+  return { images, attached, missing };
 }
 
 async function createArtAsset(payload) {
@@ -267,8 +288,11 @@ const FREE_AGENT_TOOL_GUIDE = `你还可以调用只读资料工具查看作者�
 - search_lore：按关键词、类型、世界或状态检索，返回编号、名称、状态、事实层次与摘要。
 - get_lore_entry：按稳定 ID 读取完整正文、约束、开放问题与关联编号。
 - list_lore：列出资料库条目索引。
+- list_art_assets：列出美术资产（原画 / 视觉原型）索引，含资产编号、用途、绑定目标与生成通道。
+- get_art_asset：按资产编号把 1–4 张原画的实际画面附到本次对话。
 使用规则：
 - 需要引用具体设定内容时，先用 get_lore_entry 读到正文，不要凭摘要或记忆臆测细节。
+- 需要判断画面内容、风格、构图或视觉一致性时，必须先用 get_art_asset 把图附上来；只读元数据不足以描述画面。
 - 工具是只读的；你无法写入、删除，也无法读取资料库以外的任何内容（包括本机文件、密钥或环境变量）。
 - 每条资料都带 status 与 truthScope：proposed 是草案、unknown 是刻意留白，都不能当作已批准正史。
 - 取得足够信息后直接给出最终回答，不要为了凑次数反复调用工具。`;
@@ -284,23 +308,34 @@ async function callFreeAgent(payload) {
   if (!messages.length || messages.at(-1).role !== 'user') throw new Error('请先输入创作需求');
   const related = String(payload?.relatedInformation || '').trim().slice(0, 20000);
   const library = prepareLibrary(payload?.library);
-  if (!library.length) {
+  const artAssets = prepareArtAssets(payload?.artAssets);
+  if (!library.length && !artAssets.length) {
     const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<conversation>\n${transcriptOf(messages)}\n</conversation>\n请直接回复作者的最后一条消息。`;
     const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
     if (!reply) throw new Error('模型没有返回内容');
-    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'none', trace: [], rounds: 0, toolCalls: 0 };
+    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'none', vision: 'none', images: 0, trace: [], rounds: 0, toolCalls: 0 };
   }
+  const inventory = [`可检索资料 ${library.length} 条`, artAssets.length ? `可查看美术资产 ${artAssets.length} 个` : ''].filter(Boolean).join('，');
   const notes = related ? `\n\n<author_notes>\n${related}\n</author_notes>` : '';
-  const system = `${FREE_AGENT_INSTRUCTIONS}\n\n作者提供了 ${library.length} 条可检索资料。\n\n${FREE_AGENT_TOOL_GUIDE}${notes}`;
+  const system = `${FREE_AGENT_INSTRUCTIONS}\n\n作者提供了${inventory}。\n\n${FREE_AGENT_TOOL_GUIDE}${notes}`;
   try {
     const result = await runAgentLoop({
       messages,
       tools: FREE_AGENT_TOOLS,
       callModel: createToolCaller({ config, system }),
-      runTool: (name, args) => runToolCall(name, args, library)
+      runTool: async (name, args) => {
+        const outcome = runToolCall(name, args, library, artAssets);
+        if (Array.isArray(outcome.imageIds) && outcome.imageIds.length) {
+          const resolved = await resolveAgentImages(outcome.imageIds, AGENT_LIMITS.maxImages);
+          outcome.images = resolved.images;
+          outcome.summary = `附上 ${resolved.images.length} 张原画`;
+          if (resolved.missing.length) outcome.content = `${outcome.content}\n无法读取的美术资产：${resolved.missing.join('、')}`;
+        }
+        return outcome;
+      }
     });
     if (!result.reply) throw new Error('模型只调用了工具但没有给出回答，请重试或更换模型');
-    return { reply: result.reply.slice(0, 50000), model: config.model, toolMode: 'native', trace: result.trace, rounds: result.rounds, toolCalls: result.toolCalls, stopped: result.stopped };
+    return { reply: result.reply.slice(0, 50000), model: config.model, toolMode: 'native', vision: result.vision, images: result.images, trace: result.trace, rounds: result.rounds, toolCalls: result.toolCalls, stopped: result.stopped };
   } catch (error) {
     if (![400, 404, 422].includes(error.status)) throw error;
     // 兼容接口不支持工具调用：退回一次不带工具的问答，并把条目索引直接放进上下文。
@@ -308,7 +343,7 @@ async function callFreeAgent(payload) {
     const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>\n<conversation>\n${transcriptOf(messages)}\n</conversation>\n请直接回复作者的最后一条消息。`;
     const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
     if (!reply) throw new Error('模型没有返回内容');
-    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'unavailable', fallbackReason: error.message, trace: [], rounds: 0, toolCalls: 0 };
+    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'unavailable', vision: 'none', images: 0, fallbackReason: error.message, trace: [], rounds: 0, toolCalls: 0 };
   }
 }
 

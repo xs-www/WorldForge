@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AGENT_LIMITS, FREE_AGENT_TOOLS, FREE_AGENT_TOOL_NAMES, prepareLibrary, runToolCall } from '../ai-tools.mjs';
+import { AGENT_LIMITS, FREE_AGENT_TOOLS, FREE_AGENT_TOOL_NAMES, prepareArtAssets, prepareLibrary, runToolCall } from '../ai-tools.mjs';
 
 const entry=(id,type,name,extra={})=>({id,type,name,status:'proposed',truthScope:'objective',worldId:'W01',summary:'',details:'',tags:[],relationIds:[],...extra});
 const library=prepareLibrary([
@@ -11,7 +11,7 @@ const library=prepareLibrary([
 ]);
 
 test('the tool set is read-only and namespaced',()=>{
-  assert.deepEqual(FREE_AGENT_TOOL_NAMES,['search_lore','get_lore_entry','list_lore']);
+  assert.deepEqual(FREE_AGENT_TOOL_NAMES,['search_lore','get_lore_entry','list_lore','list_art_assets','get_art_asset']);
   assert.equal(FREE_AGENT_TOOLS.every(tool=>tool.parameters.type==='object'&&tool.parameters.additionalProperties===false),true);
 });
 
@@ -76,4 +76,47 @@ test('oversized tool output is clipped with an explicit note',()=>{
   const result=runToolCall('get_lore_entry',{ids:['BIG']},huge);
   assert.ok(result.content.length<=AGENT_LIMITS.resultChars+200);
   assert.match(result.content,/truncated/);
+});
+
+const art=(id,extra={})=>({id,purpose:'portrait',targetType:'lore',targetId:'CHR-W01-001',provider:'seedream',size:'2K',provenance:'ai_generated',createdAt:'2026-10-15T00:00:00.000Z',prompt:'一位技工长',...extra});
+const artAssets=prepareArtAssets([art('ART-1'),art('ART-2',{purpose:'environment',targetType:'card',targetId:'CARD-W01-DRAFT-1'}),art('ART-3',{purpose:'item',targetId:'ITM-W01-001'})]);
+
+test('prepareArtAssets keeps only well-formed asset ids and caps the prompt',()=>{
+  const prepared=prepareArtAssets([{id:'not-an-asset',purpose:'x'},art('ART-9',{prompt:'字'.repeat(AGENT_LIMITS.maxImagePrompt+200)})]);
+  assert.deepEqual(prepared.map(item=>item.id),['ART-9']);
+  assert.equal(prepared[0].prompt.length,AGENT_LIMITS.maxImagePrompt);
+  assert.deepEqual(prepareArtAssets(null),[]);
+});
+
+test('list_art_assets filters by target and purpose and stays index-only',()=>{
+  const all=JSON.parse(runToolCall('list_art_assets',{},library,artAssets).content);
+  assert.equal(all.total,3);
+  assert.deepEqual(Object.keys(all.assets[0]).includes('prompt'),false);
+  assert.deepEqual(JSON.parse(runToolCall('list_art_assets',{targetType:'card'},library,artAssets).content).assets.map(a=>a.id),['ART-2']);
+  assert.deepEqual(JSON.parse(runToolCall('list_art_assets',{targetId:'ITM-W01-001'},library,artAssets).content).assets.map(a=>a.id),['ART-3']);
+  assert.deepEqual(JSON.parse(runToolCall('list_art_assets',{purpose:'portrait'},library,artAssets).content).assets.map(a=>a.id),['ART-1']);
+});
+
+test('get_art_asset reports the ids the caller must attach as images',()=>{
+  const result=runToolCall('get_art_asset',{ids:['ART-1','ART-2','NOPE']},library,artAssets);
+  assert.equal(result.ok,true);
+  assert.deepEqual(result.imageIds,['ART-1','ART-2']);
+  assert.match(result.summary,/附上 2 张原画/);
+  const payload=JSON.parse(result.content);
+  assert.deepEqual(payload.missing,['NOPE']);
+  assert.equal(payload.attached[0].originalPrompt,'一位技工长');
+});
+
+test('get_art_asset clamps to the image cap and rejects an empty list',()=>{
+  const many=prepareArtAssets(Array.from({length:9},(_,index)=>art(`ART-${index}`)));
+  assert.equal(runToolCall('get_art_asset',{ids:many.map(a=>a.id)},library,many).imageIds.length,AGENT_LIMITS.maxImages);
+  assert.equal(runToolCall('get_art_asset',{ids:[]},library,many).ok,false);
+});
+
+test('art tools degrade gracefully when no assets were granted',()=>{
+  assert.equal(JSON.parse(runToolCall('list_art_assets',{},library).content).total,0);
+  const empty=runToolCall('get_art_asset',{ids:['ART-1']},library);
+  assert.equal(empty.ok,true);
+  assert.deepEqual(empty.imageIds,[]);
+  assert.deepEqual(JSON.parse(empty.content).missing,['ART-1']);
 });

@@ -22,5 +22,6 @@
 - [ADR-0020：关联资料改用可过滤的分栏选择窗口](ADR-0020-filtered-relation-picker.md) — canon（技术边界）
 - [ADR-0021：选择窗口复用于卡牌设定来源与自由创作参考资料](ADR-0021-shared-picker-targets.md) — canon（技术边界）
 - [ADR-0022：自由创作 Agent 获得多轮只读资料工具](ADR-0022-free-agent-lore-tools.md) — canon（技术边界）
+- [ADR-0023：自由创作 Agent 可以查看美术资产](ADR-0023-agent-art-vision.md) — canon（技术边界）
 
-新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0023` 开始。
+新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0024` 开始。

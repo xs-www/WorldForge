@@ -209,6 +209,81 @@ test('createToolCaller omits tools when the loop asks for a tool-less round',asy
   assert.throws(()=>createToolCaller({config:{baseUrl:'x',model:'m'}}),/密钥/);
 });
 
+test('images returned by a tool are attached as a following user message',async()=>{
+  const requests=[];
+  const callModel=async request=>{
+    requests.push(request.messages.map(item=>({role:item.role,images:(item.images||[]).length})));
+    if(requests.length===1)return{text:'',toolCalls:[{id:'c1',name:'get_art_asset',arguments:'{"ids":["ART-1"]}'}]};
+    return{text:'画面里是一座锅炉。',toolCalls:[]};
+  };
+  const runTool=()=>({ok:true,summary:'附上 1 张原画',content:'{"attached":[{"id":"ART-1"}]}',images:['data:image/jpeg;base64,AAAA']});
+  const result=await runAgentLoop({messages:[{role:'user',content:'这张图画了什么'}],tools:FREE_AGENT_TOOLS,callModel,runTool});
+  assert.equal(result.vision,'ok');
+  assert.equal(result.images,1);
+  assert.equal(result.trace[0].images,1);
+  // 工具消息本身不带图，附图必须出现在紧随其后的用户消息上
+  assert.equal(requests[1].some(item=>item.role==='user'&&item.images===1),true);
+  assert.equal(requests[1].some(item=>item.role==='tool'&&item.images>0),false);
+  assert.equal(result.reply,'画面里是一座锅炉。');
+});
+
+test('attached images are capped per round',async()=>{
+  const requests=[];
+  const callModel=async request=>{
+    requests.push(request.messages.map(item=>({role:item.role,images:(item.images||[]).length})));
+    if(requests.length===1)return{text:'',toolCalls:[{id:'c1',name:'get_art_asset',arguments:'{"ids":["ART-1"]}'}]};
+    return{text:'看完了。',toolCalls:[]};
+  };
+  const runTool=()=>({ok:true,summary:'附上 6 张原画',content:'{}',images:Array.from({length:6},(_,index)=>`data:image/jpeg;base64,AAAA${index}`)});
+  const result=await runAgentLoop({messages:[],tools:FREE_AGENT_TOOLS,callModel,runTool});
+  assert.equal(result.images,4);
+  assert.equal(result.trace[0].images,4);
+  assert.equal(requests[1].find(item=>item.role==='user'&&item.images>0).images,4);
+});
+
+test('a model that rejects images degrades once and still answers',async()=>{
+  const seen=[];
+  let calls=0;
+  const callModel=async request=>{
+    calls+=1;
+    const hasImages=request.messages.some(item=>(item.images||[]).length);
+    seen.push(hasImages);
+    if(calls===1)return{text:'',toolCalls:[{id:'c1',name:'get_art_asset',arguments:'{"ids":["ART-1"]}'}]};
+    if(hasImages){const error=new Error('images unsupported');error.status=400;throw error}
+    return{text:'我看不到图片，只能依据文字作答。',toolCalls:[]};
+  };
+  const runTool=()=>({ok:true,summary:'附上 1 张原画',content:'{}',images:['data:image/jpeg;base64,AAAA']});
+  const result=await runAgentLoop({messages:[],tools:FREE_AGENT_TOOLS,callModel,runTool});
+  assert.equal(result.vision,'unavailable');
+  assert.equal(result.stopped,'answer');
+  assert.match(result.reply,/看不到图片/);
+  assert.deepEqual(seen,[false,true,false]);
+  // 降级后不再把图片留在会话里
+  assert.equal(result.trace[0].images,1);
+});
+
+test('an unrelated provider error is not swallowed by the image fallback',async()=>{
+  let calls=0;
+  const callModel=async ()=>{calls+=1;const error=new Error('rate limited');error.status=429;throw error};
+  await assert.rejects(()=>runAgentLoop({messages:[],tools:FREE_AGENT_TOOLS,callModel,runTool:()=>({ok:true,content:'{}'})}),error=>error.status===429);
+  assert.equal(calls,1);
+});
+
+test('both wire formats carry images on user messages',()=>{
+  const messages=[{role:'user',content:'看图',images:['data:image/jpeg;base64,AAAA']}];
+  const chat=buildChatMessages('系统',messages);
+  assert.equal(chat[1].content[0].type,'text');
+  assert.equal(chat[1].content[1].type,'image_url');
+  assert.equal(chat[1].content[1].image_url.url,'data:image/jpeg;base64,AAAA');
+  const responses=buildResponsesInput(messages);
+  assert.equal(responses[0].content[0].type,'input_text');
+  assert.equal(responses[0].content[1].type,'input_image');
+  assert.equal(responses[0].content[1].image_url,'data:image/jpeg;base64,AAAA');
+  // 没有图片时保持纯文本形态，避免空 content 数组
+  assert.equal(typeof buildResponsesInput([{role:'user',content:'纯文本'}])[0].content[0],'object');
+  assert.equal(buildResponsesInput([{role:'user',content:'纯文本'}])[0].content.length,1);
+});
+
 test('provider errors keep their HTTP status so the caller can degrade',async()=>{
   const failing=async()=>({ok:false,status:400,json:async()=>({error:{message:'tools unsupported'}})});
   const callModel=createToolCaller({config:{key:'k',model:'m',baseUrl:'https://example.test/v1',style:'chat'},system:'s',fetchImpl:failing});

@@ -14,7 +14,7 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=38/);
+  assert.match(htmlSource, /app\.js\?v=39/);
   assert.match(htmlSource, /macro\.js\?v=3/);
   assert.match(htmlSource, /styles\.css\?v=31/);
   assert.match(htmlSource, /cards\.js\?v=6/);
@@ -224,22 +224,32 @@ test('bulk form fill only writes ids that exist in the markup', () => {
   }
 });
 
-test('the free agent reaches lore through read-only server-side tools', () => {
-  assert.match(serverSource, /import \{ FREE_AGENT_TOOLS, prepareLibrary, runToolCall \} from '\.\/ai-tools\.mjs'/);
+test('the free agent reaches lore and art through read-only server-side tools', () => {
+  assert.match(serverSource, /import \{ AGENT_LIMITS, FREE_AGENT_TOOLS, prepareArtAssets, prepareLibrary, runToolCall \} from '\.\/ai-tools\.mjs'/);
   assert.match(serverSource, /import \{ createToolCaller, runAgentLoop \} from '\.\/ai-agent\.mjs'/);
   assert.match(serverSource, /const FREE_AGENT_TOOL_GUIDE/);
   assert.match(serverSource, /const library = prepareLibrary\(payload\?\.library\)/);
+  assert.match(serverSource, /const artAssets = prepareArtAssets\(payload\?\.artAssets\)/);
   assert.match(serverSource, /callModel: createToolCaller\(\{ config, system \}\)/);
-  assert.match(serverSource, /runTool: \(name, args\) => runToolCall\(name, args, library\)/);
+  assert.match(serverSource, /runToolCall\(name, args, library, artAssets\)/);
+  assert.match(serverSource, /async function resolveAgentImages\(value, maximum = AGENT_LIMITS\.maxImages\)/);
+  assert.match(serverSource, /outcome\.images = resolved\.images/);
+  assert.match(serverSource, /if \(!library\.length && !artAssets\.length\)/);
+  // 美术资产必须能被真正看到，而不是只给元数据
+  assert.match(serverSource, /get_art_asset：按资产编号把 1–4 张原画的实际画面附到本次对话/);
+  assert.match(serverSource, /必须先用 get_art_asset 把图附上来/);
   // 三种模式都要如实回报，方便前端说明当前是工具检索还是退回单轮
   assert.match(serverSource, /toolMode: 'native'/);
   assert.match(serverSource, /toolMode: 'unavailable'/);
   assert.match(serverSource, /toolMode: 'none'/);
+  assert.match(serverSource, /vision: result\.vision/);
   assert.match(serverSource, /if \(!\[400, 404, 422\]\.includes\(error\.status\)\) throw error;/);
   // 旧的“客户端开关决定是否附带索引”不再由服务端判断
   assert.doesNotMatch(serverSource, /payload\?\.includeLibrary/);
   assert.match(appSource, /function freeAgentMeta\(message\)/);
   assert.match(appSource, /freeMessages\.map\(item=>\(\{role:item\.role,content:item\.content\}\)\)/);
+  assert.match(appSource, /artAssets:grantedArt/);
+  assert.match(appSource, /grantedArt=granted\.length\?artAssets\.slice\(0,200\)/);
   assert.match(appSource, /data\.trace/);
   assert.match(styleSource, /\.free-trace\{/);
   assert.match(htmlSource, /允许 Agent 检索整个资料库/);
