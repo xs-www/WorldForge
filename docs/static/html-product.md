@@ -1,5 +1,17 @@
 # HTML 产品静态文档
 
+## 2026-10-15 关联资料选择窗口增量
+
+- 「关联资料」由 `<select multiple>` 改为 `<dialog id="relationDialog">` 分栏选择窗口：一侧为全量资料池，另一侧为已选关联，窄屏上下堆叠。编辑器表单里只保留已选标签（`#relationSummary`）与「选择关联资料（N）」按钮。
+- 新增 `dist/relation-picker.js` 纯函数模块：`filter(entries, options)` 支持 `query / type / status / worldMode / currentWorldId / excludeId / selectedIds / view`，`toggle`、`remove`、`summarize`、`missingCount` 处理选择与汇总；配有独立 Node 测试。
+- `openRelationPicker()` 把已提交选择复制成草稿并重置过滤器；`renderRelationPicker()` 同时渲染资料池与已选区；`applyRelations()` 才把草稿写回 `relationSelection`，「取消」或关闭窗口丢弃草稿。
+- 资料池过滤器：搜索（名称、编号、摘要、正文、标签）、类型（13 类 + 全部）、世界（当前世界 / 其他世界 / 全部世界，默认当前世界）、状态（canon / proposed / unknown / deprecated / 全部）、显示（全部 / 仅未选 / 仅已选）。当前正在编辑的条目始终被排除。
+- `renderRelationSummary()` 在表单里显示已选标签，并把已删除条目留下的失效引用标为「N 条已失效引用」，不静默丢弃。
+- `collectLoreForm()` 改为读取 `relationSelection`，不再读下拉框的 `selectedOptions`。
+- 修复 `fillLoreForm()` 仍向已移除的 `#loreWorldId` 元素写值的问题：该动作会让「应用 AI 候选到当前表单」直接抛错。同一类问题（`loadLore` 与 `fillLoreForm` 的「id → 值」映射表）已由 `tests/subpath-routing.test.mjs` 的映射键检查覆盖。
+- 缓存版本更新为 `app.js?v=36`、`styles.css?v=30`，并新增 `relation-picker.js?v=1`。全量 Node 回归测试为 90 项，全部通过。
+- 另以最小 DOM 桩运行真实 `app.js` 验证：空状态与标签渲染、打开时草稿的初始化、资料池排除当前条目与其他世界、搜索与类型/世界/显示过滤、点选与取消、移除按钮、取消丢弃与应用的提交语义、`collectLoreForm()` 读取结果、失效引用提示，共 21 项行为断言全部通过。
+
 ## 2026-10-15 世界观两级结构增量
 
 - 世界观模块拆成两级：一级 `#worldHub` 是世界面板列表，二级 `#worldDetail` 是单个世界的资料工作区。`enterWorld(worldId)` 进入并重置到「世界」分类，`leaveWorld()` 返回一级并清空当前世界；`switchModule('world')` 与 `bootstrap()` 都会回到一级。
@@ -100,6 +112,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 | `dist/cards.js` | 卡牌类型/稀有度规范化、旧类型迁移、来源去重与设定到卡牌默认映射 |
 | `dist/geography.js` | 地理层级定义、父级规则、世界地图树构造、祖先搜索与旧地点隔离 |
 | `dist/world-scope.js` | 世界分组、按世界取资料、下一世界编号分配、世界搜索与资料归属搬运 |
+| `dist/relation-picker.js` | 关联资料池的搜索与类型/世界/状态/显示过滤、选择切换、已选汇总与失效引用统计 |
 | `dist/chronicle.js` | 编年史容器/节点规范化、父级校验、纪年排序、搜索与旧数据兼容 |
 | `server.mjs` | 静态服务、内容 API、本机设置持久化、AI 状态与模型请求代理 |
 | `storage.mjs` | SQLite Schema、输入校验、事务化快照读写、revision 冲突保护与健康检查 |
@@ -319,6 +332,26 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `countByType(entries)`：按资料类型计数。
 - `searchWorlds(groups, query)`：按世界标题、编号、摘要与正文过滤分组。
 - `reassign(entries, sourceWorldId, targetWorldId)`：把来源编号下的非世界条目改到目标编号，返回新数组与实际搬运条数；世界条目自身不参与搬运。
+
+### 关联选择函数
+
+- `relationTypeOptions(): void`：首次打开窗口时用 13 类资料填充 `#relationTypeFilter`。
+- `populateRelations(selected): void`：把条目的 `relationIds` 装入 `relationSelection` 并刷新表单标签；保留原签名，供载入、保存与 AI 候选应用复用。
+- `renderRelationSummary(): void`：渲染已选标签与「N 条已失效引用」提示，并把按钮文案更新为「选择关联资料（N）」。
+- `relationFilters(): object`：从窗口控件与当前世界组装过滤条件。
+- `openRelationPicker(): void` / `renderRelationPicker(): void`：打开窗口并把已提交选择复制为草稿；渲染资料池与已选区并更新计数与空状态。
+- `relationPoolRow(entry)` / `relationChosenRow(entry)`：生成资料池条目（点击切换选择）与已选条目（带移除按钮）。
+- `applyRelations(): void`：把草稿写回 `relationSelection`；「取消」或关闭窗口不会写回。
+- `collectLoreForm()`：`relationIds` 直接取 `relationSelection`，不再读下拉框的 `selectedOptions`。
+
+### Relation Picker 纯函数
+
+- 位置：`dist/relation-picker.js`
+- `filter(entries, options)`：按查询、类型、状态、世界模式、排除项、显示视图与已选集合过滤资料；`worldMode` 支持 `current` / `other` / `all`，当前世界为空时不做世界收窄。
+- `toggle(ids, id)`：加入或移除一条关联，保持添加顺序。
+- `remove(ids, id)`：移除指定关联。
+- `summarize(ids, entries)`：按选择顺序返回仍然存在的条目，用于标签与已选区渲染。
+- `missingCount(ids, entries)`：返回已失效引用的数量。
 
 ### 服务端函数
 

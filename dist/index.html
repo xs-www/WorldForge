@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=29">
+  <link rel="stylesheet" href="./styles.css?v=30">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -134,7 +134,7 @@
             </div>
             <div class="lore-form-row relation-row">
               <label class="story-hidden">标签<input id="loreTags" placeholder="用逗号分隔，例如：魔导工业, 能源"></label>
-              <label><span id="loreRelationsLabel">关联资料</span><select id="loreRelations" multiple size="4" aria-describedby="relationHelp"></select><small id="relationHelp">按 Ctrl / Command 可多选；只建立引用，不改写被关联条目。</small></label>
+              <div class="relation-field"><span id="loreRelationsLabel">关联资料</span><div class="relation-chips" id="relationSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openRelationPicker" type="button">选择关联资料</button><small id="relationHelp">只建立引用，不改写被关联条目；默认在本次世界内挑选，也可以切换到其他世界。</small></div></div>
             </div>
             <section class="attached-stories" id="attachedStories" aria-labelledby="attachedStoriesTitle">
               <div><div><strong id="attachedStoriesTitle">挂载的背景故事</strong><small id="attachedStoriesHelp">保存资料后，可为它建立多篇独立故事。</small></div><button class="button secondary compact" id="newAttachedStory" type="button">＋ 新建故事</button></div>
@@ -369,6 +369,32 @@
 
   <dialog id="noteDialog"><form method="dialog" class="dialog-card"><div class="dialog-header"><div><p class="eyebrow">本地备注</p><h2 id="noteTitle">编辑备注</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div><p class="dialog-description" id="noteDescription"></p><label for="noteText">备注内容</label><textarea id="noteText" rows="7" placeholder="记录倾向、约束、反例或待验证项……"></textarea><p class="field-help">内容保存在服务端 SQLite，不会自动写入仓库。</p><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button class="button primary" id="saveNote" value="default">保存备注</button></div></form></dialog>
   <dialog id="keywordDialog"><form method="dialog" class="dialog-card" id="keywordForm"><div class="dialog-header"><div><p class="eyebrow">关键词定义</p><h2>新建关键词</h2></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="form-grid"><label class="full">关键词名称<input id="keywordName" required maxlength="20" placeholder="例如：过载"></label><label class="full">规则说明<textarea id="keywordDefinition" required rows="4" placeholder="明确说明触发时机、效果和持续时间"></textarea></label></div><p class="field-help">关键词保存在服务端 SQLite，默认状态为 proposed。</p><div class="dialog-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="saveKeyword" value="default">保存关键词</button></div></form></dialog>
+  <dialog id="relationDialog" class="relation-dialog">
+    <form method="dialog" class="dialog-card relation-card" id="relationForm">
+      <div class="dialog-header"><div><p class="eyebrow">关联资料</p><h2 id="relationDialogTitle">选择关联资料</h2></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div>
+      <div class="relation-picker">
+        <section class="relation-panel">
+          <div class="relation-panel-head"><strong>全部资料</strong><span id="relationPoolCount">0 条</span></div>
+          <div class="relation-filters">
+            <label class="relation-search"><span aria-hidden="true">⌕</span><input type="search" id="relationSearch" placeholder="搜索名称、编号、摘要、正文或标签" aria-label="搜索资料"></label>
+            <label>类型<select id="relationTypeFilter"></select></label>
+            <label>世界<select id="relationWorldFilter"><option value="current">当前世界</option><option value="other">其他世界</option><option value="all">全部世界</option></select></label>
+            <label>状态<select id="relationStatusFilter"><option value="all">全部状态</option><option value="canon">canon · 已批准</option><option value="proposed">proposed · 草案</option><option value="unknown">unknown · 留白</option><option value="deprecated">deprecated · 已废弃</option></select></label>
+            <label>显示<select id="relationViewFilter"><option value="all">全部</option><option value="unselected">仅未选</option><option value="selected">仅已选</option></select></label>
+          </div>
+          <div class="relation-list" id="relationPoolList"></div>
+          <p class="art-empty" id="relationPoolEmpty">没有匹配的资料。</p>
+        </section>
+        <section class="relation-panel chosen">
+          <div class="relation-panel-head"><strong>已选关联</strong><span id="relationChosenCount">0 条</span></div>
+          <div class="relation-list" id="relationChosenList"></div>
+          <p class="art-empty" id="relationChosenEmpty">还没有选择关联资料。</p>
+          <button class="text-action" id="clearRelations" type="button">清空已选</button>
+        </section>
+      </div>
+      <div class="dialog-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="applyRelations" value="default">应用关联</button></div>
+    </form>
+  </dialog>
   <dialog id="settingsDialog" class="settings-dialog"><form method="dialog" class="dialog-card settings-card" id="settingsForm"><div class="dialog-header"><div><p class="eyebrow">Worldforge</p><h2>设置</h2><p>模型密钥与创作内容保存在本机服务端；编辑偏好只保存在当前浏览器。</p></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="settings-layout"><nav class="settings-nav" aria-label="设置分类"><button class="active" type="button" data-settings-tab="ai">语言模型</button><button type="button" data-settings-tab="prompts">提示词工程</button><button type="button" data-settings-tab="image">图像生成</button><button type="button" data-settings-tab="editor">编辑偏好</button><button type="button" data-settings-tab="data">数据管理</button></nav><div class="settings-content">
     <section class="settings-section active" data-settings-panel="ai"><h3>AI 服务</h3><p>支持 OpenAI Responses API 和兼容 Chat Completions 的服务。</p><div class="settings-grid"><label class="full">API Key<input id="settingApiKey" type="password" autocomplete="new-password" placeholder="未修改时留空"><small id="settingKeyState">正在读取状态…</small></label><label class="check-label full"><input id="settingClearKey" type="checkbox">清除已经保存的 API Key</label><label class="full">Base URL<input id="settingBaseUrl" type="url" required placeholder="https://api.openai.com/v1"></label><label>模型<input id="settingModel" required placeholder="gpt-5-mini"></label><label>API 类型<select id="settingApiStyle"><option value="responses">Responses API</option><option value="chat">Chat Completions</option></select></label></div><div class="settings-inline-status" id="settingsSaveStatus" role="status"></div></section>
     <section class="settings-section" data-settings-panel="prompts" hidden><h3>提示词工程</h3><p>文字生成与视觉原型分别使用可编辑提示；固定安全边界不会被这些内容替换。</p><div class="settings-grid prompt-settings-grid"><label class="full">文字设定部分<select id="settingPromptType"><option value="world">世界</option><option value="location">世界地图</option><option value="faction">势力</option><option value="character">角色</option><option value="species">种族</option><option value="culture">文化</option><option value="religion">宗教</option><option value="magic">魔法</option><option value="technology">科技</option><option value="item">物品</option><option value="event">事件</option><option value="timeline">时间线</option><option value="story">背景故事</option></select></label><label class="full">当前文字分类提示词<textarea id="settingTypePrompt" rows="7" maxlength="8000" placeholder="为当前设定类型提供写作重点、结构和边界"></textarea></label><div class="full prompt-reset-row"><button class="button secondary compact" id="resetTypePrompt" type="button">恢复文字分类默认提示</button></div><label class="full">统一个性化文字提示词<textarea id="settingPersonalizedPrompt" rows="5" maxlength="8000" placeholder="例如：语言克制、重视普通人的生活细节"></textarea></label><div class="full prompt-divider"><strong>视觉提示词</strong><small>生成时会与当前条目、卡牌来源及其一跳关联资料一起组合。</small></div><label class="full">统一视觉风格提示词<textarea id="settingVisualStylePrompt" rows="5" maxlength="8000" placeholder="定义整个项目共用的材质、色彩、构图和原创性方向"></textarea></label><label class="full">生图部分<select id="settingImagePromptType"><option value="card">卡牌插画</option><option value="world">世界</option><option value="location">世界地图</option><option value="faction">势力</option><option value="character">角色</option><option value="species">种族</option><option value="culture">文化</option><option value="religion">宗教</option><option value="magic">魔法</option><option value="technology">科技</option><option value="item">物品</option><option value="event">事件</option><option value="timeline">编年史</option><option value="story">背景故事</option><option value="other">其他</option></select></label><label class="full">当前生图分类提示词<textarea id="settingImagePrompt" rows="7" maxlength="8000" placeholder="规定这一类视觉原型的主体、尺度、构图与表现重点"></textarea></label><div class="full prompt-reset-row"><button class="button secondary compact" id="resetImagePrompt" type="button">恢复生图分类默认提示</button></div></div><div class="settings-inline-status" id="promptSettingsStatus" role="status"></div></section>
@@ -381,8 +407,9 @@
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
   <script src="./world-scope.js?v=1"></script>
+  <script src="./relation-picker.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=35"></script>
+  <script src="./app.js?v=36"></script>
 </body>
 </html>

@@ -14,11 +14,12 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=35/);
+  assert.match(htmlSource, /app\.js\?v=36/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=29/);
+  assert.match(htmlSource, /styles\.css\?v=30/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /world-scope\.js\?v=1/);
+  assert.match(htmlSource, /relation-picker\.js\?v=1/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
 });
@@ -159,6 +160,50 @@ test('worldview module is a world list that scopes every entry to one world', ()
   assert.match(styleSource, /\.world-grid\{/);
   assert.match(styleSource, /\.world-hub\[hidden\],\.world-detail\[hidden\]\{display:none\}/);
   assert.match(styleSource, /\.field-readonly\{/);
+});
+
+test('relations use a filtered picker window instead of a multi-select', () => {
+  assert.doesNotMatch(htmlSource, /id="loreRelations"/);
+  assert.match(htmlSource, /id="relationSummary"/);
+  assert.match(htmlSource, /id="openRelationPicker"/);
+  assert.match(htmlSource, /id="relationDialog"/);
+  assert.match(htmlSource, /id="relationSearch"/);
+  assert.match(htmlSource, /id="relationTypeFilter"/);
+  assert.match(htmlSource, /id="relationWorldFilter"/);
+  assert.match(htmlSource, /id="relationStatusFilter"/);
+  assert.match(htmlSource, /id="relationViewFilter"/);
+  assert.match(htmlSource, /id="relationPoolList"/);
+  assert.match(htmlSource, /id="relationChosenList"/);
+  assert.match(htmlSource, /id="applyRelations"/);
+  assert.match(appSource, /function openRelationPicker\(\)/);
+  assert.match(appSource, /function renderRelationPicker\(\)/);
+  assert.match(appSource, /function applyRelations\(\)/);
+  assert.match(appSource, /function renderRelationSummary\(\)/);
+  assert.match(appSource, /relationIds:\[\.\.\.relationSelection\]/);
+  assert.match(appSource, /WorldforgeRelationPicker\.filter\(all,\{\.\.\.relationFilters\(\),selectedIds:relationDraft\}\)/);
+  assert.match(appSource, /WorldforgeRelationPicker\.toggle\(relationDraft,entry\.id\)/);
+  assert.doesNotMatch(appSource, /q\('#loreRelations'\)/);
+  assert.match(styleSource, /\.relation-picker\{/);
+  assert.match(styleSource, /\.relation-row\.chosen\{/);
+});
+
+test('bulk form fill only writes ids that exist in the markup', () => {
+  // loadLore 与 fillLoreForm 都用「id → 值」映射表写表单；映射表里的键必须是真实存在的元素 id，
+  // 否则 q() 返回 null，赋值会抛错并让整个动作失效。
+  const mapKeysOf = (fnName) => {
+    const start = appSource.indexOf(`function ${fnName}(`);
+    assert.ok(start > -1, `${fnName} should exist`);
+    const body = appSource.slice(start);
+    const mapStart = body.indexOf('const values={') + 'const values={'.length;
+    const mapEnd = body.indexOf('};Object.entries(values)');
+    assert.ok(mapStart > 0 && mapEnd > mapStart, `${fnName} should build a key/value map`);
+    return [...body.slice(mapStart, mapEnd).matchAll(/([A-Za-z][A-Za-z0-9]*)\s*:/g)].map(match => match[1]);
+  };
+  for (const fnName of ['loadLore', 'fillLoreForm']) {
+    const keys = mapKeysOf(fnName);
+    assert.ok(keys.length >= 15, `${fnName} should expose keys, got ${keys.length}`);
+    assert.deepEqual(keys.filter(key => !htmlSource.includes(`id="${key}"`)), [], `${fnName} writes unknown ids`);
+  }
 });
 
 test('artwork gallery covers the whole asset library with a used/unused filter', () => {

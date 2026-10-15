@@ -102,3 +102,39 @@
 .breadcrumb-link{border:0;background:transparent;padding:0;color:var(--primary);font-size:11px;font-weight:600;cursor:pointer}
 .breadcrumb-link:hover{text-decoration:underline}
 .field-readonly{display:flex;align-items:center;height:38px;padding:0 9px;border:1px dashed var(--border-strong);border-radius:7px;background:var(--surface-subtle);color:var(--muted);font-size:11px;font-weight:600}
+.relation-field{display:grid;gap:8px}
+.relation-field>span{font-size:11px;font-weight:700}
+.relation-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:30px;align-items:flex-start}
+.relation-chip{padding:4px 9px;border:1px solid var(--border);border-radius:20px;background:var(--surface-subtle);font-size:11px;line-height:1.4}
+.relation-chip.missing{border-color:#d9a2a2;color:#a15a5a}
+.relation-empty{color:var(--faint);font-size:11px}
+.relation-field-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.relation-field-actions small{color:var(--muted);font-size:10px;line-height:1.5;flex:1;min-width:180px}
+.relation-dialog{width:min(1040px,94vw);max-width:none;padding:0;border:0;background:transparent}
+.relation-card{width:100%;max-width:none}
+.relation-picker{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;padding:0 18px}
+.relation-panel{display:grid;gap:8px;align-content:start;min-width:0}
+.relation-panel.chosen{border-left:1px solid var(--border);padding-left:16px}
+.relation-panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.relation-panel-head strong{font-size:12px}
+.relation-panel-head span{color:var(--muted);font-size:10px}
+.relation-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.relation-filters label{display:grid;gap:5px;color:var(--muted);font-size:10px;font-weight:700}
+.relation-filters select{height:34px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);padding:0 8px;font-size:11px}
+.relation-search{grid-column:1/-1;display:flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);color:var(--faint)}
+.relation-search input{flex:1;border:0;background:transparent;outline:0;font-size:12px;color:var(--text)}
+.relation-list{display:grid;align-content:start;gap:4px;max-height:280px;overflow:auto;padding-right:4px}
+.relation-panel.chosen .relation-list{max-height:322px}
+.relation-row{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);text-align:left;font:inherit;color:var(--text);cursor:pointer}
+.relation-row>div,.relation-row>span{display:grid;gap:3px;min-width:0;flex:1}
+.relation-row strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.relation-row small{color:var(--muted);font-size:10px}
+.relation-row:hover{border-color:var(--primary)}
+.relation-row.chosen{border-color:var(--primary);background:var(--primary-soft)}
+.relation-row.chosen::before{content:'✓';color:var(--primary);font-weight:800;font-size:12px}
+.relation-panel.chosen .relation-row.chosen{cursor:default}
+.relation-panel.chosen .relation-row.chosen::before{content:'●';font-size:9px}
+.relation-drop{border:0;background:transparent;color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;padding:4px 6px;flex:none}
+.relation-drop:hover{color:#c85555}
+#relationDialog .dialog-actions{padding:16px 18px 18px}
+@media(max-width:900px){.relation-picker{grid-template-columns:1fr}.relation-panel.chosen{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:12px}.relation-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
