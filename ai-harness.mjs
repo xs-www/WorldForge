@@ -55,7 +55,8 @@ export function generationContract(payload = {}) {
 
 export function createLoreResponseSchema(payload = {}) {
   const contract = generationContract(payload), properties = Object.fromEntries(contract.blocks.map(item => [item.key, blockSchema(item)]));
-  return { type: 'object', additionalProperties: false, required: ['variants'], properties: { variants: { type: 'array', minItems: 1, maxItems: 5, items: { type: 'object', additionalProperties: false, required: ['key', 'content'], properties: { key: { type: 'string' }, content: { type: 'object', additionalProperties: false, required: contract.selectedBlocks, properties } } } } } };
+  const count = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3));
+  return { type: 'object', additionalProperties: false, required: ['variants'], properties: { variants: { type: 'array', minItems: count, maxItems: count, items: { type: 'object', additionalProperties: false, required: ['key', 'content'], properties: { key: { type: 'string' }, content: { type: 'object', additionalProperties: false, required: contract.selectedBlocks, properties } } } } } };
 }
 
 export function buildPrompt(payload, bundle) {
@@ -94,6 +95,90 @@ export function parseAiResponse(raw, payload = {}) {
   if (raw && typeof raw === 'object') return validateAiResponse(raw, payload);
   const cleaned = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try { return validateAiResponse(JSON.parse(cleaned), payload); } catch (error) { if (error instanceof SyntaxError) throw new Error('模型没有返回有效 JSON'); throw error; }
+}
+
+function preview(value, limit = 8000) {
+  let source;
+  try { source = typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
+  catch { source = String(value); }
+  return source.length > limit ? `${source.slice(0, limit)}\n…（已截断）` : source;
+}
+
+function responseContract(payload) {
+  const contract = generationContract(payload);
+  return { type: contract.type, blocks: contract.blocks.map(({ key, label, kind }) => ({ key, label, kind })) };
+}
+
+export function inspectAiResponse(raw, payload = {}, stage = 'initial') {
+  const cleaned = typeof raw === 'string' ? raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '') : raw;
+  let value;
+  try { value = typeof cleaned === 'string' ? JSON.parse(cleaned) : cleaned; }
+  catch { return { variants: [], receivedCount: 0, contract: responseContract(payload), issues: [{ stage, index: null, code: 'INVALID_JSON', message: '模型没有返回有效 JSON', preview: preview(raw) }] }; }
+  if (!value || typeof value !== 'object' || !Array.isArray(value.variants)) {
+    return { variants: [], receivedCount: 0, contract: responseContract(payload), issues: [{ stage, index: null, code: 'INVALID_ENVELOPE', message: '返回值缺少 variants 数组', preview: preview(value) }] };
+  }
+  const variants = [], issues = [], keys = new Set();
+  value.variants.forEach((candidate, index) => {
+    try {
+      const validated = validateAiResponse({ variants: [candidate] }, payload).variants[0];
+      if (keys.has(validated.key)) throw new Error(`候选 key 重复：${validated.key}`);
+      keys.add(validated.key);
+      variants.push(validated);
+    } catch (error) {
+      issues.push({ stage, index, code: 'INVALID_VARIANT', message: error.message, preview: preview(candidate) });
+    }
+  });
+  return { variants, receivedCount: value.variants.length, contract: responseContract(payload), issues };
+}
+
+export function buildSupplementPrompt(originalPrompt, missingCount, acceptedVariants = [], issues = []) {
+  const issueSummary = issues.slice(0, 8).map(item => `- ${item.index === null ? '整体' : `第 ${item.index + 1} 条`}：${item.message}`).join('\n') || '- 返回条数不足';
+  return `${originalPrompt}\n\n<accepted_variants>\n${JSON.stringify(acceptedVariants, null, 2)}\n</accepted_variants>\n上面的 accepted_variants 已经验收并会被保留，不要重写、复述或返回它们。初次输出存在以下问题：\n${issueSummary}\n现在只补充缺少的 ${missingCount} 份新候选。严格返回恰好 ${missingCount} 份 variants，并使用与已验收候选不同的 key 和实质内容。`;
+}
+
+export async function completeAiVariants({ raw, payload = {}, expectedCount, requestSupplement }) {
+  const wanted = Math.min(5, Math.max(1, Number(expectedCount) || 3));
+  const initial = inspectAiResponse(raw, payload, 'initial');
+  const variants = initial.variants.slice(0, wanted), issues = [...initial.issues];
+  if (initial.variants.length > wanted) issues.push({ stage: 'initial', index: null, code: 'EXTRA_VARIANTS', message: `模型返回 ${initial.variants.length} 条合法候选，只保留前 ${wanted} 条`, preview: '' });
+  const initialAcceptedCount = variants.length;
+  let supplementalRequested = 0, supplementalAccepted = 0;
+  if (variants.length < wanted) {
+    supplementalRequested = wanted - variants.length;
+    issues.push({ stage: 'initial', index: null, code: 'INSUFFICIENT_VARIANTS', message: `初次仅验收 ${variants.length}/${wanted} 条，将只补充剩余 ${supplementalRequested} 条`, preview: '' });
+    if (typeof requestSupplement === 'function') {
+      try {
+        const supplementRaw = await requestSupplement({ missingCount: supplementalRequested, acceptedVariants: [...variants], issues: [...issues] });
+        const supplement = inspectAiResponse(supplementRaw, payload, 'supplement');
+        issues.push(...supplement.issues);
+        const keys = new Set(variants.map(item => item.key));
+        for (const candidate of supplement.variants) {
+          if (variants.length >= wanted) break;
+          if (keys.has(candidate.key)) {
+            issues.push({ stage: 'supplement', index: null, code: 'DUPLICATE_VARIANT', message: `补充候选 key 与已验收候选重复：${candidate.key}`, preview: preview(candidate) });
+            continue;
+          }
+          keys.add(candidate.key); variants.push(candidate); supplementalAccepted += 1;
+        }
+      } catch (error) {
+        issues.push({ stage: 'supplement', index: null, code: 'SUPPLEMENT_FAILED', message: `补充生成失败：${error.message}`, preview: '' });
+      }
+    }
+  }
+  return {
+    variants,
+    contract: initial.contract,
+    diagnostics: {
+      status: variants.length === wanted ? 'complete' : 'partial',
+      requestedCount: wanted,
+      receivedCount: initial.receivedCount,
+      initialAcceptedCount,
+      supplementalRequested,
+      supplementalAccepted,
+      finalCount: variants.length,
+      issues
+    }
+  };
 }
 
 export function createModelBody(config, prompt, options = {}) {

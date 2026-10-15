@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildContextBundle, buildPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_INSTRUCTIONS, HARNESS_VERSION, NAME_RESPONSE_SCHEMA, parseAiResponse, parseNameResponse } from './ai-harness.mjs';
+import { buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, createLoreResponseSchema, createModelBody, FREE_AGENT_INSTRUCTIONS, HARNESS_VERSION, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
 import { createContentStore } from './storage.mjs';
 import { composeImagePrompt } from './image-context.mjs';
@@ -210,7 +210,6 @@ async function callAi(payload) {
   const validationPayload = { ...payload, allowedRelationIds: [...bundle.examples, ...bundle.entries].map(entry => entry.id) };
   const expectedCount = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3));
   const schema = createLoreResponseSchema(payload);
-  const parseExpected = value => { const parsed = parseAiResponse(value, validationPayload); if (parsed.variants.length !== expectedCount) throw new Error(`候选数量应为 ${expectedCount}，实际为 ${parsed.variants.length}`); return parsed; };
   let structured = true;
   let raw;
   try { raw = await requestModel(config, prompt, { structured: true, schema, payload }); }
@@ -219,13 +218,17 @@ async function callAi(payload) {
     structured = false;
     raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, { structured: false, payload });
   }
-  let result;
-  try { result = parseExpected(raw); }
-  catch (firstError) {
-    const repair = `下面的模型输出未通过 Worldforge JSON Schema 校验。只修复格式、缺失内容块或多余内容块，不新增事实。\n校验错误：${firstError.message}\n原始输出：\n${String(raw).slice(0, 50000)}`;
-    const repaired = await requestModel(config, repair, { structured, schema, payload });
-    result = parseExpected(repaired);
-  }
+  const result = await completeAiVariants({ raw, payload: validationPayload, expectedCount, requestSupplement: async ({ missingCount, acceptedVariants, issues }) => {
+    const supplementPayload = { ...payload, variantCount: missingCount };
+    const supplementPrompt = buildSupplementPrompt(prompt, missingCount, acceptedVariants, issues);
+    const supplementSchema = createLoreResponseSchema(supplementPayload);
+    if (!structured) return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload });
+    try { return await requestModel(config, supplementPrompt, { structured: true, schema: supplementSchema, payload: supplementPayload }); }
+    catch (error) {
+      if (![400, 404, 422].includes(error.status)) throw error;
+      return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload });
+    }
+  } });
   return { ...result, harnessVersion: HARNESS_VERSION, contextMeta: bundle.contextMeta };
 }
 

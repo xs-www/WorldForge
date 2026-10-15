@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildContextBundle, buildPrompt, createLoreResponseSchema, createModelBody, parseAiResponse, parseNameResponse } from '../ai-harness.mjs';
+import { buildContextBundle, buildPrompt, completeAiVariants, createLoreResponseSchema, createModelBody, inspectAiResponse, parseAiResponse, parseNameResponse } from '../ai-harness.mjs';
 import { contentSpec, normalizeSelectedBlocks } from '../ai-content-specs.mjs';
 
 const draft = { id: 'CHR-DRAFT', type: 'character', name: '空白角色', status: 'proposed', truthScope: 'objective', worldId: 'W01', tags: ['矿区'], relationIds: [] };
@@ -26,6 +26,8 @@ test('prompt and schema contain only selected content blocks', () => {
   const prompt = buildPrompt(payload, bundle), schema = createLoreResponseSchema(payload);
   assert.match(prompt, /只生成以下已勾选内容块/);
   assert.match(prompt, /禁止输出“本候选”/);
+  assert.equal(schema.properties.variants.minItems, 2);
+  assert.equal(schema.properties.variants.maxItems, 2);
   assert.deepEqual(schema.properties.variants.items.properties.content.required, ['name', 'details']);
   assert.deepEqual(Object.keys(schema.properties.variants.items.properties.content.properties), ['name', 'details']);
 });
@@ -55,4 +57,55 @@ test('name generator validates exact candidate count', () => {
   const value = parseNameResponse(JSON.stringify({ names: [{ name: '雾铆港', note: '强调潮湿港区与铆接工业。' }] }), 1);
   assert.equal(value.names[0].name, '雾铆港');
   assert.throws(() => parseNameResponse(JSON.stringify({ names: [] }), 1), /数量/);
+});
+
+test('candidate inspection preserves valid variants and exposes invalid model fragments', () => {
+  const payload = { draft, selectedBlocks: ['details'] };
+  const inspected = inspectAiResponse({ variants: [
+    { key: 'usable', content: { details: '可以直接使用的正文。' } },
+    { key: 'broken', content: { summary: '返回了未选择字段。' } }
+  ] }, payload);
+  assert.deepEqual(inspected.variants.map(item => item.key), ['usable']);
+  assert.equal(inspected.receivedCount, 2);
+  assert.equal(inspected.issues[0].index, 1);
+  assert.match(inspected.issues[0].message, /未选择/);
+  assert.match(inspected.issues[0].preview, /broken/);
+});
+
+test('candidate completion requests only the missing count and merges accepted variants', async () => {
+  const payload = { draft, selectedBlocks: ['details'] };
+  const result = await completeAiVariants({
+    raw: { variants: [
+      { key: 'kept', content: { details: '保留我。' } },
+      { key: 'invalid', content: {} }
+    ] },
+    payload,
+    expectedCount: 3,
+    requestSupplement: async ({ missingCount, acceptedVariants }) => {
+      assert.equal(missingCount, 2);
+      assert.deepEqual(acceptedVariants.map(item => item.key), ['kept']);
+      return { variants: [
+        { key: 'added-a', content: { details: '只补第一条。' } },
+        { key: 'added-b', content: { details: '只补第二条。' } }
+      ] };
+    }
+  });
+  assert.deepEqual(result.variants.map(item => item.key), ['kept', 'added-a', 'added-b']);
+  assert.equal(result.diagnostics.supplementalRequested, 2);
+  assert.equal(result.diagnostics.supplementalAccepted, 2);
+  assert.equal(result.diagnostics.status, 'complete');
+});
+
+test('failed supplement returns visible partial diagnostics instead of discarding output', async () => {
+  const result = await completeAiVariants({
+    raw: 'not-json model prose',
+    payload: { draft, selectedBlocks: ['details'] },
+    expectedCount: 3,
+    requestSupplement: async () => 'still not json'
+  });
+  assert.equal(result.variants.length, 0);
+  assert.equal(result.diagnostics.status, 'partial');
+  assert.equal(result.diagnostics.supplementalRequested, 3);
+  assert.ok(result.diagnostics.issues.some(item => item.preview.includes('not-json model prose')));
+  assert.ok(result.diagnostics.issues.some(item => item.stage === 'supplement' && item.preview.includes('still not json')));
 });
