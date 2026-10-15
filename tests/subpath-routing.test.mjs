@@ -13,9 +13,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=26/);
+  assert.match(htmlSource, /app\.js\?v=27/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=20/);
+  assert.match(htmlSource, /styles\.css\?v=21/);
   assert.match(htmlSource, /cards\.js\?v=1/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);

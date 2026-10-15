@@ -31,11 +31,14 @@ export function validateImageRequest(payload) {
   if(!targetId||targetId.length>160)throw new Error('生成目标 ID 无效');
   if(targetType==='card'&&!/^CARD-[A-Za-z0-9-]+$/.test(targetId))throw new Error('卡牌 ID 无效，请先建立卡牌草案');
   if(targetType==='lore'&&!/^[A-Za-z0-9][A-Za-z0-9-]{1,159}$/.test(targetId))throw new Error('设定条目 ID 无效，请先保存资料');
-  return { prompt, size, targetType, targetId, purpose, cardId:targetType==='card'?targetId:'' };
+  const referenceImages=Array.isArray(payload?.referenceImages)?payload.referenceImages:[];
+  if(referenceImages.length>10)throw new Error('一次最多使用 10 张参考图');
+  if(referenceImages.some(image=>typeof image!=='string'||!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image)))throw new Error('参考图数据格式无效');
+  return { prompt, size, targetType, targetId, purpose, cardId:targetType==='card'?targetId:'', referenceImages };
 }
 
 export function buildSeedreamBody(config, request) {
-  return {
+  const body={
     model: config.model,
     prompt: `${request.prompt}\n仅生成原创视觉原型或插画本体，不要文字、数字、卡框、标志或界面元素。`,
     size: request.size,
@@ -43,6 +46,8 @@ export function buildSeedreamBody(config, request) {
     stream: false,
     watermark: true
   };
+  if(request.referenceImages?.length)body.image=request.referenceImages.length===1?request.referenceImages[0]:request.referenceImages;
+  return body;
 }
 
 export async function generateSeedreamImage(config, payload, fetchImpl = fetch) {

@@ -1,5 +1,19 @@
 # HTML 产品静态文档
 
+## 2026-10-15 世界观视觉与参考图增量
+
+- `renderLoreLinkedCards()`：按 `card.loreRefs` 反向列出引用当前设定的卡牌，显示已有卡面，并允许跳转到卡牌编辑器。
+- `bindExistingCardToLore()`：把当前设定 ID 追加到用户选定的已有卡牌，不创建新卡、不修改设定状态。
+- `openImageViewer(asset, title)`：在共用模态窗口中显示卡牌、设定或参考资产的大图及来源元数据。
+- `referencePool(kind)` / `renderReferenceAssets(kind)`：为卡牌或设定聚合本对象与双向关联对象的既有画作，维护最多 10 张的参考图选择。
+- `uploadReferenceFiles(kind, files)`：校验 PNG、JPEG、WebP 与 8 MB 本地限制，调用 `POST /api/reference-assets` 后把上传图登记到共用资源库。
+- `parseReferenceUpload(payload)` / `normalizeReferenceAssetIds(value)` / `toReferenceDataUrl(asset, bytes)`：服务端参考图边界；验证目标、格式、大小和数量，并在请求 Seedream 前把本地文件转换成 data URL。
+- `createReferenceAsset(payload)` / `resolveReferenceImages(value)`：持久化用户参考图并按资源 ID 安全解析生成请求；生成资产会记录 `referenceAssetIds`。
+- `buildSeedreamBody(config, request)`：有参考图时写入方舟图片生成接口的 `image` 字段；单图使用字符串，多图使用数组。
+- `normalizeCard(card)` 新增 `referenceAssetIds`：卡牌保存去重后的前 10 张参考资源，支持连续生成同系列卡面。
+- ComfyUI 尚无统一的参考图节点契约；带参考图请求会返回明确错误，不会静默忽略。
+- 自动化覆盖增至 61 项，并在 Docker 实际页面验证了世界观关联卡牌区、卡牌参考图区与大图查看器。
+
 ## 1. 产品定位
 
 Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为“世界设定编辑器”“卡牌设计”和“自由创作”。设定编辑器覆盖 13 类资料，包括可挂载到人物、地点等条目的独立背景故事；自由创作提供不受模块 Schema 限制的对话 Agent 与常用工具。AI 功能由零依赖 Node 服务代理，运行时创作内容由 SQLite 统一持久化；它不会自动修改仓库或把草案晋升为正史。

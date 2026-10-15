@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=20">
+  <link rel="stylesheet" href="./styles.css?v=21">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -122,6 +122,10 @@
               <div class="attached-story-list" id="attachedStoryList"></div>
               <p id="attachedStoryEmpty">尚无关联故事。故事会独立保存，并可继续关联其他故事。</p>
             </section>
+            <section class="linked-cards" id="loreLinkedCards" aria-labelledby="loreLinkedCardsTitle">
+              <div><div><strong id="loreLinkedCardsTitle">关联卡牌</strong><small>支持“先有卡、后补设定”；绑定只更新卡牌的设定来源。</small></div><div class="linked-card-bind"><select id="loreCardLinkSelect" aria-label="选择已有卡牌"></select><button class="button secondary compact" id="bindLoreCard" type="button">绑定已有卡牌</button></div></div>
+              <div class="linked-card-list" id="loreLinkedCardList"></div><p id="loreLinkedCardEmpty">尚无卡牌引用当前资料。</p>
+            </section>
             <section class="lore-visuals" id="loreVisuals" aria-labelledby="loreVisualsTitle">
               <div class="lore-visuals-heading"><div><strong id="loreVisualsTitle">视觉原型</strong><small id="loreVisualsHelp">保存资料后，可依据正文、关联资料和背景故事生成多张 proposed 候选图。</small></div></div>
               <div class="lore-visual-controls">
@@ -129,6 +133,7 @@
                 <label>生成通道<select id="loreArtProvider"><option value="seedream">火山方舟 Seedream</option><option value="comfyui">本地 ComfyUI</option></select></label>
                 <label>画面尺寸<select id="loreArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select></label>
                 <label class="full">本次画面要求<textarea id="loreArtPrompt" rows="5" maxlength="3000" placeholder="可选：补充姿态、镜头、时间、天气、材质或希望避免的内容"></textarea></label>
+                <div class="full reference-panel"><div><strong>参考图片</strong><small>可上传图片，也可选用当前条目或关联卡牌的既有画作；最多 10 张。</small></div><label class="button secondary compact upload-button">＋ 添加参考图<input id="loreReferenceUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label><div class="reference-assets" id="loreReferenceAssets"></div><p class="art-empty" id="loreReferenceEmpty">暂无可用参考图。</p></div>
                 <div class="full art-actions"><button class="button secondary compact" id="prepareLoreArtPrompt" type="button">根据设定准备提示词</button><button class="button secondary compact" id="optimizeLoreArtPrompt" type="button">语言模型优化</button><button class="button primary compact" id="generateLoreArt" type="button" disabled>生成 1 张（可能付费）</button></div>
                 <p class="full art-status" id="loreArtStatus" role="status">请先保存并选择一个设定条目。</p>
               </div>
@@ -196,7 +201,7 @@
               <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">装备</option></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" value="W01" maxlength="20"></div>
               <div class="option-group"><label for="cardLoreRefs">设定来源</label><select id="cardLoreRefs" multiple size="5" aria-describedby="cardLoreHelp"></select><p class="field-help" id="cardLoreHelp">可关联多个设定条目；从世界观生成时只预填草案，不会自动保存或晋升正史。</p></div>
               <div class="option-group"><span>已选关键词</span><div class="selected-keywords" id="selectedKeywords"><p>未选择关键词</p></div></div>
-              <div class="option-group card-art-controls"><span>AI 候选卡面</span><label for="cardArtProvider">生成通道</label><select id="cardArtProvider"><option value="seedream">火山方舟 Seedream（API Key）</option><option value="comfyui">本地 ComfyUI</option></select><label for="cardArtPrompt">插画提示词</label><textarea id="cardArtPrompt" rows="6" maxlength="3000" placeholder="描述主体、场景、构图、材质、色彩与光影……"></textarea><label for="cardArtSize">画面尺寸</label><select id="cardArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select><div class="art-actions"><button class="button secondary compact" id="optimizeCardArtPrompt" type="button">语言模型优化</button><button class="button primary compact" id="generateCardArt" type="button" disabled>生成 1 张（可能付费）</button></div><p class="art-status" id="seedreamCardStatus" role="status">正在读取图像服务…</p><div class="art-candidates" id="cardArtCandidates"></div><p class="art-empty" id="cardArtEmpty">当前卡牌暂无候选插画。</p></div>
+              <div class="option-group card-art-controls"><span>AI 候选卡面</span><label for="cardArtProvider">生成通道</label><select id="cardArtProvider"><option value="seedream">火山方舟 Seedream（API Key）</option><option value="comfyui">本地 ComfyUI</option></select><label for="cardArtPrompt">插画提示词</label><textarea id="cardArtPrompt" rows="6" maxlength="3000" placeholder="描述主体、场景、构图、材质、色彩与光影……"></textarea><div class="reference-panel"><div><strong>参考图片</strong><small>上传或复用关联设定的画作，适合连续生成同系列卡面；最多 10 张。</small></div><label class="button secondary compact upload-button">＋ 添加参考图<input id="cardReferenceUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label><div class="reference-assets" id="cardReferenceAssets"></div><p class="art-empty" id="cardReferenceEmpty">暂无可用参考图。</p></div><label for="cardArtSize">画面尺寸</label><select id="cardArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select><div class="art-actions"><button class="button secondary compact" id="optimizeCardArtPrompt" type="button">语言模型优化</button><button class="button primary compact" id="generateCardArt" type="button" disabled>生成 1 张（可能付费）</button></div><p class="art-status" id="seedreamCardStatus" role="status">正在读取图像服务…</p><div class="art-candidates" id="cardArtCandidates"></div><p class="art-empty" id="cardArtEmpty">当前卡牌暂无候选插画。</p></div>
               <div class="info-callout"><strong>关键词显示</strong><p>附加说明为可选；填写后显示为“关键词：附加说明”，并随卡牌一起保存。</p></div>
             </div>
           </div>
@@ -349,11 +354,12 @@
     <section class="settings-section" data-settings-panel="editor" hidden><h3>编辑偏好</h3><p>这些偏好作用于新建资料，不会修改已保存条目。</p><div class="settings-grid"><label>主题<select id="settingTheme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label><label>界面密度<select id="settingDensity"><option value="comfortable">舒适</option><option value="compact">紧凑</option></select></label><label>默认所属世界<input id="settingWorldId" maxlength="20" value="W01"></label><label>新资料状态<select id="settingDefaultStatus"><option value="proposed">proposed</option><option value="unknown">unknown</option></select></label><label>默认事实层次<select id="settingTruthScope"><option value="objective">objective</option><option value="in_world_belief">in_world_belief</option><option value="unknown">unknown</option></select></label></div></section>
     <section class="settings-section" data-settings-panel="data" hidden><h3>数据管理</h3><p>设定、背景故事、卡牌、关键词、备注与美术元数据保存在服务端 SQLite；图片文件保存在同一持久卷，不会自动写入仓库或晋升正史。</p><div class="data-summary"><article><strong id="settingLoreCount">0</strong><span>设定资料</span></article><article><strong id="settingStoryCount">0</strong><span>背景故事</span></article><article><strong id="settingCardCount">0</strong><span>卡牌草案</span></article><article><strong id="settingKeywordCount">0</strong><span>关键词</span></article><article><strong id="settingArtCount">0</strong><span>美术资产</span></article></div><button class="button secondary" id="settingsExport" type="button">导出完整 JSON</button></section>
   </div></div><div class="dialog-actions settings-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="saveSettings" value="default">保存设置</button></div></form></dialog>
+  <dialog id="imageViewer" class="image-viewer"><form method="dialog"><button class="close-button" value="cancel" aria-label="关闭图片">×</button><img id="imageViewerImage" alt="画作大图"><div><strong id="imageViewerTitle">画作预览</strong><small id="imageViewerMeta"></small></div></form></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
   <script src="./cards.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=26"></script>
+  <script src="./app.js?v=27"></script>
 </body>
 </html>

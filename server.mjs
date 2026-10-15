@@ -8,6 +8,7 @@ import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './
 import { createContentStore } from './storage.mjs';
 import { composeImagePrompt } from './image-context.mjs';
 import { generateSeedreamImage, seedreamConfig, validateImageRequest, validateSeedreamSettings } from './seedream.mjs';
+import { normalizeReferenceAssetIds, parseReferenceUpload, toReferenceDataUrl } from './reference-assets.mjs';
 import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, DEFAULT_VISUAL_STYLE_PROMPT, normalizePromptSettings, validatePromptSettings } from './prompt-settings.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
@@ -66,9 +67,9 @@ const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
 const securityHeaders = { 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()' };
 function json(res, status, value) { res.writeHead(status, { ...securityHeaders, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); }
 
-async function readBody(req) {
+async function readBody(req, maxLength = 2000000) {
   let body = '';
-  for await (const chunk of req) { body += chunk; if (body.length > 2000000) throw new Error('请求内容过长'); }
+  for await (const chunk of req) { body += chunk; if (body.length > maxLength) throw new Error('请求内容过长'); }
   return JSON.parse(body || '{}');
 }
 
@@ -116,6 +117,21 @@ async function savePromptSettings(settings) {
 
 function imageExtension(mimeType) { return ({ 'image/png': '.png', 'image/webp': '.webp', 'image/jpeg': '.jpg' })[mimeType] || '.img'; }
 
+async function createReferenceAsset(payload) {
+  const upload = parseReferenceUpload(payload), id = `ART-${randomUUID().toUpperCase()}`;
+  const fileName = `${id}${imageExtension(upload.mimeType)}`, file = join(assetsPath, fileName), temporary = `${file}.tmp`;
+  await writeFile(temporary, upload.bytes, { mode: 0o600 });
+  await rename(temporary, file);
+  const asset={id,targetType:upload.targetType,targetId:upload.targetId,cardId:upload.targetType==='card'?upload.targetId:'',purpose:'reference',prompt:'用户上传参考图',model:'user-upload',size:'reference',mimeType:upload.mimeType,fileName,status:'proposed',provenance:'user_reference',provider:'local-upload',originalName:upload.originalName,createdAt:new Date().toISOString()};
+  try{return contentStore.createArtAsset(asset)}catch(error){await unlink(file).catch(()=>{});throw error}
+}
+
+async function resolveReferenceImages(value) {
+  const ids=normalizeReferenceAssetIds(value),images=[];
+  for(const id of ids){const asset=contentStore.getArtAsset(id);if(!asset)throw new Error(`参考图不存在：${id}`);const file=join(assetsPath,asset.fileName);if(!file.startsWith(assetsPath))throw new Error('参考图路径无效');images.push(toReferenceDataUrl(asset,await readFile(file)))}
+  return{ids,images};
+}
+
 async function createArtAsset(payload) {
   const clientRequestId = String(payload?.clientRequestId || '').trim();
   if (clientRequestId && !/^[A-Za-z0-9-]{8,80}$/.test(clientRequestId)) throw new Error('图片请求 ID 无效');
@@ -124,10 +140,12 @@ async function createArtAsset(payload) {
     if (existing) return existing;
   }
   const composed=composeImagePrompt(payload,await loadPromptSettings());
-  const request = validateImageRequest({...payload,prompt:composed.prompt});
+  const references=await resolveReferenceImages(payload?.referenceAssetIds);
+  const request = validateImageRequest({...payload,prompt:composed.prompt,referenceImages:references.images});
   const provider = payload.provider === 'comfyui' ? 'comfyui' : 'seedream';
   let generated, model, providerName;
   if (provider === 'comfyui') {
+    if(references.ids.length)throw new Error('ComfyUI 当前工作流未配置参考图输入；请切换 Seedream 或取消参考图');
     const config = comfyUiConfig();
     generated = await generateComfyUiImage(config, await loadComfyWorkflow(), { ...request, negativePrompt: String(payload.negativePrompt || '').slice(0, 3000) });
     model = 'comfyui-workflow'; providerName = 'local-comfyui';
@@ -151,6 +169,7 @@ async function createArtAsset(payload) {
     prompt: generated.request.prompt,
     promptKey:composed.key,
     contextIds:composed.contextIds,
+    referenceAssetIds:references.ids,
     model,
     size: generated.request.size,
     mimeType: generated.mimeType,
@@ -338,6 +357,10 @@ createServer(async (req, res) => {
       return json(res, 200, contentStore.replace(await readBody(req)));
     }
     if (req.method === 'GET' && req.url === '/api/art-assets') return json(res, 200, { assets: contentStore.listArtAssets() });
+    if (req.method === 'POST' && req.url === '/api/reference-assets') {
+      if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少图片上传请求标记' });
+      return json(res, 201, { asset: await createReferenceAsset(await readBody(req, 12 * 1024 * 1024)) });
+    }
     const artMatch = pathname.match(/^\/api\/art-assets\/(ART-[A-F0-9-]+)\/file$/i);
     if (req.method === 'GET' && artMatch) return serveArtAsset(artMatch[1], res);
     if (req.method === 'GET' && req.url === '/api/seedream/status') { const c = seedreamConfig(); return json(res, 200, { configured: Boolean(c.key), model: c.model, baseUrl: c.baseUrl }); }

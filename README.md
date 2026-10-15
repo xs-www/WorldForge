@@ -32,7 +32,9 @@ AI 设定助手会根据当前条目、显式关联、同世界 canon 以及同�
 
 “自由创作 Agent”独立于各模块助手，不要求 JSON 或固定格式，可由作者提供需求、关联信息和可选资料库索引进行连续对话；对话不自动写入资料库。常用工具区首批提供名称生成器，候选可复制或回填当前资料名称，后续可继续扩展其他轻量工具。
 
-卡牌编辑器支持两种文生图通道：火山方舟 Seedream API Key，以及本地 ComfyUI。Seedream 使用 `/api/v3/images/generations`、`response_format: url`、`size: 2K`、`watermark: true`；服务端会立即下载临时结果 URL。ComfyUI 需要粘贴“API Format”工作流，并在正向提示词处使用 `{{PROMPT}}` 占位符；还可使用 `{{NEGATIVE_PROMPT}}`、`{{WIDTH}}`、`{{HEIGHT}}` 和 `{{SEED}}`。每次生图带唯一请求 ID；若长耗时连接中断，前端只查询本地资源库找回同一次请求已完成的图片，不会自动再次发起可能付费的生成。空响应或非 JSON 响应会显示 HTTP 状态和请求 ID供排查。生成前可调用已配置的语言模型优化提示词，优化结果会先回填供作者确认。所有生成图均为 `proposed` 候选，不会自动成为正式卡面或正史素材。
+世界观条目与卡牌编辑器共用视觉资产库和大图查看器。设定侧可绑定已经存在的卡牌、查看卡牌画作并生成世界、人物、地点或物品视觉原型；两侧均可上传 PNG、JPEG、WebP 参考图，或复用关联对象的既有画作。Seedream 每次最多接收 10 张参考图，所用资源 ID 会随生成资产保存；本地上传单图限制为 8 MB。卡牌会保存当前参考图组合，便于连续生成同系列插画。ComfyUI 参考图输入尚未形成通用工作流契约，选择参考图时会明确要求切换 Seedream 或取消参考图。
+
+卡牌编辑器支持两种生图通道：火山方舟 Seedream API Key，以及本地 ComfyUI。Seedream 使用 `/api/v3/images/generations`、`response_format: url`、`size: 2K`、`watermark: true`；服务端会立即下载临时结果 URL。ComfyUI 需要粘贴“API Format”工作流，并在正向提示词处使用 `{{PROMPT}}` 占位符；还可使用 `{{NEGATIVE_PROMPT}}`、`{{WIDTH}}`、`{{HEIGHT}}` 和 `{{SEED}}`。每次生图带唯一请求 ID；若长耗时连接中断，前端只查询本地资源库找回同一次请求已完成的图片，不会自动再次发起可能付费的生成。空响应或非 JSON 响应会显示 HTTP 状态和请求 ID供排查。生成前可调用已配置的语言模型优化提示词，优化结果会先回填供作者确认。所有生成图均为 `proposed` 候选，不会自动成为正式卡面或正史素材。
 
 直接打开 `dist/index.html` 可使用除 AI 和服务端设置外的编辑功能。完整模式使用：
 
