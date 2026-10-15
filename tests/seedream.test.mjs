@@ -12,7 +12,7 @@ test('Seedream settings and card art requests enforce the Ark boundary', () => {
   const reference='data:image/png;base64,aGVsbG8=';
   const body = buildSeedreamBody(config, { prompt: '魔导列车', size: '2K', referenceImages:[reference] });
   assert.equal(body.response_format, 'url');
-  assert.equal(body.watermark, true);
+  assert.equal(body.watermark, false);
   assert.match(body.prompt, /不要文字/);
   assert.equal(body.image,reference);
 });

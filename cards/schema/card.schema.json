@@ -14,12 +14,12 @@
     "cost": { "type": "number", "minimum": 0 },
     "stats": {
       "type": "object",
-      "required": ["attack", "health"],
       "properties": {
         "attack": { "type": "number", "minimum": 0 },
-        "health": { "type": "number", "minimum": 1 }
+        "health": { "type": "number", "minimum": 1 },
+        "durability": { "type": "number", "minimum": 1 }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "keywords": {
       "type": "array",
@@ -43,5 +43,10 @@
     "balance_status": { "type": "string" },
     "effects": { "type": "array" }
   },
+  "allOf": [
+    { "if": { "properties": { "card_type": { "const": "minion" } } }, "then": { "properties": { "stats": { "required": ["attack", "health"], "not": { "required": ["durability"] } } } } },
+    { "if": { "properties": { "card_type": { "const": "spell" } } }, "then": { "properties": { "stats": { "maxProperties": 0 } } } },
+    { "if": { "properties": { "card_type": { "const": "equipment" } } }, "then": { "properties": { "stats": { "required": ["attack", "durability"], "not": { "required": ["health"] } } } } }
+  ],
   "additionalProperties": true
 }

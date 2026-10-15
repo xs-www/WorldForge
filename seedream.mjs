@@ -44,7 +44,7 @@ export function buildSeedreamBody(config, request) {
     size: request.size,
     response_format: 'url',
     stream: false,
-    watermark: true
+    watermark: false
   };
   if(request.referenceImages?.length)body.image=request.referenceImages.length===1?request.referenceImages[0]:request.referenceImages;
   return body;

@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=21">
+  <link rel="stylesheet" href="./styles.css?v=26">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -151,6 +151,7 @@
             <fieldset class="ai-block-fieldset"><legend>生成内容块</legend><p>只生成勾选部分；未勾选字段会保留当前内容。</p><div class="ai-block-grid" id="aiContentBlocks"></div><button class="text-action" id="toggleAiBlocks" type="button">全选 / 全不选</button></fieldset>
             <label>补充要求<textarea id="aiPrompt" rows="5" maxlength="3000" placeholder="例如：提供三种互相区分的政治结构，并说明代价"></textarea></label>
             <label>本次补充示例<textarea id="aiExamples" rows="4" maxlength="6000" placeholder="可选：粘贴希望本次生成参考的片段、写法或结构示例"></textarea><small id="aiExampleMeta">还会自动参考同世界、同类型的 canon 条目。</small></label>
+            <div class="ai-vision-panel"><div><strong>图片参考</strong><span id="aiVisionCount">0 张已选</span></div><small>选择当前设定或关联卡牌的画作。图片会随本次请求发送给模型，模型本身必须支持视觉输入。</small><label class="button secondary compact upload-button" for="loreReferenceUpload">＋ 添加图片</label><div class="reference-assets" id="aiVisionReferenceAssets"></div><p class="art-empty" id="aiVisionReferenceEmpty">保存资料后可添加图片。</p></div>
             <button class="button primary" id="runAi" type="button">生成候选方案</button>
             <div class="ai-result" id="aiResult" hidden><div class="ai-result-heading"><div><strong>候选方案</strong><small id="aiContextMeta"></small></div><span id="aiSelectionCount">0 项已选</span></div><div class="ai-variant-list" id="aiVariantList"></div><button class="button primary" id="saveAiSelections" type="button" disabled>保存所选为独立草案</button><p class="field-help">可多选或全部不选。只有点击保存后，所选方案才会进入本地资料库。</p></div>
             <p class="ai-config-help">模型设置可在右上角“设置”中修改；密钥只由本地服务读取。</p>
@@ -162,16 +163,20 @@
     <section class="module-page" id="cardsModule" data-page="cards" aria-labelledby="cardsTitle" hidden>
       <div class="page-heading">
         <div><p class="breadcrumb">项目 / W01 / 卡牌</p><h1 id="cardsTitle">卡牌设计</h1><p>编辑卡牌数值、描述和关键词。所有本地草案均为 proposed / untested。</p></div>
-        <div class="heading-actions"><label class="search-box"><span aria-hidden="true">⌕</span><input type="search" placeholder="搜索已保存卡牌" data-search-input="cards" aria-label="搜索已保存卡牌"></label><button class="button secondary" id="newCard" type="button">新建卡牌</button></div>
+        <div class="heading-actions"><button class="button primary" id="newCard" type="button">创建卡牌</button></div>
       </div>
       <div class="metric-row" aria-label="卡牌设计统计">
         <article><span>卡牌草案</span><strong id="draftCardCount">0</strong><small>本地保存</small></article>
         <article><span>关键词</span><strong id="keywordCount">0</strong><small>可加入描述</small></article>
-        <article><span>基础字段</span><strong>3</strong><small>费用 / 攻击 / 血量</small></article>
+        <article><span>类型属性</span><strong>3</strong><small>随从攻/生 · 法术无属性 · 武器攻/耐</small></article>
         <article><span>平衡状态</span><strong>—</strong><small>全部 untested</small></article>
       </div>
 
-      <div class="card-workspace">
+      <nav class="card-subtabs" aria-label="卡牌功能"><button class="card-subtab active" type="button" data-card-tab="library">卡牌库</button><button class="card-subtab" type="button" data-card-tab="artwork">原画集</button></nav>
+
+      <section class="panel card-library-page" data-card-panel="library"><div class="card-library-toolbar"><label class="search-box"><span aria-hidden="true">⌕</span><input type="search" placeholder="搜索名称、描述或关键词" data-search-input="cards" aria-label="搜索卡牌库"></label><label>类型<select id="cardLibraryType"><option value="all">全部类型</option><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select></label><label>稀有度<select id="cardLibraryRarity"><option value="all">全部稀有度</option><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select></label><span id="savedCardLabel">0 张</span></div><div class="card-collection-grid" id="cardList"></div><div class="saved-card-empty" id="cardEmpty"><strong>暂无卡牌</strong><p>点击“创建卡牌”进入独立编辑界面。</p></div><p class="no-results" id="cardNoResults" hidden>没有匹配的卡牌。</p><nav class="card-pagination" aria-label="卡牌库分页"><button class="button secondary compact" id="cardPagePrev" type="button">上一页</button><span id="cardPageLabel">第 1 / 1 页</span><button class="button secondary compact" id="cardPageNext" type="button">下一页</button></nav></section>
+
+      <div class="card-workspace" data-card-panel="editor" hidden>
         <aside class="panel keyword-panel">
           <div class="panel-title"><h2>关键词</h2><button class="panel-action" id="newKeyword" type="button">定义关键词</button></div>
           <p class="panel-help">点击关键词可加入或移出当前卡牌。需要时可为本卡填写附加说明。</p>
@@ -180,40 +185,36 @@
         </aside>
 
         <section class="panel editor-panel" aria-labelledby="editorHeading">
-          <div class="panel-title editor-title"><div><h2 id="editorHeading">卡牌编辑器</h2><span id="editorState">新卡牌</span></div><div><span class="status proposed">proposed</span><button class="button primary compact" id="saveCard" type="button">保存卡牌</button></div></div>
+          <div class="panel-title editor-title"><div><button class="button secondary compact" id="backToCardLibrary" type="button">← 卡牌库</button><h2 id="editorHeading">卡牌编辑器</h2><span id="editorState">新卡牌</span></div><div><span class="status proposed">proposed</span><button class="button primary compact" id="saveCard" type="button">保存卡牌</button></div></div>
           <div class="editor-body">
             <div class="card-stage">
               <article class="editable-card" id="cardPreview" aria-label="可编辑卡牌预览">
+                <img class="card-frame-overlay" id="cardFrameOverlay" src="./assets/card-frames/shared.png" alt="" aria-hidden="true">
                 <label class="card-stat cost-stat"><span>费用</span><input id="cardCost" type="number" min="0" value="0" aria-label="费用"></label>
                 <label class="card-name-field"><span>卡牌名称</span><input id="cardName" maxlength="40" value="未命名卡牌" aria-label="卡牌名称"></label>
                 <div class="card-art-placeholder"><img id="cardArtImage" hidden alt="当前卡牌插画"><span id="cardArtPlaceholder" aria-hidden="true">W01</span></div>
-                <div class="card-description-field">
-                  <div class="card-keyword-preview" id="cardKeywordPreview"></div>
-                  <label><span>卡牌描述</span><textarea id="cardRules" rows="5" placeholder="输入卡牌描述……" aria-label="卡牌描述"></textarea></label>
-                </div>
+                <div class="card-description-field"><div class="card-keyword-preview empty" id="cardKeywordPreview">未填写描述</div></div>
                 <label class="card-stat attack-stat"><span>攻击</span><input id="cardAttack" type="number" min="0" value="0" aria-label="攻击"></label>
-                <label class="card-stat health-stat"><span>血量</span><input id="cardHealth" type="number" min="1" value="1" aria-label="血量"></label>
+                <label class="card-stat health-stat"><span id="cardSecondaryLabel">生命</span><input id="cardHealth" type="number" min="1" value="1" aria-label="生命"></label>
               </article>
-              <p class="preview-help">直接修改卡面中的费用、攻击、血量和描述。保存后会出现在右侧卡牌列表。</p>
+              <p class="preview-help">直接修改费用、类型属性与描述；法术无底部属性，武器使用耐久。保存后可从卡牌库再次打开。</p>
             </div>
 
             <div class="card-options">
-              <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">装备</option></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" value="W01" maxlength="20"></div>
+              <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" value="W01" maxlength="20"></div>
               <div class="option-group"><label for="cardLoreRefs">设定来源</label><select id="cardLoreRefs" multiple size="5" aria-describedby="cardLoreHelp"></select><p class="field-help" id="cardLoreHelp">可关联多个设定条目；从世界观生成时只预填草案，不会自动保存或晋升正史。</p></div>
+              <div class="option-group"><label for="cardRules">普通文本描述</label><textarea id="cardRules" class="card-flavor-input" rows="4" maxlength="1000" placeholder="写入关键词之后显示的普通规则文本……"></textarea><p class="field-help">保存与卡面显示会自动编译为：独立关键词 → 带附加描述关键词 → 普通文本。支持 <code>&lt;b&gt;粗体&lt;/b&gt;</code>、<code>&lt;i&gt;斜体&lt;/i&gt;</code>、<code>**粗体**</code> 与 <code>*斜体*</code>。</p></div>
               <div class="option-group"><span>已选关键词</span><div class="selected-keywords" id="selectedKeywords"><p>未选择关键词</p></div></div>
+              <div class="option-group"><label for="cardFlavor">趣闻信息</label><textarea id="cardFlavor" class="card-flavor-input" rows="3" maxlength="500" placeholder="可选：轶事、引语或世界内传闻。不会显示在卡面上，但会随卡牌保存。"></textarea><p class="field-help">默认不显示在卡面；可在卡牌库详情与导出数据中读取。</p></div>
+              <div class="option-group crop-controls"><span>原画裁剪</span><label>横向焦点<input id="cardCropX" type="range" min="0" max="100" value="50"></label><label>纵向焦点<input id="cardCropY" type="range" min="0" max="100" value="50"></label><label>缩放<input id="cardCropZoom" type="range" min="100" max="250" value="100"></label><button class="button secondary compact" id="resetCardCrop" type="button">重置裁剪</button><p class="field-help">可直接在卡面原画上拖动位置，并用滚轮缩放；滑杆可精调。保存后同一裁剪会进入编译 PNG。</p></div>
               <div class="option-group card-art-controls"><span>AI 候选卡面</span><label for="cardArtProvider">生成通道</label><select id="cardArtProvider"><option value="seedream">火山方舟 Seedream（API Key）</option><option value="comfyui">本地 ComfyUI</option></select><label for="cardArtPrompt">插画提示词</label><textarea id="cardArtPrompt" rows="6" maxlength="3000" placeholder="描述主体、场景、构图、材质、色彩与光影……"></textarea><div class="reference-panel"><div><strong>参考图片</strong><small>上传或复用关联设定的画作，适合连续生成同系列卡面；最多 10 张。</small></div><label class="button secondary compact upload-button">＋ 添加参考图<input id="cardReferenceUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label><div class="reference-assets" id="cardReferenceAssets"></div><p class="art-empty" id="cardReferenceEmpty">暂无可用参考图。</p></div><label for="cardArtSize">画面尺寸</label><select id="cardArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select><div class="art-actions"><button class="button secondary compact" id="optimizeCardArtPrompt" type="button">语言模型优化</button><button class="button primary compact" id="generateCardArt" type="button" disabled>生成 1 张（可能付费）</button></div><p class="art-status" id="seedreamCardStatus" role="status">正在读取图像服务…</p><div class="art-candidates" id="cardArtCandidates"></div><p class="art-empty" id="cardArtEmpty">当前卡牌暂无候选插画。</p></div>
               <div class="info-callout"><strong>关键词显示</strong><p>附加说明为可选；填写后显示为“关键词：附加说明”，并随卡牌一起保存。</p></div>
             </div>
           </div>
         </section>
 
-        <aside class="panel saved-cards-panel">
-          <div class="panel-title"><h2>已保存卡牌</h2><span id="savedCardLabel">0 张</span></div>
-          <div class="saved-card-list" id="cardList"></div>
-          <div class="saved-card-empty" id="cardEmpty"><strong>暂无卡牌</strong><p>在中间卡面直接编辑并保存。</p></div>
-          <p class="no-results" id="cardNoResults" hidden>没有匹配的卡牌。</p>
-        </aside>
       </div>
+      <section class="panel card-artwork-gallery" data-card-panel="artwork" hidden><div class="panel-title"><div><h2>原画集</h2><small>卡牌绑定原画与当前裁剪效果</small></div><span id="artworkCount">0 幅</span></div><div class="artwork-grid" id="artworkGallery"></div><div class="saved-card-empty" id="artworkEmpty"><strong>暂无卡牌原画</strong><p>在卡牌编辑器中选择或生成原画后，这里会自动汇集。</p></div></section>
     </section>
 
     <section class="module-page" id="freeModule" data-page="free" aria-labelledby="freeTitle" hidden>
@@ -354,12 +355,12 @@
     <section class="settings-section" data-settings-panel="editor" hidden><h3>编辑偏好</h3><p>这些偏好作用于新建资料，不会修改已保存条目。</p><div class="settings-grid"><label>主题<select id="settingTheme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label><label>界面密度<select id="settingDensity"><option value="comfortable">舒适</option><option value="compact">紧凑</option></select></label><label>默认所属世界<input id="settingWorldId" maxlength="20" value="W01"></label><label>新资料状态<select id="settingDefaultStatus"><option value="proposed">proposed</option><option value="unknown">unknown</option></select></label><label>默认事实层次<select id="settingTruthScope"><option value="objective">objective</option><option value="in_world_belief">in_world_belief</option><option value="unknown">unknown</option></select></label></div></section>
     <section class="settings-section" data-settings-panel="data" hidden><h3>数据管理</h3><p>设定、背景故事、卡牌、关键词、备注与美术元数据保存在服务端 SQLite；图片文件保存在同一持久卷，不会自动写入仓库或晋升正史。</p><div class="data-summary"><article><strong id="settingLoreCount">0</strong><span>设定资料</span></article><article><strong id="settingStoryCount">0</strong><span>背景故事</span></article><article><strong id="settingCardCount">0</strong><span>卡牌草案</span></article><article><strong id="settingKeywordCount">0</strong><span>关键词</span></article><article><strong id="settingArtCount">0</strong><span>美术资产</span></article></div><button class="button secondary" id="settingsExport" type="button">导出完整 JSON</button></section>
   </div></div><div class="dialog-actions settings-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="saveSettings" value="default">保存设置</button></div></form></dialog>
-  <dialog id="imageViewer" class="image-viewer"><form method="dialog"><button class="close-button" value="cancel" aria-label="关闭图片">×</button><img id="imageViewerImage" alt="画作大图"><div><strong id="imageViewerTitle">画作预览</strong><small id="imageViewerMeta"></small></div></form></dialog>
+  <dialog id="imageViewer" class="image-viewer"><form method="dialog"><button class="close-button" value="cancel" aria-label="关闭图片">×</button><img id="imageViewerImage" alt="画作大图"><div><strong id="imageViewerTitle">画作预览</strong><small id="imageViewerMeta"></small><a class="button secondary compact image-download" id="imageViewerDownload" href="#" download>下载原画</a></div></form></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
-  <script src="./cards.js?v=1"></script>
+  <script src="./cards.js?v=5"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=27"></script>
+  <script src="./app.js?v=32"></script>
 </body>
 </html>

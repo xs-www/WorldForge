@@ -1,6 +1,50 @@
 # HTML 产品静态文档
 
+## 2026-10-15 卡牌有限富文本、无水印与属性圆章增量
+
+- `buildSeedreamBody(config, request)` 固定发送 `watermark: false`；Mock 回归测试断言请求边界，不调用真实 Seedream 或产生费用。
+- `WorldforgeCards.parseRichText(value)` 将 `<b>...</b>` / `**...**` 编译为粗体 run，将 `<i>...</i>` / `*...*` 编译为斜体 run。未列入白名单的 HTML 保留为普通文字，DOM 预览使用 `textContent`，不会执行输入内容。
+- `WorldforgeCards.compileDescription(card, keywords)` 在原有“独立关键词 → 带说明关键词 → 普通文本”顺序上，把关键词附加说明与普通文本展开为安全样式 run；`text` 与 `lines` 返回去除受支持标记后的纯文本。
+- `canvasTextFont()`、`richTextLines()` 与 `drawCompiledDescription()` 让编译 PNG 和编辑器预览共用粗体/斜体语义。Canvas 的测量字体与绘制字体一致，换行仍按实际字形宽度计算。
+- 编辑卡面的属性圆章隐藏内部 `<span>` 名称，`drawCardStat()` 不再向 PNG 绘制名称；费用、攻击、生命与耐久输入继续保留 `aria-label`。
+- 缓存版本更新为 `app.js?v=32`、`cards.js?v=5`、`styles.css?v=26`。全量 Node 回归测试为 67 项，全部通过。
+
+## 2026-10-15 卡面 PNG、富文本规则框与原画交互增量
+
+- `WorldforgeCards.compileDescription(card, keywords)` 除分组与纯文本 `lines` 外新增可渲染 `runs`：独立关键词先出现，带说明关键词随后出现，普通规则文本最后出现。关键词名与冒号标为粗体，独立关键词之间使用中文逗号，普通文本在关键词组后换段。
+- `renderCardKeywordPreview()` 直接消费 `runs`，在编辑卡面同一规则框内生成连续富文本和自然换行；右侧 `renderKeywordPreview()` 仍按作者添加顺序逐项、逐行编辑，展示重排不会修改存储顺序。
+- `compileCardPng(card, map)` 使用 660×920 Canvas，把统一底板、类型原画窗、非破坏性裁剪、名称、富文本规则与类型属性编译为 PNG data URL。PNG 是随时可由卡牌数据再生的展示缓存，不写入 SQLite 或导出 JSON，避免放大内容快照。
+- `miniCard(card, map)` 不再拼装图片、标题、描述和属性 DOM；卡牌库只渲染编译 PNG。旧卡牌进入卡牌库时会按现有数据即时编译，保存卡牌时会先刷新该卡的 PNG 缓存。
+- `bindCardArtGestures()` 为编辑卡面原画增加 Pointer Events 拖动与滚轮缩放，并同步 `cardCropX / cardCropY / cardCropZoom`；滑杆精调和重置仍可用，最终 PNG 使用完全相同的裁剪参数。
+- 原画查看器新增下载入口。`serveArtAsset(id, res, download)` 在 `?download=1` 时返回 `Content-Disposition: attachment`，文件名固定为稳定美术资产 ID，扩展名按 PNG/JPEG/WebP 的真实 MIME 类型确定；普通图片展示请求仍保持 inline。
+- 缓存版本更新为 `app.js?v=31`、`cards.js?v=4`、`styles.css?v=25`。自动化覆盖增至 66 项；真实 Docker 页面已验收卡牌 PNG、富文本顺序、拖动焦点、滚轮缩放，并确认下载响应名为 `ART-….jpg`。
+
+## 2026-10-15 卡牌库、类型属性与描述编译增量
+
+- 卡牌模块拆为互斥的卡牌库、原画集和创建/编辑器三个视图。`switchCardTab(tab)` 负责视图切换；编辑器隐藏子 Tab 并提供返回卡牌库操作。
+- 卡牌库由 `renderCards()` 生成，支持名称、规则文本和关键词搜索，类型/稀有度分类筛选，以及每页 8 张的上一页/下一页导航；点击任一卡牌调用 `loadCard(id)` 进入独立编辑器。
+- `WorldforgeCards.normalizeStats(type, card)` 固化类型属性：随从保存攻击与生命，法术清空攻击、生命和耐久，武器保存攻击与耐久。旧武器数据缺少 `durability` 时兼容读取原 `health`，但后续保存只写耐久。
+- `renderCardFrame()` 与卡牌库缩略图按类型显示属性：法术没有底部两个属性位，武器的第二属性明确标为“耐久”。三类卡继续共用同一底板、尺寸和主色，只改变原画窗与必要格式细节。
+- 关键词在编辑器中逐行显示并保持添加顺序。`WorldforgeCards.compileDescription(card, keywords)` 将保存后的文本稳定编译为“独立关键词 → 带附加描述关键词 → 普通文本”；`renderCardKeywordPreview()` 和卡牌库缩略图复用同一结果。
+- `cards/schema/card.schema.json` 使用类型条件约束 `stats`；卡牌模板、README、项目设计、ADR-0016、Changelog 和 TODO 已同步。完整 JSON 导出升级到 schemaVersion 10，SQLite 物理 Schema 无需变化。
+- 自动化覆盖增至 65 项，新增类型属性与描述编译顺序检查；真实 Docker 页面已验收卡牌库、独立编辑器、原画集、法术无属性位和武器攻击/耐久显示。
+
+## 2026-10-15 卡牌视觉、原画集与裁剪增量
+
+- 卡牌模块新增“卡牌库 / 原画集”子 Tab；`switchCardTab(tab)` 切换编辑工作区与绑定原画汇总，`renderArtworkGallery()` 按已保存卡牌聚合原画、类型、趣闻和裁剪预览。
+- 三类卡牌共用 `dist/assets/card-frames/shared.png` 统一底板、尺寸和配色；`renderCardFrame()` 只按类型设置卡面数据属性，原画窗分别使用蛋形、圆角长方形和圆形轮廓，不建立三套主题皮肤。
+- `currentCardCrop()` / `applyCardCrop(image, crop)`：读取横向焦点、纵向焦点和 1–2.5 倍缩放，把同一原画非破坏性裁切到卡面与原画集缩略图；重置操作恢复居中和 1 倍缩放。
+- `normalizeCard(card)` 新增 `artCrop` 与 `flavorText`：裁剪值会限制在合法范围；趣闻信息始终随卡牌保存和导出，但默认不显示在卡面正文。
+- 对外显示第三类为“武器”，内部稳定类型仍保留 `equipment`，避免破坏旧草案、Schema 与来源映射。
+- 自动化覆盖增至 63 项，新增趣闻/裁剪规范化及卡牌子 Tab 互斥测试。
+
 ## 2026-10-15 世界观视觉与参考图增量
+
+- `unbindCardFromLore(cardId)`：从指定卡牌的 `loreRefs` 中移除当前设定 ID，保留卡牌、设定与其他来源引用，并立即持久化可重新绑定的结果。
+- `createModelBody(config, prompt, options)` 新增 `images`：Responses 请求构造 `input_text + input_image`，Chat Completions 请求构造 `text + image_url`；无图片时保持原有纯文本请求结构。
+- `runAi()` 会把设定助手当前选中的参考资产 ID 发送给服务端；`callAi()` 只从本地资产库解析这些图片，并把实际采用的 ID 写入 `contextMeta.visionAssetIds`。
+- `referenceButton()` / `renderReferenceAssets()`：世界观视觉区和设定助手图片区共享同一选择状态，选择变化会同步两处 UI。
+- 视觉能力由用户配置的 LLM 决定；兼容接口拒绝图片输入时展示明确错误，不把图片静默丢弃。
 
 - `renderLoreLinkedCards()`：按 `card.loreRefs` 反向列出引用当前设定的卡牌，显示已有卡面，并允许跳转到卡牌编辑器。
 - `bindExistingCardToLore()`：把当前设定 ID 追加到用户选定的已有卡牌，不创建新卡、不修改设定状态。
@@ -98,8 +142,23 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 
 ### `normalizeCard(card): CardDraft`
 
-- 兼容旧版浏览器草案并补齐费用、攻击、血量、关键词和状态字段。
-- 强制血量至少为 1，费用与攻击不得为负。
+- 兼容旧版浏览器草案并补齐费用、类型属性、关键词、趣闻、原画裁剪和状态字段。
+- 调用 `normalizeStats(type, card)`：随从保留攻击/生命，法术清空战斗属性，武器保留攻击/耐久；旧武器 `health` 可迁移为耐久。
+
+### `compileDescription(card, keywords): CompiledDescription`
+
+- 按卡牌中 `keywordUsages` 的添加顺序解析关键词。
+- 返回独立关键词、带附加描述关键词、普通规则文本、纯文本 `lines`，以及供 DOM/Canvas 共用的粗体与换段 `runs`。
+
+### `compileCardPng(card, keywordMap): Promise<string>`
+
+- 使用 Canvas 将底框、类型原画窗、原画裁剪、名称、规则富文本和类型属性编译为 PNG data URL。
+- 编译结果只作为卡牌库会话缓存；数据源仍是卡牌 JSON 与原画资产，不把大体积 PNG 写回 SQLite 内容快照。
+
+### `bindCardArtGestures(): void`
+
+- 在卡面原画上监听拖动与滚轮，换算并限制横向/纵向焦点及 1–2.5 倍缩放。
+- 实时同步三个裁剪滑杆，点击未拖动的原画仍打开大图查看器。
 
 ### `renderKeywords(): void`
 
@@ -107,7 +166,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 
 ### `renderKeywordPreview(): void`
 
-- 在可编辑卡面的描述区域显示当前关键词，并在右侧生成卡牌级附加说明输入框。
+- 按添加顺序逐行生成卡牌级关键词及其可选附加说明输入框。
 
 ### `formatKeywordUsage(keyword, detail = ''): string`
 
@@ -115,24 +174,25 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 
 ### `renderCardKeywordPreview(): void`
 
-- 根据当前关键词引用和附加说明更新卡面，不重建右侧输入框，避免输入焦点丢失。
+- 根据当前关键词、附加说明和普通文本实时编译卡面，顺序为独立关键词、带附加描述关键词、普通文本；不重建右侧输入框，避免输入焦点丢失。
 
 ### `renderCards(query = ''): void`
 
-- 从本地存储渲染缩略卡面预览列表。
-- 支持名称、类型、规则文本和关键词搜索，并同步草案数量与空状态。
+- 从本地存储渲染卡牌库缩略卡面。
+- 支持名称、类型、规则文本和关键词搜索，类型/稀有度筛选及每页 8 张分页，并同步草案数量与空状态。
 
 ### `resetCardEditor(): void`
 
-- 将可编辑卡面恢复为费用 0、攻击 0、血量 1 的新卡牌状态。
+- 将可编辑卡面恢复为费用 0、攻击 0、生命 1 的新随从状态，并清除规则文本、趣闻、原画与关键词选择。
 
 ### `loadCard(id): void`
 
-- 将已保存草案重新载入可编辑卡面。
+- 将已保存草案重新载入独立编辑器；武器把耐久装入第二属性输入位。
 
-### `saveCurrentCard(): void`
+### `saveCurrentCard(): Promise<void>`
 
-- 保存卡面中的费用、攻击、血量、名称、描述、类型和关键词引用。
+- 保存名称、费用、类型专属属性、编译所需的普通文本与关键词引用、趣闻及原画裁剪；法术不保存攻击/生命，武器只保存攻击/耐久。
+- 保存期间刷新当前卡的 PNG 会话缓存；缓存失败不阻止结构化卡牌草案保存。
 - 草案状态固定为 `proposed`，平衡状态固定为 `untested`。
 
 ### 设定资料函数
@@ -279,9 +339,9 @@ M2A 默认在内容数据库同目录建立 `worldforge-simulation.sqlite`，也
 }
 ```
 
-统一导出当前 schemaVersion 为 9，包含 `project`、`exportedAt`、`loreEntries`（含 `story`、地理父级和编年史结构）、`notes`、`keywords`、`cardDrafts` 与 `artAssets`。每张卡牌草案自身固定带有 `proposed` 和 `untested` 状态，避免把运行时草案误认为正式内容。
+统一导出当前 schemaVersion 为 10，包含 `project`、`exportedAt`、`loreEntries`（含 `story`、地理父级和编年史结构）、`notes`、`keywords`、`cardDrafts` 与 `artAssets`。每张卡牌草案自身固定带有 `proposed` 和 `untested` 状态，避免把运行时草案误认为正式内容。
 
-卡牌草案存储键：`worldforge-card-drafts-v1`。每个条目包含本地草案 ID、名称、世界归属、三分类类型、稀有度、费用、攻击、血量、关键词引用、多个 `loreRefs` 来源、规则文本、`proposed` 状态与 `untested` 平衡状态。关键词引用使用 `keywordUsages: [{ keywordId, detail }]`；兼容字段 `keywordIds` 继续由规范化函数生成。
+卡牌草案存储键：`worldforge-card-drafts-v1`。每个条目包含本地草案 ID、名称、世界归属、三分类类型、稀有度、按类型规范化的属性、关键词引用、多个 `loreRefs` 来源、规则文本、趣闻、原画与裁剪参数、`proposed` 状态及 `untested` 平衡状态。随从使用 `attack + health`，法术三项战斗属性均为 `null`，武器使用 `attack + durability`。关键词引用使用 `keywordUsages: [{ keywordId, detail }]`；兼容字段 `keywordIds` 继续由规范化函数生成。
 
 关键词存储键：`worldforge-keywords-v1`。每个条目包含本地关键词 ID、名称、规则说明和 `proposed` 状态。统一导出文件包含 `notes`、`keywords` 和 `cardDrafts`。
 
@@ -552,7 +612,7 @@ M2A 默认在内容数据库同目录建立 `worldforge-simulation.sqlite`，也
 
 - `validateSeedreamSettings(payload)`：限制火山方舟中国区 API v3 地址、Seedream 模型 ID 与密钥格式。
 - `validateImageRequest(payload)`：校验提示词、尺寸和卡牌 ID；支持 `2K`、`1872x1248` 与 `1248x1872`。
-- `buildSeedreamBody(config, request)`：按作者提供的格式生成 `response_format: url`、`stream: false`、`watermark: true` 请求体。
+- `buildSeedreamBody(config, request)`：按作者提供的格式生成 `response_format: url`、`stream: false` 请求体；当前水印参数已在 2026-10-15 后续增量中改为 `watermark: false`。
 - `generateSeedreamImage(config, payload, fetchImpl)`：调用 `/images/generations`，立即下载临时 URL，并限制图片为 30 MB。
 
 ### `comfyui.mjs`

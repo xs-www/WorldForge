@@ -1,6 +1,7 @@
 const ALLOWED_REFERENCE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 export const MAX_REFERENCE_BYTES = 8 * 1024 * 1024;
 export const MAX_REFERENCE_IMAGES = 10;
+const MAX_EXISTING_ASSET_BYTES = 30 * 1024 * 1024;
 
 export function parseReferenceUpload(payload) {
   const targetType = payload?.targetType === 'lore' ? 'lore' : 'card';
@@ -18,7 +19,7 @@ export function parseReferenceUpload(payload) {
 
 export function toReferenceDataUrl(asset, bytes) {
   if (!asset || !ALLOWED_REFERENCE_MIME_TYPES.has(asset.mimeType)) throw new Error('参考资源格式不受支持');
-  if (!bytes?.length || bytes.length > MAX_REFERENCE_BYTES) throw new Error('参考资源大小无效');
+  if (!bytes?.length || bytes.length > MAX_EXISTING_ASSET_BYTES) throw new Error('参考资源大小无效');
   return `data:${asset.mimeType};base64,${bytes.toString('base64')}`;
 }
 

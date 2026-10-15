@@ -126,8 +126,8 @@ async function createReferenceAsset(payload) {
   try{return contentStore.createArtAsset(asset)}catch(error){await unlink(file).catch(()=>{});throw error}
 }
 
-async function resolveReferenceImages(value) {
-  const ids=normalizeReferenceAssetIds(value),images=[];
+async function resolveReferenceImages(value, maximum = 10) {
+  const ids=normalizeReferenceAssetIds(value).slice(0,maximum),images=[];
   for(const id of ids){const asset=contentStore.getArtAsset(id);if(!asset)throw new Error(`参考图不存在：${id}`);const file=join(assetsPath,asset.fileName);if(!file.startsWith(assetsPath))throw new Error('参考图路径无效');images.push(toReferenceDataUrl(asset,await readFile(file)))}
   return{ids,images};
 }
@@ -185,14 +185,15 @@ async function createArtAsset(payload) {
   catch (error) { await unlink(file).catch(() => {}); throw error; }
 }
 
-async function serveArtAsset(id, res) {
+async function serveArtAsset(id, res, download = false) {
   const asset = contentStore.getArtAsset(id);
   if (!asset) return json(res, 404, { error: '美术资源不存在' });
   const file = join(assetsPath, asset.fileName);
   if (!file.startsWith(assetsPath)) return json(res, 403, { error: '禁止访问' });
   try {
     const content = await readFile(file);
-    res.writeHead(200, { ...securityHeaders, 'Content-Type': asset.mimeType, 'Content-Length': content.length, 'Cache-Control': 'private, max-age=31536000, immutable' });
+    const extension = asset.mimeType === 'image/jpeg' ? 'jpg' : asset.mimeType === 'image/webp' ? 'webp' : 'png';
+    res.writeHead(200, { ...securityHeaders, 'Content-Type': asset.mimeType, 'Content-Length': content.length, 'Cache-Control': 'private, max-age=31536000, immutable', ...(download ? { 'Content-Disposition': `attachment; filename="${asset.id}.${extension}"` } : {}) });
     res.end(content);
   } catch (error) { if (error.code === 'ENOENT') return json(res, 404, { error: '美术文件不存在' }); throw error; }
 }
@@ -236,26 +237,28 @@ async function callAi(payload) {
   const validationPayload = { ...payload, allowedRelationIds: [...bundle.examples, ...bundle.entries].map(entry => entry.id) };
   const expectedCount = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3));
   const schema = createLoreResponseSchema(payload);
+  const vision=await resolveReferenceImages(payload?.referenceAssetIds,10);
+  const modelOptions={images:vision.images};
   let structured = true;
   let raw;
-  try { raw = await requestModel(config, prompt, { structured: true, schema, payload }); }
+  try { raw = await requestModel(config, prompt, { structured: true, schema, payload, ...modelOptions }); }
   catch (error) {
     if (![400, 404, 422].includes(error.status)) throw error;
     structured = false;
-    raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, { structured: false, payload });
+    try{raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, { structured: false, payload, ...modelOptions })}catch(fallbackError){if(vision.ids.length)fallbackError.message=`当前模型或兼容接口可能不支持图片输入：${fallbackError.message}`;throw fallbackError}
   }
   const result = await completeAiVariants({ raw, payload: validationPayload, expectedCount, requestSupplement: async ({ missingCount, acceptedVariants, issues }) => {
     const supplementPayload = { ...payload, variantCount: missingCount };
     const supplementPrompt = buildSupplementPrompt(prompt, missingCount, acceptedVariants, issues);
     const supplementSchema = createLoreResponseSchema(supplementPayload);
-    if (!structured) return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload });
-    try { return await requestModel(config, supplementPrompt, { structured: true, schema: supplementSchema, payload: supplementPayload }); }
+    if (!structured) return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload, ...modelOptions });
+    try { return await requestModel(config, supplementPrompt, { structured: true, schema: supplementSchema, payload: supplementPayload, ...modelOptions }); }
     catch (error) {
       if (![400, 404, 422].includes(error.status)) throw error;
-      return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload });
+      return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload, ...modelOptions });
     }
   } });
-  return { ...result, harnessVersion: HARNESS_VERSION, contextMeta: bundle.contextMeta };
+  return { ...result, harnessVersion: HARNESS_VERSION, contextMeta: {...bundle.contextMeta,visionAssetIds:vision.ids} };
 }
 
 async function callFreeAgent(payload) {
@@ -319,7 +322,7 @@ async function serveStatic(req, res) {
 
 createServer(async (req, res) => {
   try {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
+    const requestUrl = new URL(req.url, 'http://localhost'), pathname = requestUrl.pathname;
     if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health() });
     if (req.method === 'GET' && req.url === '/api/macro') return json(res, 200, macroSimulation.view());
     if (req.method === 'POST' && req.url === '/api/macro/step') {
@@ -362,7 +365,7 @@ createServer(async (req, res) => {
       return json(res, 201, { asset: await createReferenceAsset(await readBody(req, 12 * 1024 * 1024)) });
     }
     const artMatch = pathname.match(/^\/api\/art-assets\/(ART-[A-F0-9-]+)\/file$/i);
-    if (req.method === 'GET' && artMatch) return serveArtAsset(artMatch[1], res);
+    if (req.method === 'GET' && artMatch) return serveArtAsset(artMatch[1], res, requestUrl.searchParams.get('download') === '1');
     if (req.method === 'GET' && req.url === '/api/seedream/status') { const c = seedreamConfig(); return json(res, 200, { configured: Boolean(c.key), model: c.model, baseUrl: c.baseUrl }); }
     if (req.method === 'GET' && req.url === '/api/images/status') { const seedream = seedreamConfig(), comfyUi = comfyUiConfig(); return json(res, 200, { seedream: { configured: Boolean(seedream.key), model: seedream.model, baseUrl: seedream.baseUrl }, comfyUi: { configured: Boolean(await loadComfyWorkflow()), baseUrl: comfyUi.baseUrl } }); }
     if (req.method === 'POST' && req.url === '/api/images/generate') {

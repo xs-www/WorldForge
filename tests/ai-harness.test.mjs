@@ -51,6 +51,11 @@ test('model bodies support dynamic schemas and free unstructured responses', () 
   assert.equal(createModelBody({ model: 'x', style: 'responses' }, 'p', { schema, payload }).text.format.type, 'json_schema');
   assert.equal(createModelBody({ model: 'x', style: 'chat' }, 'p', { schema, payload }).response_format.type, 'json_schema');
   assert.equal(createModelBody({ model: 'x', style: 'responses' }, 'p', { structured: false }).text, undefined);
+  const image='data:image/png;base64,aA==';
+  const responses=createModelBody({model:'x',style:'responses'},'看图',{schema,payload,images:[image]});
+  const chat=createModelBody({model:'x',style:'chat'},'看图',{schema,payload,images:[image]});
+  assert.deepEqual(responses.input[0].content[1],{type:'input_image',image_url:image,detail:'auto'});
+  assert.deepEqual(chat.messages[1].content[1],{type:'image_url',image_url:{url:image,detail:'auto'}});
 });
 
 test('name generator validates exact candidate count', () => {

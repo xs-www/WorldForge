@@ -6,6 +6,7 @@ const appSource = await readFile(new URL('../dist/app.js', import.meta.url), 'ut
 const htmlSource = await readFile(new URL('../dist/index.html', import.meta.url), 'utf8');
 const styleSource = await readFile(new URL('../dist/styles.css', import.meta.url), 'utf8');
 const macroSource = await readFile(new URL('../dist/macro.js', import.meta.url), 'utf8');
+const serverSource = await readFile(new URL('../server.mjs', import.meta.url), 'utf8');
 
 test('browser API requests follow the script mount path', () => {
   assert.match(appSource, /new URL\('\.\/api\/',document\.currentScript\.src\)/);
@@ -13,10 +14,10 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=27/);
+  assert.match(htmlSource, /app\.js\?v=32/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=21/);
-  assert.match(htmlSource, /cards\.js\?v=1/);
+  assert.match(htmlSource, /styles\.css\?v=26/);
+  assert.match(htmlSource, /cards\.js\?v=5/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
 });
@@ -52,6 +53,9 @@ test('AI candidates can be applied and invalid model output remains inspectable'
   assert.match(styleSource, /\.free-context-body/);
   assert.match(styleSource, /\.ai-apply-button/);
   assert.match(styleSource, /\.ai-diagnostics/);
+  assert.match(appSource, /function unbindCardFromLore\(cardId\)/);
+  assert.match(appSource, /referenceAssetIds:\[\.\.\.loreReferenceAssetIds\]/);
+  assert.match(htmlSource, /id="aiVisionReferenceAssets"/);
 });
 
 test('image generation handles empty responses without repeating a paid request', () => {
@@ -62,7 +66,36 @@ test('image generation handles empty responses without repeating a paid request'
   assert.match(appSource, /clientRequestId/);
 });
 
+test('artwork download names files after the stable asset id', () => {
+  assert.match(serverSource, /'Content-Disposition': `attachment; filename="\$\{asset\.id\}\.\$\{extension\}"`/);
+  assert.match(serverSource, /requestUrl\.searchParams\.get\('download'\) === '1'/);
+  assert.match(appSource, /download\.download=`\$\{asset\.id\}\.\$\{extension\}`/);
+});
+
 test('extensionless mount paths gain a trailing slash before assets load', () => {
   assert.match(htmlSource, /pageSegment && !pageSegment\.includes\('\.'\)/);
   assert.match(htmlSource, /location\.replace\(`\$\{location\.pathname\}\/\$\{location\.search\}\$\{location\.hash\}`\)/);
+});
+
+test('card library, artwork, and editor stay independent', () => {
+  assert.match(htmlSource, /data-card-tab="library"/);
+  assert.match(htmlSource, /data-card-panel="artwork" hidden/);
+  assert.match(htmlSource, /data-card-panel="editor" hidden/);
+  assert.match(htmlSource, /id="cardLibraryType"/);
+  assert.match(htmlSource, /id="cardLibraryRarity"/);
+  assert.match(htmlSource, /id="cardPagePrev"/);
+  assert.match(htmlSource, /id="cardPageNext"/);
+  assert.match(htmlSource, /id="cardSecondaryLabel"/);
+  assert.match(styleSource, /\.card-workspace\[hidden\]\{display:none\}/);
+  assert.match(appSource, /function switchCardTab\(tab\)/);
+  assert.match(appSource, /WorldforgeCards\.compileDescription/);
+  assert.match(appSource, /async function compileCardPng\(card,map=keywordMap\(\)\)/);
+  assert.match(appSource, /function bindCardArtGestures\(\)/);
+  assert.match(appSource, /cardPngCache\.set\(c\.id,await compileCardPng/);
+  assert.match(htmlSource, /id="imageViewerDownload"/);
+  assert.match(appSource, /canvasTextFont\(fontSize,glyph\.bold,glyph\.italic\)/);
+  assert.match(appSource, /document\.createElement\('span'\)/);
+  assert.doesNotMatch(appSource, /ctx\.fillText\(label,x,y\+69\)/);
+  assert.match(styleSource, /\.card-stat span\{display:none\}/);
+  assert.match(styleSource, /\.compiled-inline\.italic\{font-style:italic\}/);
 });
