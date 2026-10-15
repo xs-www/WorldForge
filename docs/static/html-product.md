@@ -1,5 +1,18 @@
 # HTML 产品静态文档
 
+## 2026-10-15 世界观两级结构增量
+
+- 世界观模块拆成两级：一级 `#worldHub` 是世界面板列表，二级 `#worldDetail` 是单个世界的资料工作区。`enterWorld(worldId)` 进入并重置到「世界」分类，`leaveWorld()` 返回一级并清空当前世界；`switchModule('world')` 与 `bootstrap()` 都会回到一级。
+- 新增 `dist/world-scope.js`：`worldIdOf(entry)`、`groups(entries)`、`loreOfWorld(entries, worldId)`、`nextWorldId(entries)`、`countByType(entries)`、`searchWorlds(groups, query)`、`reassign(entries, sourceWorldId, targetWorldId)`，全部为纯函数并配有独立 Node 测试。
+- 一级面板数据源是「世界条目 ∪ 数据中出现过的 `worldId`」的并集。`worldId` 没有对应世界条目的资料会变成 `unassigned` 面板，而不是消失；面板上的归入选择器调用 `adoptWorldGroup(sourceId, targetId)` 把这些资料改到目标世界。
+- `renderLoreList()` 改为先把 `readLore()` 结果交给 `WorldforgeWorldScope.loreOfWorld(readLore(), activeWorldId)`，再按分类过滤；标签页计数、`renderGeographyTree()` 与 `renderChronicleTree()` 都只收到当前世界的资料。
+- `populateRelations()` 按世界分组：当前世界条目平铺，其他世界条目进入「其他世界（跨世界引用）」`<optgroup>`，跨世界引用能力保留但被显式区分。
+- 编辑器里的「所属世界」从自由文本输入改为只读 `#loreWorldIdText`，由 `renderWorldIdField(worldId)` 渲染为「W01 · 魔导工业世界」；`collectLoreForm()`、`currentWorldId()`、`populateLocationParents()`、`populateChronicleParents()`、`updateAiExampleMeta()` 全部改用当前世界而非表单字段。
+- 新增 `createWorld()`：用 `nextWorldId()` 分配最小未占用的两位编号，并同时写入世界条目的 `id` 与 `worldId`，随后进入该世界并聚焦名称输入框。
+- 一级搜索 `#worldSearch` 只按世界名称、编号、摘要与正文过滤面板；`#loreSearch` 只搜索当前世界。
+- 缓存版本更新为 `app.js?v=35`、`styles.css?v=29`，并新增 `world-scope.js?v=1`。全量 Node 回归测试为 82 项，全部通过。
+- 另以最小 DOM 桩运行真实 `app.js` 做行为验证：一级面板标题与计数、`unassigned` 面板、W01/W02 分类列表互不串档、世界分类只显示自身条目、关联下拉的同世界与跨世界分组、新建世界编号分配、归入操作与 `leaveWorld()` 状态复位均符合预期。
+
 ## 2026-10-15 卡面子类型、预览同构与全量原画集增量
 
 - 新增卡牌子类型词表：随从种族由 `WorldforgeCards.minionTribes`（`proposed` 候选：人类、构装体、蒸汽机械、亡灵、野兽）提供，法术派系由 `WorldforgeCards.spellSchools` 提供，直接采用 W01 canon 的十一种魔法派系并按基础 / 高阶 / 更高层分组。
@@ -86,6 +99,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 | `dist/app.js` | 模块切换、资料/卡牌编辑、SQLite 同步、浏览器缓存、设置、搜索与导出 |
 | `dist/cards.js` | 卡牌类型/稀有度规范化、旧类型迁移、来源去重与设定到卡牌默认映射 |
 | `dist/geography.js` | 地理层级定义、父级规则、世界地图树构造、祖先搜索与旧地点隔离 |
+| `dist/world-scope.js` | 世界分组、按世界取资料、下一世界编号分配、世界搜索与资料归属搬运 |
 | `dist/chronicle.js` | 编年史容器/节点规范化、父级校验、纪年排序、搜索与旧数据兼容 |
 | `server.mjs` | 静态服务、内容 API、本机设置持久化、AI 状态与模型请求代理 |
 | `storage.mjs` | SQLite Schema、输入校验、事务化快照读写、revision 冲突保护与健康检查 |
@@ -282,6 +296,29 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `updateAiExampleMeta()`：统计当前世界和类型可作为示例的 canon 条目，并在生成面板说明自动示例数量。
 - `renderFreeChat()` / `sendFreeMessage(event)`：维护当前页面内的自由 Agent 对话并调用非结构化生成接口；对话不会写入 SQLite 内容库。
 - `runNameTool()`：按对象类型、数量、命名要求与关联信息生成名称；候选可复制，在世界观模块可回填当前名称输入框。
+
+### 世界范围函数
+
+- `currentWorldId(): string`：返回当前进入的世界编号；未进入世界时回退到编辑偏好里的默认世界，再回退到 `WorldforgeWorldScope.DEFAULT_WORLD_ID`。
+- `worldGroups(): Array`：把 `readLore()` 的完整资料交给 `WorldforgeWorldScope.groups()`，供一级面板与只读世界字段使用。
+- `renderWorldIdField(worldId)`：把「所属世界」只读字段渲染为「W01 · 魔导工业世界」或纯编号。
+- `renderWorldHub(): void`：按 `#worldSearch` 过滤并渲染一级世界面板，同时更新世界数与资料总数。
+- `worldPanel(group, adoptTargets): HTMLElement`：生成单个世界面板；`unassigned` 面板附带归入目标选择器与归入按钮。
+- `enterWorld(worldId): void` / `leaveWorld(): void`：在两级之间切换，并复位当前条目、搜索框与分类标签。
+- `renderWorldDetailHeader(): void`：渲染二级标题、世界编号/状态与概述。
+- `createWorld(): void`：用 `nextWorldId()` 分配新世界编号，写入世界条目后直接进入该世界。
+- `adoptWorldGroup(sourceId, targetId): void`：把某个未归属世界编号下的全部非世界条目改到目标世界并重新渲染一级。
+
+### World Scope 纯函数
+
+- 位置：`dist/world-scope.js`
+- `worldIdOf(entry)`：返回条目的世界编号，缺失时回退到 `W01`。
+- `groups(entries)`：按世界编号分组，附带世界条目、非世界条目、各类型计数、标题与 `assigned` 判定；按编号排序。
+- `loreOfWorld(entries, worldId)`：只返回该世界的资料；`worldId` 为空时返回全部资料的副本。
+- `nextWorldId(entries)`：返回最小未占用的两位世界编号；已被资料引用但无世界条目的编号也算占用。
+- `countByType(entries)`：按资料类型计数。
+- `searchWorlds(groups, query)`：按世界标题、编号、摘要与正文过滤分组。
+- `reassign(entries, sourceWorldId, targetWorldId)`：把来源编号下的非世界条目改到目标编号，返回新数组与实际搬运条数；世界条目自身不参与搬运。
 
 ### 服务端函数
 

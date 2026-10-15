@@ -79,3 +79,26 @@
 .artwork-toolbar .field-help{margin:0;max-width:560px}
 .artwork-item.unused{border-style:dashed;opacity:.82}
 .artwork-item.unused>img{filter:grayscale(.4)}
+.world-hub[hidden],.world-detail[hidden]{display:none}
+.world-hub-meta{display:flex;align-items:baseline;gap:12px;margin:0 0 16px}
+.world-hub-meta strong{font-size:13px}
+.world-hub-meta small{color:var(--muted);font-size:11px}
+.world-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.world-panel{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:18px;display:grid;gap:10px;align-content:start}
+.world-panel.unassigned{border-style:dashed;background:var(--surface-subtle)}
+.world-panel-head{display:flex;align-items:center;gap:10px}
+.world-panel-title{border:0;background:transparent;padding:0;font-size:15px;font-weight:700;color:var(--text);text-align:left;cursor:pointer}
+.world-panel-title:hover{color:var(--primary)}
+.world-panel-badge{margin-left:auto;padding:2px 8px;border-radius:20px;background:var(--primary-soft);color:var(--primary);font-size:10px;font-weight:700}
+.world-panel-badge.unassigned{background:transparent;border:1px dashed var(--border-strong);color:var(--muted)}
+.world-panel-summary{margin:0;color:var(--muted);font-size:11px;line-height:1.6}
+.world-panel-counts{color:var(--faint);font-size:10px;line-height:1.6}
+.world-panel-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:2px}
+.world-panel-actions .button{width:max-content}
+.world-panel-adopt{height:34px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);font-size:11px;padding:0 8px}
+.world-detail-heading{align-items:flex-end}
+.world-detail-meta{margin:2px 0 0;color:var(--faint);font-size:10px}
+.world-detail-summary{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.6;max-width:640px}
+.breadcrumb-link{border:0;background:transparent;padding:0;color:var(--primary);font-size:11px;font-weight:600;cursor:pointer}
+.breadcrumb-link:hover{text-decoration:underline}
+.field-readonly{display:flex;align-items:center;height:38px;padding:0 9px;border:1px dashed var(--border-strong);border-radius:7px;background:var(--surface-subtle);color:var(--muted);font-size:11px;font-weight:600}

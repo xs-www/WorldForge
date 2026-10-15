@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=28">
+  <link rel="stylesheet" href="./styles.css?v=29">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -27,15 +27,34 @@
 
   <main id="main">
     <section class="module-page active" id="worldModule" data-page="world" aria-labelledby="worldTitle">
-      <div class="page-heading">
-        <div><p class="breadcrumb">项目 / 设定资料库</p><h1 id="worldTitle">世界设定编辑器</h1><p>像整理写作资料一样建立世界、势力、地图与角色，并用关联保持设定可追溯。</p></div>
-        <div class="heading-actions">
-          <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="loreSearch" placeholder="搜索名称、标签或正文" aria-label="搜索设定条目"></label>
-          <button class="button primary" id="newLoreEntry" type="button">新建资料</button>
+      <div class="world-hub" id="worldHub">
+        <div class="page-heading">
+          <div><p class="breadcrumb">项目 / 世界观架构</p><h1 id="worldTitle">世界观架构</h1><p>每个世界是一块独立的设定空间。进入某个世界后，只会看到属于它的资料。</p></div>
+          <div class="heading-actions">
+            <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="worldSearch" placeholder="搜索世界名称、编号或正文" aria-label="搜索世界"></label>
+            <button class="button primary" id="newWorld" type="button">新建世界</button>
+          </div>
         </div>
+        <div class="world-hub-meta"><strong id="worldHubCount">0 个世界</strong><small>资料按所属世界隔离；切换模块后会回到这一层。</small></div>
+        <div class="world-grid" id="worldGrid"></div>
+        <p class="no-results" id="worldNoResults" hidden>没有匹配的世界。</p>
       </div>
 
-      <div class="lore-tabs" id="loreTabs" role="tablist" aria-label="资料类型">
+      <div class="world-detail" id="worldDetail" hidden>
+        <div class="page-heading world-detail-heading">
+          <div>
+            <p class="breadcrumb"><button class="breadcrumb-link" id="backToWorlds" type="button">← 所有世界</button></p>
+            <h1 id="worldDetailTitle">世界</h1>
+            <p class="world-detail-meta" id="worldDetailMeta"></p>
+            <p class="world-detail-summary" id="worldDetailSummary"></p>
+          </div>
+          <div class="heading-actions">
+            <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="loreSearch" placeholder="在本世界内搜索名称、标签或正文" aria-label="搜索设定条目"></label>
+            <button class="button primary" id="newLoreEntry" type="button">新建资料</button>
+          </div>
+        </div>
+
+        <div class="lore-tabs" id="loreTabs" role="tablist" aria-label="资料类型">
         <button class="lore-tab active" type="button" data-lore-type="world" role="tab" aria-selected="true"><span>◎</span>世界<em>0</em></button>
         <button class="lore-tab" type="button" data-lore-type="location" role="tab" aria-selected="false"><span>◇</span>世界地图<em>0</em></button>
         <button class="lore-tab" type="button" data-lore-type="faction" role="tab" aria-selected="false"><span>旗</span>势力<em>0</em></button>
@@ -78,7 +97,7 @@
             <div class="lore-form-row triple-row story-hidden">
               <label>状态<select id="loreStatus"><option value="proposed">proposed · 草案</option><option value="unknown">unknown · 留白</option><option value="canon">canon · 已批准</option><option value="deprecated">deprecated · 已废弃</option></select></label>
               <label>事实层次<select id="loreTruthScope"><option value="objective">objective · 客观</option><option value="in_world_belief">in_world_belief · 世界内观点</option><option value="unknown">unknown · 未知</option></select></label>
-              <label>所属世界<input id="loreWorldId" value="W01" maxlength="20"></label>
+              <label>所属世界<span class="field-readonly" id="loreWorldIdText">W01</span><small>归属于当前世界，只能回到世界列表归入其他世界。</small></label>
             </div>
             <div class="lore-form-row triple-row story-hidden" id="typeAttributes">
               <label><span id="attributeALabel">题材</span><input id="attributeA" maxlength="120"></label>
@@ -157,6 +176,7 @@
             <p class="ai-config-help">模型设置可在右上角“设置”中修改；密钥只由本地服务读取。</p>
           </div>
         </aside>
+        </div>
       </div>
     </section>
 
@@ -360,8 +380,9 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
+  <script src="./world-scope.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=34"></script>
+  <script src="./app.js?v=35"></script>
 </body>
 </html>

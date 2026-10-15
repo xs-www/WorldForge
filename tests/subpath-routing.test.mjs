@@ -14,10 +14,11 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=34/);
+  assert.match(htmlSource, /app\.js\?v=35/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=28/);
+  assert.match(htmlSource, /styles\.css\?v=29/);
   assert.match(htmlSource, /cards\.js\?v=6/);
+  assert.match(htmlSource, /world-scope\.js\?v=1/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
 });
@@ -132,6 +133,32 @@ test('editor preview mirrors the compiled card geometry at half scale', () => {
   assert.match(styleSource, /\.attack-stat\{left:22px;bottom:23px\}/);
   assert.match(styleSource, /\.health-stat\{right:22px;bottom:23px\}/);
   assert.match(styleSource, /\.card-stat\{width:48px;height:48px\}/);
+});
+
+test('worldview module is a world list that scopes every entry to one world', () => {
+  assert.match(htmlSource, /id="worldHub"/);
+  assert.match(htmlSource, /id="worldDetail" hidden/);
+  assert.match(htmlSource, /id="worldGrid"/);
+  assert.match(htmlSource, /id="worldSearch"/);
+  assert.match(htmlSource, /id="newWorld"/);
+  assert.match(htmlSource, /id="backToWorlds"/);
+  assert.match(htmlSource, /id="worldDetailTitle"/);
+  assert.match(htmlSource, /id="loreWorldIdText"/);
+  assert.doesNotMatch(htmlSource, /id="loreWorldId"/);
+  assert.match(appSource, /let activeWorldId=''/);
+  assert.match(appSource, /function currentWorldId\(\)/);
+  assert.match(appSource, /function enterWorld\(worldId\)/);
+  assert.match(appSource, /function leaveWorld\(\)/);
+  assert.match(appSource, /function renderWorldHub\(\)/);
+  assert.match(appSource, /function createWorld\(\)/);
+  assert.match(appSource, /function adoptWorldGroup\(sourceId,targetId\)/);
+  assert.match(appSource, /WorldforgeWorldScope\.loreOfWorld\(readLore\(\),activeWorldId\)/);
+  assert.match(appSource, /worldId:currentWorldId\(\)/);
+  assert.match(appSource, /if\(m==='world'\)leaveWorld\(\)/);
+  assert.doesNotMatch(appSource, /q\('#loreWorldId'\)/);
+  assert.match(styleSource, /\.world-grid\{/);
+  assert.match(styleSource, /\.world-hub\[hidden\],\.world-detail\[hidden\]\{display:none\}/);
+  assert.match(styleSource, /\.field-readonly\{/);
 });
 
 test('artwork gallery covers the whole asset library with a used/unused filter', () => {
