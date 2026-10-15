@@ -1,16 +1,19 @@
 # HTML 产品静态文档
 
-## 2026-10-15 随从种族与法术派系增量
+## 2026-10-15 卡面子类型、预览同构与全量原画集增量
 
 - 新增卡牌子类型词表：随从种族由 `WorldforgeCards.minionTribes`（`proposed` 候选：人类、构装体、蒸汽机械、亡灵、野兽）提供，法术派系由 `WorldforgeCards.spellSchools` 提供，直接采用 W01 canon 的十一种魔法派系并按基础 / 高阶 / 更高层分组。
 - `WorldforgeCards.normalizeSubtype(type, card)` 按类型固化子类型：随从只保留 `tribeId`，法术只保留 `spellSchoolId`，武器两者清空；未知 ID 读取时丢弃，切换类型不保留不适用字段的旧值。
 - `WorldforgeCards.tribeName(id)` / `spellSchoolName(id)` / `subtypeText(card)` 解析显示名与搜索文本；卡牌库搜索命中范围加入种族与派系。
 - `renderCardSubtype(type, pending)` 按类型重建编辑器选择器：种族为平铺选项并带“无种族”，派系按层次使用 `<optgroup>` 并带“无派系”；武器隐藏标签与选择器，标签文本在“种族 / 派系”之间切换。
-- `updateCardSubtypeLines(type, value)` 同步卡面预览的种族行与派系行；`drawCardName(ctx, card)` 在名称横幅内绘制种族，`drawCardSchool(ctx, card)` 在法术卡面底部中央绘制派系，编辑器预览与编译 PNG 使用同一排布规则。
-- 卡面排布对齐同类产品：随从种族位于名称下方，法术派系位于底部属性位；名称与种族同时存在时名称上移，字号自适应宽度不变。
-- 编辑器原画窗在随从与法术下移 16px 为种族行让位；`#cardSubtypeLabel[hidden]` 与 `#cardSubtype[hidden]` 显式隐藏，避免被既有 `display` 规则覆盖。
+- 随从种族与法术派系共用卡面底部中央的单一子类型行：`updateCardSubtypeLines(type, value)` 负责预览，`drawCardSubtype(ctx, card)` 负责编译 PNG 的 `(330, 826)`；两者都只在对应类型且已选值时才显示。
+- 编辑器预览改为与编译卡面同构（ADR-0018）：预览固定 330×460，编译 PNG 固定 660×920，**预览 = PNG ÷ 2**。原画窗按类型取 `artRect()` 的一半，名称横幅为 `38,232,254×37`、规则框为 `39,274,252×121`，属性圆章缩为 48px 并使圆心落在 PNG 圆心的一半处。
+- 预览保留卡面内的直接编辑，并用 `z-index` 让名称横幅与规则框绘制在原画之上，与编译绘制顺序一致；卡面底色、名称横幅与规则框改用编译 PNG 的配色。
+- 原画集改为覆盖素材库全部原画（ADR-0018）：`artworkEntries()` 遍历 `artAssets`（排除上传参考图）并判定 `used`，`renderArtworkGallery()` 按新增的 `#artworkFilter` 渲染，“已使用原画”为默认分类，可切换“未使用原画”和“全部原画”。未使用素材以虚线边框与去饱和缩略图区分，点开仍可查看大图。
+- `#cardSubtypeLabel[hidden]` 与 `#cardSubtype[hidden]` 显式隐藏，避免被既有 `display` 规则覆盖。
 - `cards/schema/card.schema.json` 新增 `tribe` 与 `spell_school` 枚举，并以类型条件约束武器两者为 `null`；`templates/card.yaml` 同步。SQLite 物理 Schema 与完整 JSON 导出结构不变。
-- 缓存版本更新为 `app.js?v=33`、`cards.js?v=6`、`styles.css?v=27`。全量 Node 回归测试为 72 项，全部通过。
+- 缓存版本更新为 `app.js?v=34`、`cards.js?v=6`、`styles.css?v=28`。全量 Node 回归测试为 74 项，全部通过。
+- 本次改动后以脚本按 PNG 常量反算预览坐标，确认每个预览盒都等于 PNG ÷ 2、落在卡内且规则框不压子类型行、子类型行不压属性圆章。
 
 ## 2026-10-15 卡牌有限富文本、无水印与属性圆章增量
 
@@ -196,16 +199,28 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 
 ### `updateCardSubtypeLines(type, value): void`
 
-- 同步卡面预览的种族行与派系行文本；空值隐藏对应行，不留下空占位。
+- 把当前类型解析出的种族或派系写入卡面底部唯一的子类型行；空值隐藏该行，不留下空占位。
+
+### `drawCardSubtype(ctx, card): void`
+
+- 位置：`dist/app.js`
+- 在编译 PNG 的底部中央 `(330, 826)` 绘制 `subtypeText(card)`，与底部属性圆章同一高度；没有种族或派系时不绘制任何内容。
 
 ### `drawCardName(ctx, card): void`
 
 - 位置：`dist/app.js`
-- 在名称横幅内绘制卡牌名称；存在随从种族时把名称上移并在名称下方绘制种族文字，字号仍按 450px 宽度自适应收缩。
+- 在名称横幅内绘制卡牌名称，字号仍按 450px 宽度自适应收缩；名称横幅坐标为 `76,464,508×74`。
 
-### `drawCardSchool(ctx, card): void`
+### `artworkEntries(): Array`
 
-- 法术在卡面底部中央绘制派系文字，与前两者的属性圆章同一高度；非法术或未选派系时不绘制任何内容。
+- 位置：`dist/app.js`
+- 遍历素材库全部原画（排除 `provenance === 'user_reference'` 的上传参考图），为每项附带引用它的卡牌、是否绑定到仍然存在的设定条目，以及 `used` 判定。
+- `used` 为真表示至少一张已保存卡牌绑定了该原画，或该原画的设定目标条目仍然存在。
+
+### `renderArtworkGallery(): void`
+
+- 按 `artworkFilter`（默认 `used`）渲染全量原画集；已使用项显示卡牌名称、类型与趣闻，绑定设定的项显示条目名称，未使用项显示目标、用途与生成渠道并加 `unused` 样式。
+- 计数显示为“可见 / 总量 幅”，空状态标题与说明随分类切换。
 
 ### `renderKeywords(): void`
 

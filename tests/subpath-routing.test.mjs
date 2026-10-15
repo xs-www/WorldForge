@@ -14,9 +14,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=33/);
+  assert.match(htmlSource, /app\.js\?v=34/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=27/);
+  assert.match(htmlSource, /styles\.css\?v=28/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
@@ -100,20 +100,50 @@ test('card library, artwork, and editor stay independent', () => {
   assert.match(styleSource, /\.compiled-inline\.italic\{font-style:italic\}/);
 });
 
-test('minion tribe and spell school render on the card face per type', () => {
+test('minion tribe and spell school share the bottom slot of the card face', () => {
   assert.match(htmlSource, /id="cardSubtype"/);
   assert.match(htmlSource, /id="cardSubtypeLabel">种族</);
-  assert.match(htmlSource, /id="cardTribeLine"/);
-  assert.match(htmlSource, /id="cardSchoolLine"/);
+  assert.match(htmlSource, /id="cardSubtypeLine"/);
+  assert.doesNotMatch(htmlSource, /cardTribeLine|cardSchoolLine/);
   assert.match(appSource, /function renderCardSubtype\(type,pending\)/);
   assert.match(appSource, /function updateCardSubtypeLines\(type,value\)/);
-  assert.match(appSource, /function drawCardName\(ctx,card\)/);
-  assert.match(appSource, /function drawCardSchool\(ctx,card\)/);
+  assert.match(appSource, /function drawCardSubtype\(ctx,card\)/);
+  assert.match(appSource, /ctx\.fillText\(text,330,826\)/);
   assert.match(appSource, /WorldforgeCards\.schoolTierLabels\[tier\]/);
   assert.match(appSource, /tribeId:type==='minion'\?q\('#cardSubtype'\)\.value:''/);
   assert.match(appSource, /spellSchoolId:type==='spell'\?q\('#cardSubtype'\)\.value:''/);
-  assert.match(appSource, /WorldforgeCards\.subtypeText\(c\)/);
-  assert.match(styleSource, /\.card-subtype-line\{/);
-  assert.match(styleSource, /\.card-school-line\{/);
+  assert.match(styleSource, /\.card-subtype-line\{position:absolute;left:78px;right:78px;bottom:37px/);
   assert.match(styleSource, /#cardSubtypeLabel\[hidden\],#cardSubtype\[hidden\]\{display:none\}/);
+});
+
+test('editor preview mirrors the compiled card geometry at half scale', () => {
+  assert.match(appSource, /\{x:115,y:88,width:430,height:410,radius:205\}/);
+  assert.match(appSource, /\{x:75,y:105,width:510,height:380,radius:28\}/);
+  assert.match(appSource, /\{x:150,y:105,width:360,height:360,radius:180\}/);
+  assert.match(appSource, /roundedPath\(ctx,76,464,508,74,24\)/);
+  assert.match(appSource, /roundedPath\(ctx,78,548,504,242,22\)/);
+  const art={minion:[115,88,410],spell:[75,105,380],equipment:[150,105,360]};
+  for (const [type,[x,y,height]] of Object.entries(art)) {
+    assert.match(styleSource,new RegExp(`\\.editable-card\\[data-card-type="${type}"\\] \\.card-art-placeholder\\{left:${x/2}px;right:${x/2}px;top:${y/2}px;height:${height/2}px`));
+  }
+  assert.match(styleSource, /\.card-name-field\{top:232px;left:38px;right:38px;height:37px/);
+  assert.match(styleSource, /\.card-description-field\{left:39px;right:39px;top:274px;bottom:65px/);
+  assert.match(styleSource, /\.cost-stat\{left:15px;top:14px\}/);
+  assert.match(styleSource, /\.attack-stat\{left:22px;bottom:23px\}/);
+  assert.match(styleSource, /\.health-stat\{right:22px;bottom:23px\}/);
+  assert.match(styleSource, /\.card-stat\{width:48px;height:48px\}/);
+});
+
+test('artwork gallery covers the whole asset library with a used/unused filter', () => {
+  assert.match(htmlSource, /id="artworkFilter"/);
+  assert.match(htmlSource, /<option value="used">已使用原画<\/option>/);
+  assert.match(htmlSource, /<option value="unused">未使用原画<\/option>/);
+  assert.match(htmlSource, /id="artworkEmptyTitle"/);
+  assert.match(appSource, /let artworkFilter='used'/);
+  assert.match(appSource, /function artworkEntries\(\)/);
+  assert.match(appSource, /artAssets\.filter\(asset=>asset\.provenance!=='user_reference'\)/);
+  assert.match(appSource, /q\('#artworkFilter'\)\.onchange/);
+  assert.match(appSource, /artwork-item\$\{entry\.used\?'':' unused'\}/);
+  assert.match(styleSource, /\.artwork-item\.unused\{/);
+  assert.match(styleSource, /\.artwork-toolbar\{/);
 });

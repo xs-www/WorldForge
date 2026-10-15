@@ -17,5 +17,6 @@
 - [ADR-0015：宏观规则演化与局部 LLM 提案分层](ADR-0015-macro-rules-local-llm.md) — canon（技术边界）
 - [ADR-0016：卡牌类型数值与描述编译顺序](ADR-0016-card-type-stats-and-description-compilation.md) — canon
 - [ADR-0017：随从种族与法术派系的卡面字段](ADR-0017-minion-tribe-and-spell-school.md) — canon（技术边界），种族词表为 proposed
+- [ADR-0018：编辑器预览与编译卡面共用几何，原画集覆盖全量素材](ADR-0018-preview-parity-and-full-artwork-gallery.md) — canon（技术边界）
 
-新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0018` 开始。
+新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0019` 开始。

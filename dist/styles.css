@@ -55,10 +55,27 @@
 .editable-card[data-card-type="minion"] .card-art-placeholder{left:60px;right:60px;top:48px;height:225px;border-radius:52% 52% 46% 46%}.card-workspace[hidden]{display:none}.card-stat[hidden]{display:none}.card-subtabs.editing{display:none}.card-workspace{grid-template-columns:240px minmax(680px,1fr)}.card-library-page[hidden]{display:none}.card-library-toolbar{display:flex;align-items:end;gap:12px;padding:16px;border-bottom:1px solid var(--border)}.card-library-toolbar .search-box{width:min(360px,40vw)}.card-library-toolbar label:not(.search-box){display:grid;gap:5px;color:var(--muted);font-size:10px;font-weight:700}.card-library-toolbar select{min-width:130px;height:38px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);padding:0 9px}.card-library-toolbar>span{margin-left:auto;color:var(--muted);font-size:11px}.card-collection-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;padding:18px}.card-collection-grid .saved-card-preview{min-height:330px}.card-collection-grid .mini-card-art{height:130px}.card-pagination{display:flex;justify-content:center;align-items:center;gap:12px;padding:0 18px 18px}.card-pagination span{color:var(--muted);font-size:11px}.compiled-description{display:grid;gap:7px;text-align:center}.compiled-description p{margin:0;font-size:11px;line-height:1.55;color:var(--muted)}.keyword-chip{display:block;width:100%;border-radius:5px;line-height:1.4;text-align:center}.keyword-chip.standalone{background:transparent;color:var(--text);font-size:12px}.mini-description{display:grid;gap:5px}.mini-description p{margin:0}.compiled-keyword{font-weight:700;color:var(--text)}.compiled-keyword.detailed{color:#315fc4}.compiled-rules{margin-top:4px!important}.selected-keyword-row{padding:8px;border:1px solid var(--border);border-radius:7px;background:var(--surface-subtle)}@media(max-width:1200px){.card-collection-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:820px){.card-library-toolbar{align-items:stretch;flex-direction:column}.card-library-toolbar .search-box{width:100%}.card-library-toolbar>span{margin-left:0}.card-collection-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.card-collection-grid{grid-template-columns:1fr}}
 .card-description-field{display:flex;align-items:center;justify-content:center}.card-keyword-preview{display:block;min-height:0;width:100%;margin:0;color:#2b2722;font-size:14px;line-height:1.45;text-align:center;white-space:normal}.card-keyword-preview.empty{color:var(--faint);font-weight:400}.compiled-inline-keyword{font-weight:800}.card-art-placeholder{touch-action:none}.card-art-placeholder img{cursor:grab;user-select:none}.card-art-placeholder img.dragging{cursor:grabbing;transition:none}.card-collection-grid .saved-card-preview{min-height:0;padding:0;border:0;background:transparent;box-shadow:none;overflow:hidden}.card-collection-grid .saved-card-preview:hover{border:0;transform:translateY(-2px);box-shadow:none}.compiled-card-image{display:block;width:100%;height:auto;aspect-ratio:33/46;object-fit:contain;border-radius:12px;filter:drop-shadow(0 8px 12px rgba(20,28,42,.16))}.compiled-card-image.compiling{background:linear-gradient(110deg,#eef1f5 25%,#f8f9fb 42%,#eef1f5 60%);background-size:240% 100%;animation:card-compiling 1.2s linear infinite}@keyframes card-compiling{to{background-position:-240% 0}}.image-download{width:max-content;margin-top:6px;text-decoration:none}
 .card-stat span{display:none}.compiled-inline.bold{font-weight:800}.compiled-inline.italic{font-style:italic}
-.card-subtype-line{position:absolute;top:56px;left:72px;right:20px;height:16px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;pointer-events:none;z-index:2}
+/* 编辑器预览与编译 PNG 共用同一几何：PNG 为 660x920，预览 330x460 即 PNG / 2。 */
+.editable-card{width:330px;height:460px;border-radius:21px;border:1px solid #e2dbcd;background:#f6f3ec;box-shadow:0 14px 36px rgba(23,32,51,.14)}
+.editable-card .card-art-placeholder{background:#d9dde1}
+.editable-card[data-card-type="minion"] .card-art-placeholder{left:57.5px;right:57.5px;top:44px;height:205px;border-radius:50%}
+.editable-card[data-card-type="spell"] .card-art-placeholder{left:37.5px;right:37.5px;top:52.5px;height:190px;border-radius:14px}
+.editable-card[data-card-type="equipment"] .card-art-placeholder{left:75px;right:75px;top:52.5px;height:180px;border-radius:50%}
+.card-name-field{top:232px;left:38px;right:38px;height:37px;display:flex;align-items:center;border:1.5px solid #8f7958;border-radius:12px;background:#d8c5a2;z-index:2}
+.card-name-field input{height:30px;font-size:17px;border-bottom:0}
+.card-name-field input:focus{border-color:transparent}
+.card-description-field{left:39px;right:39px;top:274px;bottom:65px;border:1px solid #b8aa94;border-radius:11px;background:#e8e1d4;padding:10px 12px;z-index:2}
+.card-stat{width:48px;height:48px}
+.card-stat input{width:36px;font-size:19px}
+.cost-stat{left:15px;top:14px}
+.attack-stat{left:22px;bottom:23px}
+.health-stat{right:22px;bottom:23px}
+.card-subtype-line{position:absolute;left:78px;right:78px;bottom:37px;height:20px;display:flex;align-items:center;justify-content:center;color:#5f5546;font-size:13px;font-weight:700;letter-spacing:.04em;pointer-events:none;z-index:2}
 .card-subtype-line[hidden]{display:none}
-.card-school-line{position:absolute;left:24px;right:24px;bottom:26px;text-align:center;color:var(--muted);font-size:13px;font-weight:700;letter-spacing:.04em;pointer-events:none;z-index:2}
-.card-school-line[hidden]{display:none}
 #cardSubtypeLabel[hidden],#cardSubtype[hidden]{display:none}
-.editable-card[data-card-type="minion"] .card-art-placeholder{top:74px;height:199px}
-.editable-card[data-card-type="spell"] .card-art-placeholder{top:74px;height:189px}
+.artwork-toolbar{display:flex;align-items:end;gap:14px;padding:16px;border-bottom:1px solid var(--border)}
+.artwork-toolbar label{display:grid;gap:5px;color:var(--muted);font-size:10px;font-weight:700}
+.artwork-toolbar select{min-width:160px;height:38px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);padding:0 9px}
+.artwork-toolbar .field-help{margin:0;max-width:560px}
+.artwork-item.unused{border-style:dashed;opacity:.82}
+.artwork-item.unused>img{filter:grayscale(.4)}

@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=27">
+  <link rel="stylesheet" href="./styles.css?v=28">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -192,14 +192,13 @@
                 <img class="card-frame-overlay" id="cardFrameOverlay" src="./assets/card-frames/shared.png" alt="" aria-hidden="true">
                 <label class="card-stat cost-stat"><span>费用</span><input id="cardCost" type="number" min="0" value="0" aria-label="费用"></label>
                 <label class="card-name-field"><span>卡牌名称</span><input id="cardName" maxlength="40" value="未命名卡牌" aria-label="卡牌名称"></label>
-                <span class="card-subtype-line" id="cardTribeLine" hidden></span>
                 <div class="card-art-placeholder"><img id="cardArtImage" hidden alt="当前卡牌插画"><span id="cardArtPlaceholder" aria-hidden="true">W01</span></div>
                 <div class="card-description-field"><div class="card-keyword-preview empty" id="cardKeywordPreview">未填写描述</div></div>
                 <label class="card-stat attack-stat"><span>攻击</span><input id="cardAttack" type="number" min="0" value="0" aria-label="攻击"></label>
                 <label class="card-stat health-stat"><span id="cardSecondaryLabel">生命</span><input id="cardHealth" type="number" min="1" value="1" aria-label="生命"></label>
-                <span class="card-school-line" id="cardSchoolLine" hidden></span>
+                <span class="card-subtype-line" id="cardSubtypeLine" hidden></span>
               </article>
-              <p class="preview-help">直接修改费用、类型属性与描述；法术无底部属性，武器使用耐久。随从在名称下方显示种族，法术在底部显示派系。保存后可从卡牌库再次打开。</p>
+              <p class="preview-help">预览与保存后编译的卡面使用同一排布：原画、名称、规则框、底部属性。随从种族与法术派系都显示在卡面底部中央；法术无底部属性，武器使用耐久。</p>
             </div>
 
             <div class="card-options">
@@ -216,7 +215,7 @@
         </section>
 
       </div>
-      <section class="panel card-artwork-gallery" data-card-panel="artwork" hidden><div class="panel-title"><div><h2>原画集</h2><small>卡牌绑定原画与当前裁剪效果</small></div><span id="artworkCount">0 幅</span></div><div class="artwork-grid" id="artworkGallery"></div><div class="saved-card-empty" id="artworkEmpty"><strong>暂无卡牌原画</strong><p>在卡牌编辑器中选择或生成原画后，这里会自动汇集。</p></div></section>
+      <section class="panel card-artwork-gallery" data-card-panel="artwork" hidden><div class="panel-title"><div><h2>全量原画集</h2><small>素材库全部原画，含未使用素材</small></div><span id="artworkCount">0 幅</span></div><div class="artwork-toolbar"><label>分类<select id="artworkFilter"><option value="used">已使用原画</option><option value="unused">未使用原画</option><option value="all">全部原画</option></select></label><p class="field-help" id="artworkHelp">已使用 = 已被某张卡牌绑定，或仍绑定到存在的设定条目；未使用素材可查看并重新选用。</p></div><div class="artwork-grid" id="artworkGallery"></div><div class="saved-card-empty" id="artworkEmpty"><strong id="artworkEmptyTitle">暂无已使用原画</strong><p id="artworkEmptyText">在卡牌编辑器中选择原画后，这里会自动汇集。</p></div></section>
     </section>
 
     <section class="module-page" id="freeModule" data-page="free" aria-labelledby="freeTitle" hidden>
@@ -363,6 +362,6 @@
   <script src="./chronicle.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=33"></script>
+  <script src="./app.js?v=34"></script>
 </body>
 </html>
