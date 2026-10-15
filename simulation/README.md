@@ -1,9 +1,11 @@
 # Simulation
 
-此目录用于 WorldForge 2.0 世界实例与规则模拟。M0B 已实现 JSON World Package 与独立实例化；M1 已实现单城市能源危机的确定性 Tick、行动结算、主体知识、逐 Tick 快照和事件重放，并由 ADR-0012 补齐可发布 Action/Effect 契约、资源读写集与知识权限。M2A 新增 W99 实验观察 API 与手动推进 UI；M2A.1 新增确定性规则主体、有界连续推进、事务重置和自动重放校验。尚未实现 LLM 模拟、多地区扩展或通用实例 API。
+此目录用于 WorldForge 2.0 世界实例与规则模拟。M0B 已实现 JSON World Package 与独立实例化；M1 已实现单城市能源危机的确定性 Tick、行动结算、主体知识、逐 Tick 快照和事件重放。M2A/M2A.1 以 W99 跑通观察、规则主体、重置和自动重放。M2B 新增 W98 多地区宏观季度引擎、地图观察界面，以及只在选中地区提出行动并经规则校验的 LLM 局部提案。尚未实现通用机制化宏观规则、LLM 预算调度、人物级精细模拟或通用实例 API。
 
 - `compiler/`：确定性 World Package 编译器、关键契约校验与内容哈希。
 - `dashboard-service.mjs`：固定 W99 实验实例的状态投影、Action 提案规范化与观察台服务。
+- `macro-simulation-service.mjs`：固定 W98 宏观实例的季度推进、局部上下文、规则回退、事件重放与地图数据投影。
+- `llm/`：局部模拟提案 Schema、提示边界、解析与规则回退；模型输出不能直接写状态。
 - `agents/`：只通过公开 Action 契约提交提案的规则主体；后续 LLM 提案器必须复用同一边界。
 - `schemas/`：发布清单、内容源、机制注册表、Action/Effect 和产物的 JSON Schema。
 - `manifests/`：经审核的 JSON 发布清单。

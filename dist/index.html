@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=17">
+  <link rel="stylesheet" href="./styles.css?v=19">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -246,10 +246,48 @@
 
     <section class="module-page simulation-page" id="simulationModule" data-page="simulation" aria-labelledby="simulationTitle" hidden>
       <div class="page-heading">
-        <div><p class="breadcrumb">WorldForge 2.0 / W99 实验场</p><h1 id="simulationTitle">世界模拟观察台</h1><p>查看真实 Tick、资源、行动审计与主体知识差异。W99 是技术测试世界，不属于正史。</p></div>
-        <div class="heading-actions"><span class="simulation-live"><i></i><span id="simulationConnection">尚未连接</span></span><button class="button secondary" id="refreshSimulation" type="button">刷新状态</button></div>
+        <div><p class="breadcrumb">WorldForge 2.0 / W98 宏观实验场</p><h1 id="simulationTitle">宏观世界模拟器</h1><p>规则引擎推动大陆按季度变化；选择地区后，LLM 只对局部态势提出可审计的干预建议。</p></div>
+        <div class="heading-actions"><span class="simulation-live ready"><i></i><span id="macroConnection">正在连接</span></span><button class="button secondary" id="refreshMacro" type="button">刷新地图</button></div>
       </div>
 
+      <div class="simulation-banner macro-banner"><strong>experimental · W98</strong><span>这是非正史技术实验。宏观数值由规则结算；LLM 不能直接改状态，提案必须经规则校验并由你采纳。</span></div>
+      <div class="metric-row simulation-metrics">
+        <article><span>世界时间</span><strong id="macroClock">—</strong><small id="macroTick">等待状态</small></article>
+        <article><span>总人口</span><strong id="macroPopulation">—</strong><small>地区人口合计</small></article>
+        <article><span>总粮食</span><strong id="macroFood">—</strong><small>季度结算后库存</small></article>
+        <article><span>平均稳定</span><strong id="macroStability">—</strong><small id="macroReplay">等待重放验证</small></article>
+      </div>
+
+      <div class="macro-toolbar" aria-label="宏观模拟控制">
+        <div><button class="button primary" id="macroStep" type="button">推进 1 季度</button><button class="button secondary" id="macroRun" type="button">连续推进 4 季度</button><button class="button secondary" id="macroReset" type="button">重置 W98</button></div>
+        <label>地图图层<select id="macroLayer"><option value="owner">政体</option><option value="stability">稳定度</option><option value="food">粮食</option><option value="population">人口</option></select></label>
+        <p id="macroStatus" role="status">选择一个地区查看局部态势。</p>
+      </div>
+
+      <div class="macro-layout">
+        <section class="panel macro-map-panel">
+          <div class="panel-title"><div><h2>群陆态势图</h2><small>点击地区进入局部精细模拟</small></div><span id="macroMapLegend">按政体着色</span></div>
+          <div class="macro-map" id="macroMap" aria-label="W98 群陆态势地图"></div>
+          <div class="macro-polities" id="macroPolities"></div>
+        </section>
+
+        <aside class="panel macro-local-panel">
+          <div class="panel-title"><div><h2>局部推演台</h2><small>有限上下文 · 人工采纳</small></div><span id="macroSelectedId">未选择</span></div>
+          <div class="macro-local" id="macroLocal"><p class="simulation-empty">从左侧地图选择一个地区。</p></div>
+          <div class="macro-proposal" id="macroProposal" hidden></div>
+          <div class="macro-local-actions"><button class="button primary" id="macroAskLlm" type="button" disabled>让 LLM 提出局部干预</button><button class="button secondary" id="macroApplyProposal" type="button" hidden>采纳并推进一季度</button></div>
+        </aside>
+      </div>
+
+      <div class="macro-history-grid">
+        <section class="panel"><div class="panel-title"><h2>季度趋势</h2><span>规则结算</span></div><div class="macro-chart" id="macroChart"><p class="simulation-empty">推进季度后显示趋势。</p></div></section>
+        <section class="panel"><div class="panel-title"><h2>大陆事件</h2><span>最近 24 条</span></div><div class="simulation-log" id="macroEvents"><p class="simulation-empty">尚无事件。</p></div></section>
+      </div>
+
+      <details class="simulation-diagnostics">
+        <summary>开发诊断：W99 Action / Knowledge / Replay</summary>
+        <div class="simulation-diagnostics-body">
+      <div class="page-heading diagnostics-heading"><div><p class="breadcrumb">底层引擎诊断</p><h2>W99 能源危机测试</h2></div><div class="heading-actions"><span class="simulation-live"><i></i><span id="simulationConnection">尚未连接</span></span><button class="button secondary" id="refreshSimulation" type="button">刷新诊断</button></div></div>
       <div class="simulation-banner"><strong>experimental · W99</strong><span>所有操作只进入独立模拟数据库，不会修改作者资料库或 W01 canon。</span></div>
       <div class="metric-row simulation-metrics">
         <article><span>当前 Tick</span><strong id="simulationTick">—</strong><small>每次推进 +1</small></article>
@@ -297,6 +335,8 @@
         <section class="panel"><div class="panel-title"><h2>行动审计</h2><span>最近 30 条</span></div><div class="simulation-log" id="simulationActions"><p class="simulation-empty">尚无行动。</p></div></section>
         <section class="panel"><div class="panel-title"><h2>事件流</h2><span>最近 30 条</span></div><div class="simulation-log" id="simulationEvents"><p class="simulation-empty">尚无事件。</p></div></section>
       </div>
+        </div>
+      </details>
     </section>
   </main>
 
@@ -313,6 +353,7 @@
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
   <script src="./cards.js?v=1"></script>
-  <script src="./app.js?v=23"></script>
+  <script src="./macro.js?v=3"></script>
+  <script src="./app.js?v=24"></script>
 </body>
 </html>

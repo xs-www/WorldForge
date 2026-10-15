@@ -14,5 +14,6 @@
 - [ADR-0012：发布 Action/Effect 契约并限制机制状态访问](ADR-0012-action-effect-contracts.md) — canon（技术边界）
 - [ADR-0013：以 W99 实验 API 与观察台公开首个模拟界面](ADR-0013-experimental-simulation-dashboard.md) — canon（技术边界）
 - [ADR-0014：用有界规则主体跑通 W99 完整模拟闭环](ADR-0014-bounded-rule-agent-full-run.md) — canon（技术边界）
+- [ADR-0015：宏观规则演化与局部 LLM 提案分层](ADR-0015-macro-rules-local-llm.md) — canon（技术边界）
 
-新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0015` 开始。
+新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0016` 开始。

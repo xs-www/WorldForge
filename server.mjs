@@ -10,6 +10,8 @@ import { composeImagePrompt } from './image-context.mjs';
 import { generateSeedreamImage, seedreamConfig, validateImageRequest, validateSeedreamSettings } from './seedream.mjs';
 import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, DEFAULT_VISUAL_STYLE_PROMPT, normalizePromptSettings, validatePromptSettings } from './prompt-settings.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
+import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
+import { buildMacroProposalPrompt, MACRO_PROPOSAL_SCHEMA } from './simulation/llm/macro-proposal.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const dist = join(root, 'dist');
@@ -37,6 +39,7 @@ const assetsPath = process.env.WORLDFORGE_ASSETS_PATH || join(dirname(databasePa
 const contentStore = createContentStore(databasePath);
 const simulationDatabasePath = process.env.WORLDFORGE_SIM_DB_PATH || join(dirname(databasePath), 'worldforge-simulation.sqlite');
 const simulationDashboard = createSimulationDashboardService(simulationDatabasePath);
+const macroSimulation = createMacroSimulationService(simulationDatabasePath);
 await mkdir(assetsPath, { recursive: true });
 
 async function saveLocalEnv(values) {
@@ -252,6 +255,26 @@ async function callNameGenerator(payload) {
   return { ...parseNameResponse(raw, count), model: config.model };
 }
 
+async function callMacroProposal(payload) {
+  const regionId = String(payload?.regionId || '');
+  const context = macroSimulation.localContext(regionId);
+  const config = aiConfig();
+  if (!config.key) return { ...macroSimulation.fallbackProposal(regionId), source: 'rule_fallback', fallbackReason: '尚未配置语言模型' };
+  try {
+    const prompt = buildMacroProposalPrompt(context);
+    let raw;
+    try { raw = await requestModel(config, prompt, { structured: true, schema: MACRO_PROPOSAL_SCHEMA, name: 'macro_local_proposal' }); }
+    catch (error) {
+      if (![400, 404, 422].includes(error.status)) throw error;
+      raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, { structured: false });
+    }
+    const proposal = macroSimulation.parseModelProposal(raw, regionId);
+    return { ...macroSimulation.validateProposal(proposal, regionId), source: 'llm', model: config.model, context };
+  } catch (error) {
+    return { ...macroSimulation.fallbackProposal(regionId), source: 'rule_fallback', fallbackReason: String(error.message || '模型提案失败').slice(0, 300) };
+  }
+}
+
 async function serveStatic(req, res) {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
   const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
@@ -268,7 +291,24 @@ async function serveStatic(req, res) {
 createServer(async (req, res) => {
   try {
     const pathname = new URL(req.url, 'http://localhost').pathname;
-    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health() });
+    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health() });
+    if (req.method === 'GET' && req.url === '/api/macro') return json(res, 200, macroSimulation.view());
+    if (req.method === 'POST' && req.url === '/api/macro/step') {
+      if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      return json(res, 200, macroSimulation.step(await readBody(req)));
+    }
+    if (req.method === 'POST' && req.url === '/api/macro/run') {
+      if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      return json(res, 200, macroSimulation.run(await readBody(req)));
+    }
+    if (req.method === 'POST' && req.url === '/api/macro/reset') {
+      if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      return json(res, 200, macroSimulation.reset(await readBody(req)));
+    }
+    if (req.method === 'POST' && req.url === '/api/macro/local-proposal') {
+      if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      return json(res, 200, await callMacroProposal(await readBody(req)));
+    }
     if (req.method === 'GET' && req.url === '/api/simulation') return json(res, 200, simulationDashboard.view());
     if (req.method === 'POST' && req.url === '/api/simulation/advance') {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });

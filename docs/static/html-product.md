@@ -1179,3 +1179,39 @@ M2A 默认在内容数据库同目录建立 `worldforge-simulation.sqlite`，也
 - Docker 镜像已重建并复用现有 `worldforge-data` 卷，容器状态为 `healthy`。真实容器 API 先重置再运行，最终为 Tick 7、储备 0、主体持有 0、累计消耗 12，状态哈希为 `6366981b0df899226f0795f17295cf331cbe1f63e76310c32fe0e21297666e97`。
 - 真实浏览器确认新版脚本 `v=23`、完整模拟主按钮、重置按钮、能源流转、Tick 7 完成态、14 条行动审计、主体 KnowledgeView 和“历史重放一致”均正常显示。
 - 当前仍是单个 W99、单城市、单资源和同步有界运行；没有真实 LLM 提案、预算调度、多地区经济、后台任务、取消、分支或通用实例管理，后续不得把本阶段描述成完整 2.0 成品。
+
+## 35. 2026-10-15 W98 宏观地图与局部 LLM 提案归档
+
+本阶段纠正了“模拟等于单资源流程”的产品偏差，按 ADR-0015 建立“宏观规则演化 + 局部 LLM 提案”分层。W98 是 `proposed / experimental` 合成世界，不属于 W01 或宇宙正史；参数未经平衡。
+
+### 文件与职责
+
+- 新增 `simulation/scenarios/m2-macro-continent.mjs`：编译 W98、12 个六角邻接地区、3 个政体及其人口/粮食/产粮/工业/基建/稳定/驻军/财政/合法性/关系初态。
+- 新增 `simulation/rules/macro-world-engine.mjs`：确定性季度结算；处理局部行动、生产、邻接贸易、消费与短缺、人口增长、迁徙、工业增长、财政、合法性、关系漂移及年度边界变化。
+- 新增 `simulation/llm/macro-proposal.mjs`：声明局部提案 JSON Schema，构造不可信有限上下文提示，解析并验证模型输出，在模型不可用时生成同契约规则提案。
+- 新增 `simulation/macro-simulation-service.mjs`：管理固定 `INST-W98-MACRO`，提供地图视图、季度推进、连续推进、重置、局部上下文、提案验证和基于 `macro.state_committed` 事件的重放校验。
+- 新增 `dist/macro.js`：渲染地图、政体摘要、局部详情、季度趋势和事件；政体图层使用阵营色，稳定/粮食/人口图层按指标梯度着色；实现刷新、单季/四季推进、重置、请求提案及采纳提案。浏览器验收发现并修复延迟调用时 `document.currentScript` 为空的问题，脚本改为加载时捕获基址；最终缓存版本为 `v=3`。
+- 更新 `server.mjs`：增加 `GET /api/macro`、`POST /api/macro/step|run|reset|local-proposal`；写操作继续要求 `X-Worldforge-Simulation: 1`。模型失败返回显式 `rule_fallback`，不阻塞宏观时钟。
+- 更新 `dist/index.html` 与 `dist/styles.css`：世界模拟页以 W98 地图为主，支持政体/稳定/粮食/人口图层；W99 整体移入折叠开发诊断区；新增桌面和窄屏布局。浏览器发现旧缓存会使地图退化为原生按钮或保留旧间距，最终样式缓存版本升至 `v=19`。
+- 新增 `tests/macro-simulation.test.mjs` 并扩展静态 UI 测试与 `package.json` 检查入口；更新 README、设计文档、模拟/测试说明、ADR 索引、Changelog 和 TODO。
+
+### 静态函数与接口
+
+- `createMacroContinentPackage()`：生成递归冻结、可校验哈希的 W98 World Package。
+- `validateMacroAction(action, state)`：默认拒绝未知行动、越权地区、额外参数、财政不足、基建上限与非邻接谈判。
+- `advanceMacroWorld(instance, proposals)`：复制权威状态，先处理局部行动，再按稳定顺序完成一个季度结算，返回新状态、行动审计、事件候选和汇总；不直接写数据库。
+- `macroSummary(instanceOrState)`：汇总全局及逐政体的人口、粮食、工业、军力、财政、合法性和地区数。
+- `buildMacroProposalPrompt(context)`：只序列化选中地区有限上下文，明确数据不可信、模型只能从行动目录提出一个提案。
+- `parseMacroProposal(raw, context, state)`：清理 JSON 代码围栏，限制地区与行动字段，补入地区所属政体并调用权威规则预校验。
+- `fallbackMacroProposal(context, state)`：根据短缺、稳定度、基建与边境条件选择赈济、投资、动员或谈判，并通过同一 Validator。
+- `createMacroSimulationService(databasePath)`：返回 `view/step/run/reset/localContext/fallbackProposal/parseModelProposal/validateProposal/health/close`；每次提交生成审计、事件、快照和完整状态重放事件。
+- `callMacroProposal(payload)`：复用现有 Responses/Chat Completions 代理与结构化 Schema；不支持结构化输出时降级 JSON 文本，任何模型或解析失败再降级到规则提案。
+- `WorldforgeMacro.refresh()`：世界模拟模块打开时加载 W98 视图；浏览器 API URL 相对 `macro.js` 挂载位置计算，兼容 `/worldforge` 子路径。
+
+### 已验证与待验证
+
+- `npm run check` 通过，54 项 Node 测试全部成功、0 失败。测试确认 W98 初态为 12 地区/3 政体/人口 1160；连续 4 季度后出现年度边界事件，重放哈希一致；重置并重复运行得到相同哈希；局部上下文不包含全地区集合，越区模型提案会被拒绝。
+- Docker 已用现有 `worldforge-data` 卷重建并达到 `healthy`；真实容器从 Tick 0 连续推进 4 季度，人口 1160→1182、粮食 153→303、平均稳定 61→63，产生 1 次年度边界变化且重放一致。
+- 真实浏览器验收确认 `macro.js?v=2`、`styles.css?v=18`、12 个六角地区、政体摘要、季度趋势、事件流、地区点击与局部详情可见；同时修复奇数行最右六角被裁切和隐藏提案出现空边框的问题。
+- 已配置模型的端到端提案会把 W98 合成地区上下文发送给配置的模型服务；本次安全审批未授权该次外发，因此没有绕过或声称真实模型调用成功。结构化解析、规则预校验与规则回退由自动测试覆盖。
+- 当前宏观规则仍是 W98 专用 MVP，尚未进入机制注册表；LLM 尚无 token/费用/并发预算调度，局部精细化尚未深入到人物和场景，也没有结果回聚与分支历史。

@@ -8,6 +8,7 @@
 - `world-package.test.mjs`：验证 JSON 发布筛选、事实层次分区、引用完整性、机制参数/缺失/循环/版本依赖、Action/Effect 契约、访问路径、确定性包哈希，以及独立 SQLite 世界实例化。
 - `simulation-runtime.test.mjs`：验证 M1 三种能源行动、Action 参数契约、越权 Effect/知识策略拒绝、确定性冲突、资源守恒、状态版本、知识隔离/过期、拒绝信息过滤，以及从 Tick 0 快照重放。
 - `simulation-dashboard.test.mjs`：验证 M2A W99 观察数据、三种可发现 Action、受控 Action 提案、过期版本拒绝、能源守恒、审计和逐主体知识差异，以及规则主体全量推演、历史重放和可复现重置。
+- `macro-simulation.test.mjs`：验证 M2B W98 12 地区/3 政体初态、确定性季度演化、年度边界事件、历史重放、可复现重置，以及局部上下文与 LLM/规则提案的越区拒绝。
 - `geography.test.mjs`：验证大陆到国家再到地点的层级树、搜索时保留完整祖先路径、无效父级隔离与跨世界父级拒绝。
 - `chronicle.test.mjs`：验证编年史容器与节点分组、数值纪年排序、搜索保留容器、无效父级隔离与跨世界拒绝。
 - `cards.test.mjs`：验证旧卡牌类型迁移、稀有度与多来源规范化，以及设定条目到卡牌三分类的默认映射。
