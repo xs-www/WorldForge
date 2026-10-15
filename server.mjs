@@ -117,6 +117,12 @@ async function savePromptSettings(settings) {
 function imageExtension(mimeType) { return ({ 'image/png': '.png', 'image/webp': '.webp', 'image/jpeg': '.jpg' })[mimeType] || '.img'; }
 
 async function createArtAsset(payload) {
+  const clientRequestId = String(payload?.clientRequestId || '').trim();
+  if (clientRequestId && !/^[A-Za-z0-9-]{8,80}$/.test(clientRequestId)) throw new Error('图片请求 ID 无效');
+  if (clientRequestId) {
+    const existing = contentStore.listArtAssets().find(asset => asset.clientRequestId === clientRequestId);
+    if (existing) return existing;
+  }
   const composed=composeImagePrompt(payload,await loadPromptSettings());
   const request = validateImageRequest({...payload,prompt:composed.prompt});
   const provider = payload.provider === 'comfyui' ? 'comfyui' : 'seedream';
@@ -152,6 +158,7 @@ async function createArtAsset(payload) {
     status: 'proposed',
     provenance: 'ai_generated',
     provider: providerName,
+    clientRequestId: clientRequestId || undefined,
     providerMetadata: generated.providerMetadata,
     createdAt: new Date().toISOString()
   };
@@ -337,7 +344,16 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/images/status') { const seedream = seedreamConfig(), comfyUi = comfyUiConfig(); return json(res, 200, { seedream: { configured: Boolean(seedream.key), model: seedream.model, baseUrl: seedream.baseUrl }, comfyUi: { configured: Boolean(await loadComfyWorkflow()), baseUrl: comfyUi.baseUrl } }); }
     if (req.method === 'POST' && req.url === '/api/images/generate') {
       if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少图片生成请求标记' });
-      return json(res, 200, { asset: await createArtAsset(await readBody(req)) });
+      const payload = await readBody(req), requestId = String(payload?.clientRequestId || randomUUID()).slice(0, 80), startedAt = Date.now();
+      console.log(`[images/generate] start request=${requestId} provider=${payload?.provider === 'comfyui' ? 'comfyui' : 'seedream'} target=${String(payload?.targetId || payload?.cardId || '').slice(0, 160)}`);
+      try {
+        const asset = await createArtAsset({ ...payload, clientRequestId: requestId });
+        console.log(`[images/generate] success request=${requestId} asset=${asset.id} elapsedMs=${Date.now() - startedAt}`);
+        return json(res, 200, { asset, requestId });
+      } catch (error) {
+        console.error(`[images/generate] failed request=${requestId} elapsedMs=${Date.now() - startedAt} error=${String(error.message || error).slice(0, 500)}`);
+        return json(res, error.status || 500, { error: error.message || '图片生成失败', requestId });
+      }
     }
     if (req.method === 'POST' && req.url === '/api/images/compose-prompt') {
       if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少图片生成请求标记' });

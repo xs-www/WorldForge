@@ -3,7 +3,7 @@
 此目录用于保存结构校验、规则示例与卡牌交互测试。当前尚未建立正式 timing specification。
 
 - `ai-harness.test.mjs`：验证 AI 上下文、13 类内容块契约、精确数量动态 Schema、逐候选校验、仅补齐缺少候选、部分失败诊断、自由文本请求格式与名称生成响应。
-- `subpath-routing.test.mjs`：验证浏览器 API 请求跟随脚本挂载路径、静态资源缓存版本、自由创作关键样式、AI 候选应用入口及模型原始错误片段展示，避免 `/worldforge` 反向代理下回落到站点根路径。
+- `subpath-routing.test.mjs`：验证浏览器 API 请求跟随脚本挂载路径、静态资源缓存版本、自由创作关键样式、AI 候选诊断，以及生图空响应解析、请求 ID资产找回和禁止自动重复付费请求，避免 `/worldforge` 反向代理下回落到站点根路径。
 - `storage.test.mjs`：使用临时 SQLite 数据库验证结构化内容（含故事关联）持久化、健康检查、重复 ID 拒绝、revision 冲突保护、有序 Schema 迁移、v1 数据保留升级与未来版本拒绝。
 - `world-package.test.mjs`：验证 JSON 发布筛选、事实层次分区、引用完整性、机制参数/缺失/循环/版本依赖、Action/Effect 契约、访问路径、确定性包哈希，以及独立 SQLite 世界实例化。
 - `simulation-runtime.test.mjs`：验证 M1 三种能源行动、Action 参数契约、越权 Effect/知识策略拒绝、确定性冲突、资源守恒、状态版本、知识隔离/过期、拒绝信息过滤，以及从 Tick 0 快照重放。

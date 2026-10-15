@@ -1237,3 +1237,25 @@ M2A 默认在内容数据库同目录建立 `worldforge-simulation.sqlite`，也
 
 - `ai-harness.test.mjs` 新增逐候选保留、仅补差额和补充失败仍返回可见诊断三项测试；动态 Schema 测试同时确认精确数组长度。
 - `subpath-routing.test.mjs` 增加诊断渲染、原始片段入口与样式存在性检查。
+
+## 37. 2026-10-15 生图空响应容错与资产找回归档
+
+本次修复针对 Seedream / ComfyUI 长耗时请求的连接异常，不修改生图提示词、模型选择或任何正史内容。原实现直接调用 `response.json()`；HTTP 响应为空或被中间层截断时，真正的服务状态会被浏览器 `Unexpected end of JSON input` 覆盖。
+
+### 请求与恢复流程
+
+- `readApiJson(response, label)` 先读取文本，再区分空响应、非 JSON、HTTP 错误和合法 JSON；错误信息包含 HTTP 状态，不再把解析异常当作模型错误。
+- `requestGeneratedAsset(payload)` 为每次生图建立 `clientRequestId`。若连接损坏、响应为空或响应不是 JSON，只按该 ID调用只读资产列表最多等待约 12 秒，尝试找回服务端已经完成并持久化的同一次结果。
+- 找回流程不会再次调用 `/api/images/generate`，避免用户因网络或代理异常承担重复生成费用。未找回时界面显示请求 ID并明确“未自动重试付费生成”。
+- 卡牌插画和设定视觉原型共用该流程；找回资产会去重后置顶，并显示“连接中断，但已找回”的明确状态。
+
+### 服务端可观测性
+
+- `/api/images/generate` 接收并验证 `clientRequestId`，相同 ID若已持久化会直接返回既有资产。资产元数据保留该 ID，现有 SQLite 表无需迁移。
+- 服务端为每次生成记录不含提示词的开始、成功或失败日志，包含请求 ID、provider、目标 ID、耗时及截断后的错误信息；API 错误 JSON 同时返回请求 ID。
+- `app.js` 缓存版本升至 `v=26`。
+
+### 验证边界
+
+- 测试确认请求 ID可随资产元数据持久化，并静态验证安全响应解析、资产找回和“未自动重试付费生成”边界。
+- 自动化验证不主动调用真实 Seedream，避免产生未经作者确认的外部费用；真实 provider 的错误可在后续请求中通过请求 ID与容器日志对应。

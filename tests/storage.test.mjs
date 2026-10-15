@@ -32,8 +32,9 @@ test('SQLite content store persists structured world data', async () => withStor
   assert.equal(saved.keywords[0].definition, '仅用于测试。');
   assert.equal(saved.notes.combat, '测试备注');
   assert.equal(store.health().ok, true);
-  const asset = store.createArtAsset({ id: 'ART-00000000-0000-0000-0000-000000000001', cardId: 'CARD-W01-0001', prompt: '测试插画', model: 'doubao-seedream-test', size: '1872x1248', mimeType: 'image/png', fileName: 'asset.png', status: 'proposed', createdAt: '2026-10-13T00:00:00.000Z', provenance: 'ai_generated' });
+  const asset = store.createArtAsset({ id: 'ART-00000000-0000-0000-0000-000000000001', cardId: 'CARD-W01-0001', prompt: '测试插画', model: 'doubao-seedream-test', size: '1872x1248', mimeType: 'image/png', fileName: 'asset.png', status: 'proposed', createdAt: '2026-10-13T00:00:00.000Z', provenance: 'ai_generated', clientRequestId: 'request-0001' });
   assert.equal(store.getArtAsset(asset.id).prompt, '测试插画');
+  assert.equal(store.getArtAsset(asset.id).clientRequestId, 'request-0001');
   assert.equal(store.listArtAssets().length, 1);
   const loreAsset=store.createArtAsset({id:'ART-00000000-0000-0000-0000-000000000002',targetType:'lore',targetId:'CHR-W01-001',purpose:'portrait',prompt:'人物原型',model:'test',size:'2K',mimeType:'image/png',fileName:'lore.png',status:'proposed',createdAt:'2026-10-13T00:00:01.000Z'});
   assert.equal(loreAsset.targetId,'CHR-W01-001');
