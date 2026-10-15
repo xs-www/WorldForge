@@ -12,14 +12,41 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "version", "parameterSchema", "dependencies", "actionNamespace", "effectNamespace"],
+        "required": ["id", "version", "parameterSchema", "dependencies", "actionNamespace", "effectNamespace", "contract"],
         "properties": {
           "id": { "type": "string" },
           "version": { "type": "string" },
           "parameterSchema": { "type": "object" },
           "dependencies": { "type": "array" },
           "actionNamespace": { "type": "string" },
-          "effectNamespace": { "type": "string" }
+          "effectNamespace": { "type": "string" },
+          "contract": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["actions", "effects", "access", "knowledge"],
+            "properties": {
+              "actions": { "type": "array", "minItems": 1 },
+              "effects": { "type": "array", "minItems": 1 },
+              "access": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["reads", "writes"],
+                "properties": {
+                  "reads": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+                  "writes": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+                }
+              },
+              "knowledge": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["classifications", "maxTtl"],
+                "properties": {
+                  "classifications": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["public", "restricted", "secret"] } },
+                  "maxTtl": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
         }
       }
     }

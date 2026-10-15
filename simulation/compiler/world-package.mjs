@@ -11,6 +11,7 @@ const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const COMMIT_PATTERN = /^[0-9a-f]{7,40}$/;
 const STATUSES = new Set(['canon', 'proposed', 'deprecated']);
 const TRUTH_SCOPES = new Set(['objective', 'in_world_belief', 'unknown']);
+const ACCESS_PATH_PATTERN = /^(?:actor|knowledge|tick|regions\.\*\.state\.resources\.[a-z][a-z0-9-]*\.(?:reserve|consumed)|entities\.\*\.state\.resources\.[a-z][a-z0-9-]*)$/;
 
 export class WorldPackageCompileError extends Error {
   constructor(code, message, details = {}) {
@@ -173,6 +174,60 @@ function validateJsonSchemaValue(schema, value, path) {
   }
 }
 
+function validateContractSchema(schema, path) {
+  if (!plainObject(schema)) fail('INVALID_MECHANIC_CONTRACT', `${path} 必须是 Schema 对象`);
+  if ('const' in schema && schema.type != null) fail('INVALID_MECHANIC_CONTRACT', `${path} 的 const 不应同时声明 type`);
+  if ('const' in schema) return;
+  if (!['object', 'string', 'integer', 'number', 'boolean'].includes(schema.type)) {
+    fail('INVALID_MECHANIC_CONTRACT', `${path} 使用了不支持的 Schema 类型`);
+  }
+  if (schema.type === 'object') {
+    if (!plainObject(schema.properties)) fail('INVALID_MECHANIC_CONTRACT', `${path}.properties 必须是对象`);
+    if (!Array.isArray(schema.required)) fail('INVALID_MECHANIC_CONTRACT', `${path}.required 必须是数组`);
+    if (schema.additionalProperties !== false) fail('INVALID_MECHANIC_CONTRACT', `${path} 必须拒绝额外字段`);
+    for (const key of schema.required) {
+      if (!(key in schema.properties)) fail('INVALID_MECHANIC_CONTRACT', `${path}.${key} 缺少属性定义`);
+    }
+    for (const [key, child] of Object.entries(schema.properties)) validateContractSchema(child, `${path}.${key}`);
+  }
+}
+
+function compileMechanicContract(mechanic) {
+  const contract = mechanic.contract;
+  if (!plainObject(contract) || !Array.isArray(contract.actions) || !Array.isArray(contract.effects)
+    || !plainObject(contract.access) || !Array.isArray(contract.access.reads) || !Array.isArray(contract.access.writes)
+    || !plainObject(contract.knowledge) || !Array.isArray(contract.knowledge.classifications)) {
+    fail('INVALID_MECHANIC_CONTRACT', `${mechanic.id} 缺少完整契约`);
+  }
+  const actionTypes = new Set();
+  for (const action of contract.actions) {
+    if (!plainObject(action) || typeof action.type !== 'string' || !action.type.startsWith(`${mechanic.actionNamespace}.`)
+      || actionTypes.has(action.type)) fail('INVALID_MECHANIC_CONTRACT', `${mechanic.id} 的 Action 类型无效或重复`);
+    actionTypes.add(action.type);
+    validateContractSchema(action.parametersSchema, `${mechanic.id}.${action.type}.parametersSchema`);
+  }
+  const effectTypes = new Set();
+  for (const effect of contract.effects) {
+    if (!plainObject(effect) || typeof effect.type !== 'string' || !effect.type.startsWith(`${mechanic.effectNamespace}.`)
+      || effectTypes.has(effect.type)) fail('INVALID_MECHANIC_CONTRACT', `${mechanic.id} 的 Effect 类型无效或重复`);
+    effectTypes.add(effect.type);
+    validateContractSchema(effect.schema, `${mechanic.id}.${effect.type}.schema`);
+  }
+  for (const path of [...contract.access.reads, ...contract.access.writes]) {
+    if (typeof path !== 'string' || !ACCESS_PATH_PATTERN.test(path)) fail('INVALID_MECHANIC_CONTRACT', `${mechanic.id} 的访问路径无效：${path}`);
+  }
+  if (new Set(contract.access.reads).size !== contract.access.reads.length
+    || new Set(contract.access.writes).size !== contract.access.writes.length) {
+    fail('INVALID_MECHANIC_CONTRACT', `${mechanic.id} 的访问路径重复`);
+  }
+  if (contract.knowledge.classifications.length === 0
+    || contract.knowledge.classifications.some(value => !['public', 'restricted', 'secret'].includes(value))
+    || !Number.isInteger(contract.knowledge.maxTtl) || contract.knowledge.maxTtl < 0) {
+    fail('INVALID_MECHANIC_CONTRACT', `${mechanic.id} 的知识权限无效`);
+  }
+  return structuredClone(contract);
+}
+
 function compileMechanics(manifestMechanics, registry) {
   if (!plainObject(registry) || registry.registryVersion !== manifestMechanics.registryVersion || !Array.isArray(registry.mechanics)) {
     fail('MECHANIC_REGISTRY_MISMATCH', '机制注册表不存在或版本与发布清单不一致');
@@ -191,12 +246,13 @@ function compileMechanics(manifestMechanics, registry) {
     if (effectNamespaces.has(mechanic.effectNamespace)) fail('DUPLICATE_MECHANIC_NAMESPACE', `Effect 命名空间重复：${mechanic.effectNamespace}`);
     actionNamespaces.add(mechanic.actionNamespace);
     effectNamespaces.add(mechanic.effectNamespace);
+    const contract = compileMechanicContract(mechanic);
     for (const dependency of mechanic.dependencies) {
       if (!plainObject(dependency)) fail('INVALID_MECHANIC', `${mechanic.id}.dependencies 条目必须是对象`);
       requireString(dependency.id, `${mechanic.id}.dependencies.id`, ID_PATTERN);
       requireString(dependency.version, `${mechanic.id}.dependencies.version`, VERSION_PATTERN);
     }
-    definitions.set(mechanic.id, mechanic);
+    definitions.set(mechanic.id, { ...structuredClone(mechanic), contract });
   }
 
   const configured = new Map();
@@ -239,6 +295,7 @@ function compileMechanics(manifestMechanics, registry) {
       version: current.definition.version,
       actionNamespace: current.definition.actionNamespace,
       effectNamespace: current.definition.effectNamespace,
+      contract: structuredClone(current.definition.contract),
       parameters: current.parameters,
       dependencies: structuredClone(current.definition.dependencies)
     });

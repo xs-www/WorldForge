@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldforge.local/schemas/effect.schema.json",
+  "title": "WorldForge Core Effect",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "resourceId", "amount", "from", "to"],
+      "properties": {
+        "type": { "const": "resource.transfer" },
+        "resourceId": { "type": "string", "minLength": 1 },
+        "amount": { "type": "integer", "minimum": 1 },
+        "from": { "$ref": "#/$defs/resourceEndpoint" },
+        "to": { "$ref": "#/$defs/resourceEndpoint" }
+      }
+    }
+  ],
+  "$defs": {
+    "resourceEndpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["region-reserve", "region-consumed", "entity"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

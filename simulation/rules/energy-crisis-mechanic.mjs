@@ -4,6 +4,62 @@ const ACTIONS = [
   { type: 'energy.consume', description: '消耗自身能源完成本 Tick 的生产或公共服务。' }
 ];
 
+const positiveAmount = { type: 'integer', minimum: 1 };
+const idString = { type: 'string', minLength: 1 };
+const endpointSchema = {
+  type: 'object', additionalProperties: false, required: ['kind', 'id'],
+  properties: {
+    kind: { type: 'string', enum: ['region-reserve', 'region-consumed', 'entity'] },
+    id: idString
+  }
+};
+
+export const ENERGY_CRISIS_CONTRACT = Object.freeze({
+  actions: [
+    {
+      type: 'energy.request',
+      parametersSchema: {
+        type: 'object', additionalProperties: false, required: ['regionId', 'amount'],
+        properties: { regionId: idString, amount: positiveAmount }
+      }
+    },
+    {
+      type: 'energy.transfer',
+      parametersSchema: {
+        type: 'object', additionalProperties: false, required: ['targetId', 'amount'],
+        properties: { targetId: idString, amount: positiveAmount }
+      }
+    },
+    {
+      type: 'energy.consume',
+      parametersSchema: {
+        type: 'object', additionalProperties: false, required: ['regionId', 'amount'],
+        properties: { regionId: idString, amount: positiveAmount }
+      }
+    }
+  ],
+  effects: [{
+    type: 'resource.transfer',
+    schema: {
+      type: 'object', additionalProperties: false,
+      required: ['type', 'resourceId', 'amount', 'from', 'to'],
+      properties: {
+        type: { const: 'resource.transfer' }, resourceId: { type: 'string', enum: ['energy'] },
+        amount: positiveAmount, from: endpointSchema, to: endpointSchema
+      }
+    }
+  }],
+  access: {
+    reads: ['actor', 'knowledge', 'tick', 'regions.*.state.resources.energy.reserve', 'entities.*.state.resources.energy'],
+    writes: [
+      'regions.*.state.resources.energy.reserve',
+      'regions.*.state.resources.energy.consumed',
+      'entities.*.state.resources.energy'
+    ]
+  },
+  knowledge: { classifications: ['restricted'], maxTtl: 1 }
+});
+
 function invalid(code, message = '行动当前不可执行') {
   return { ok: false, code, message };
 }
@@ -28,8 +84,10 @@ function hasExactParameters(action, keys) {
 export function createEnergyCrisisMechanic({ resourceId = 'energy' } = {}) {
   return Object.freeze({
     id: 'MEC-001',
-    version: '1.0.0',
+    version: '1.1.0',
     actionNamespace: 'energy',
+    effectNamespace: 'resource',
+    contract: ENERGY_CRISIS_CONTRACT,
 
     getAvailableActions(context) {
       if (!context.actor) return [];

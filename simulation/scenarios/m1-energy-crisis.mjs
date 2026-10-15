@@ -1,5 +1,5 @@
 import { compileWorldPackage } from '../compiler/world-package.mjs';
-import { createEnergyCrisisMechanic } from '../rules/energy-crisis-mechanic.mjs';
+import { createEnergyCrisisMechanic, ENERGY_CRISIS_CONTRACT } from '../rules/energy-crisis-mechanic.mjs';
 
 const entries = [
   {
@@ -21,13 +21,14 @@ const entries = [
 ];
 
 const mechanicRegistry = {
-  registryVersion: '0.2.0',
+  registryVersion: '0.3.0',
   mechanics: [{
     id: 'MEC-001',
-    version: '1.0.0',
+    version: '1.1.0',
     actionNamespace: 'energy',
     effectNamespace: 'resource',
     dependencies: [],
+    contract: ENERGY_CRISIS_CONTRACT,
     parameterSchema: {
       type: 'object',
       additionalProperties: false,
@@ -50,8 +51,8 @@ export function createM1EnergyCrisisPackage({ reserve = 12 } = {}) {
       selection: { defaultStatus: 'canon', experimentalIncludes: entries.map(entry => entry.id) },
       mechanics: {
         registry: 'synthetic-inline',
-        registryVersion: '0.2.0',
-        modules: [{ id: 'MEC-001', version: '1.0.0', parameters: { resourceId: 'energy' } }]
+        registryVersion: '0.3.0',
+        modules: [{ id: 'MEC-001', version: '1.1.0', parameters: { resourceId: 'energy' } }]
       },
       initialState: {
         regions: [{

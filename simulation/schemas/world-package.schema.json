@@ -22,7 +22,21 @@
         "unresolvedMetadata": { "type": "array" }
       }
     },
-    "mechanics": { "type": "object", "required": ["registryVersion", "modules"] },
+    "mechanics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registryVersion", "modules"],
+      "properties": {
+        "registryVersion": { "type": "string" },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "version", "actionNamespace", "effectNamespace", "contract", "parameters", "dependencies"]
+          }
+        }
+      }
+    },
     "initialState": { "type": "object", "required": ["regions", "entities", "events"] },
     "packageHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
   }

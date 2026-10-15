@@ -185,8 +185,12 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 
 ### M1 规则与运行时函数
 
+- `validateSchema(schema, value, path, code)`：执行运行时受限 JSON Schema 子集校验；支持对象、字符串、安全整数、有限数值、布尔、`const`、`enum`、范围、正则与 `oneOf`，失败时返回稳定规则错误码。
+- `validateContract(mechanic)`：注册机制时验证具体 Action/Effect、受控资源访问路径和知识分类/TTL 权限；缺少契约或使用任意 JSONPath 会拒绝启动。
+- `effectWritePaths(effect)`：把 `resource.transfer` 的来源与目标端点规范化为资源写路径，供机制写集授权检查。
+- `scopedContext(contract, context)`：按机制 `reads` 声明投影 Tick、主体、知识及地区/实体资源字段，不把未声明状态或额外真值交给 Validator、Resolver 与知识策略。
 - `deterministicSample(seed, tick, scope)`：对实例 seed、目标 Tick 和 Action ID 计算 SHA-256 样本；用于稳定排序同 Tick 竞争行动，样本随 Action/Event 持久化。
-- `createMechanicRuntime(mechanics)`：按 Action 命名空间注册受信任机制，统一调用可用行动、校验和效果候选接口；拒绝缺失方法或重复命名空间。
+- `createMechanicRuntime(mechanics)`：按 Action 命名空间注册受信任机制，统一调用可用行动、校验和效果候选接口；在业务 Validator 前校验 Action，在 Resolver 后校验 Effect 类型/Schema/写集，并限制知识分类与 TTL。
 - `resourceTotal(state, resourceId)`：汇总地区储备、已消耗池与实体余额，拒绝负数、非整数或不安全总量。
 - `applyWorldEffects(state, effects)`：在状态副本上只执行白名单 `resource.transfer`，检查端点、余额和转移前后总量守恒，不直接写数据库。
 - `createEnergyCrisisMechanic({ resourceId })`：建立 `MEC-001@1.0.0`，提供 `energy.request / transfer / consume`；资源不足的公共储备拒绝原因不返回隐藏余额。
@@ -199,6 +203,12 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `replayCommittedEvents(snapshot, events, targetTick)`：纯函数重放器，供运行时和测试复用。
 - `commitTick(...)`：模拟存储的事务提交入口；在事务内再次检查 Tick/状态版本，更新状态并写入完整审计记录和快照。
 - `readSnapshot` / `readEvents` / `readKnowledge` / `readActions`：读取权威快照、事件范围、主体知识原始记录和行动审计。
+
+### M1 契约编译函数
+
+- `validateContractSchema(schema, path)`：编译期验证首版受限 Schema 结构，要求对象拒绝额外字段且必填字段必须有属性定义。
+- `compileMechanicContract(mechanic)`：验证 Action/Effect 命名空间、唯一类型、受控资源路径、知识分类与最大 TTL，并生成进入 World Package 的契约副本。
+- `compileMechanics(...)`：除版本、参数与依赖拓扑外，将机制契约嵌入编译模块；契约变化会改变规范 JSON 和 `packageHash`。
 
 ### `apiUrl(path: string): URL`
 
@@ -1063,3 +1073,28 @@ M1 每次推进恰好增加一个 Tick 和一个状态版本。行动状态变�
 - `docker compose up -d --build` 成功重建现有服务并保留 `worldforge-data` 卷。
 - 在实际 tailnet 页面完成浏览器视觉验收：桌面端为对话/工具双栏，319 CSS 像素窄屏为单栏；世界地图助手可见“详细设定”内容块。
 - 未调用真实语言模型或图像服务，因此没有声称外部模型端到端生成已在本次验收中执行。
+
+## 32. 2026-10-15 M1 Action/Effect 契约加固归档
+
+本次迭代落实 ADR-0012，为进入 LLM Action 提案和外部实例 API 前建立默认拒绝的机器契约。它不改变 W01 canon、M1 能源数值或 SQLite Schema。
+
+### 发布与编译契约
+
+- 新增 `simulation/schemas/action.schema.json` 与 `effect.schema.json`，分别定义通用 Action 信封和核心 `resource.transfer` Effect；机制注册表和 World Package Schema 增加契约字段。
+- 机制注册表中的每个非空机制必须声明具体 Action 参数 Schema、Effect Schema、受控资源读写路径、允许知识分类和最大 TTL。路径只支持 actor/knowledge/tick 及地区或实体资源路径，不接受任意 JSONPath 或脚本。
+- 编译器校验契约命名空间、类型唯一性、Schema 子集、访问路径和知识权限，并将完整契约嵌入 World Package；契约内容参与规范哈希。
+- W99 合成能源机制升级为 `MEC-001@1.1.0`，注册表版本升至 `0.3.0`；申请、转交、消耗各自声明参数 Schema，并只授权 `resource.transfer`、energy 资源路径和 restricted 知识。
+
+### 运行时权限
+
+- 运行时按 `reads` 声明投影机制上下文，并在业务 Validator 前校验 Action 信封和具体参数；未声明状态不会交给机制，额外参数、缺失参数、错误类型与未知 Action 会在写入状态前失败。
+- Resolver 结果必须匹配已登记 Effect Schema，且来源和目标资源路径都必须位于机制写集中；未登记 Effect 和越权资源写入不会进入核心状态结算器。
+- 知识策略必须使用契约允许的分类且 TTL 不超过上限；M1 原有拒绝信息过滤、原子 Tick、确定性冲突、资源守恒、知识隔离与事件重放语义不变。
+- 首版保持零第三方运行时依赖，只实现当前实际需要的受限 Schema 子集；动态能力令牌和通用策略语言留待多区域、多资源或第三方机制出现后评估。
+
+### 文件与验证
+
+- 新增：`docs/adr/ADR-0012-action-effect-contracts.md`、`simulation/schemas/action.schema.json`、`simulation/schemas/effect.schema.json`。
+- 更新：机制编译器、机制运行时、能源机制、W99 场景、机制/产物 Schema、两组模拟测试、README、项目进展、2.0 设计、规则/测试说明、ADR 索引、`CHANGELOG.md`、`todo.md` 与本静态文档。
+- 定向测试 15 项全部通过；新增测试覆盖契约随包发布并参与哈希、非法访问路径、Action 额外参数、越权资源写入和越权知识策略。
+- 完整 `npm run check` 通过，46 项 Node 测试全部成功，0 失败；未调用真实 LLM、图像服务或修改 W01 正史。

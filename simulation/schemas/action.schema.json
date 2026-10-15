@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldforge.local/schemas/action.schema.json",
+  "title": "WorldForge Simulation Action Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["actionId", "actorId", "type", "expectedTick", "parameters"],
+  "properties": {
+    "actionId": { "type": "string", "pattern": "^ACT-[A-Z0-9-]+$" },
+    "actorId": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "minLength": 1 },
+    "expectedTick": { "type": "integer", "minimum": 0 },
+    "parameters": { "type": "object" }
+  }
+}

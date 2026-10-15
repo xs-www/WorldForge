@@ -34,6 +34,24 @@ const baseEntries = [
 
 const emptyRegistry = { registryVersion: '0.1.0', mechanics: [] };
 
+function mechanicContract(actionNamespace, effectNamespace) {
+  return {
+    actions: [{
+      type: `${actionNamespace}.noop`,
+      parametersSchema: { type: 'object', additionalProperties: false, required: [], properties: {} }
+    }],
+    effects: [{
+      type: `${effectNamespace}.noop`,
+      schema: {
+        type: 'object', additionalProperties: false, required: ['type'],
+        properties: { type: { const: `${effectNamespace}.noop` } }
+      }
+    }],
+    access: { reads: ['actor', 'knowledge', 'tick'], writes: [] },
+    knowledge: { classifications: ['restricted'], maxTtl: 1 }
+  };
+}
+
 function compile(overrides = {}) {
   return compileWorldPackage({
     manifest: structuredClone(overrides.manifest ?? baseManifest),
@@ -76,11 +94,13 @@ test('mechanic registry validates versions, parameters and dependency order', ()
     mechanics: [
       {
         id: 'MEC-001', version: '1.0.0', actionNamespace: 'core', effectNamespace: 'core', dependencies: [],
+        contract: mechanicContract('core', 'core'),
         parameterSchema: { type: 'object', additionalProperties: false, required: ['limit'], properties: { limit: { type: 'integer', minimum: 1 } } }
       },
       {
         id: 'MEC-002', version: '1.0.0', actionNamespace: 'policy', effectNamespace: 'policy',
         dependencies: [{ id: 'MEC-001', version: '1.0.0' }],
+        contract: mechanicContract('policy', 'policy'),
         parameterSchema: { type: 'object', additionalProperties: false, properties: {} }
       }
     ]
@@ -91,6 +111,9 @@ test('mechanic registry validates versions, parameters and dependency order', ()
     { id: 'MEC-001', version: '1.0.0', parameters: { limit: 2 } }
   ];
   assert.deepEqual(compile({ manifest, mechanicRegistry: registry }).mechanics.modules.map(item => item.id), ['MEC-001', 'MEC-002']);
+  const compiledContract = compile({ manifest, mechanicRegistry: registry }).mechanics.modules[0].contract;
+  assert.equal(compiledContract.actions[0].type, 'core.noop');
+  assert.deepEqual(compiledContract.access.reads, ['actor', 'knowledge', 'tick']);
 
   manifest.mechanics.modules = [{ id: 'MEC-002', version: '1.0.0', parameters: {} }];
   assert.throws(
@@ -99,12 +122,35 @@ test('mechanic registry validates versions, parameters and dependency order', ()
   );
 });
 
+test('mechanic contracts reject invalid access paths and participate in package hashes', () => {
+  const registry = {
+    registryVersion: '0.1.0',
+    mechanics: [{
+      id: 'MEC-001', version: '1.0.0', actionNamespace: 'core', effectNamespace: 'core', dependencies: [],
+      contract: mechanicContract('core', 'core'),
+      parameterSchema: { type: 'object', additionalProperties: false, properties: {} }
+    }]
+  };
+  const manifest = structuredClone(baseManifest);
+  manifest.mechanics.modules = [{ id: 'MEC-001', version: '1.0.0', parameters: {} }];
+  const first = compile({ manifest, mechanicRegistry: registry });
+  registry.mechanics[0].contract.knowledge.maxTtl = 2;
+  const second = compile({ manifest, mechanicRegistry: registry });
+  assert.notEqual(first.packageHash, second.packageHash);
+
+  registry.mechanics[0].contract.access.reads.push('state.**');
+  assert.throws(
+    () => compile({ manifest, mechanicRegistry: registry }),
+    error => error instanceof WorldPackageCompileError && error.code === 'INVALID_MECHANIC_CONTRACT'
+  );
+});
+
 test('mechanic registry rejects cyclic dependencies', () => {
   const registry = {
     registryVersion: '0.1.0',
     mechanics: [
-      { id: 'MEC-001', version: '1.0.0', actionNamespace: 'a', effectNamespace: 'a', dependencies: [{ id: 'MEC-002', version: '1.0.0' }], parameterSchema: { type: 'object', properties: {} } },
-      { id: 'MEC-002', version: '1.0.0', actionNamespace: 'b', effectNamespace: 'b', dependencies: [{ id: 'MEC-001', version: '1.0.0' }], parameterSchema: { type: 'object', properties: {} } }
+      { id: 'MEC-001', version: '1.0.0', actionNamespace: 'a', effectNamespace: 'a', dependencies: [{ id: 'MEC-002', version: '1.0.0' }], contract: mechanicContract('a', 'a'), parameterSchema: { type: 'object', properties: {} } },
+      { id: 'MEC-002', version: '1.0.0', actionNamespace: 'b', effectNamespace: 'b', dependencies: [{ id: 'MEC-001', version: '1.0.0' }], contract: mechanicContract('b', 'b'), parameterSchema: { type: 'object', properties: {} } }
     ]
   };
   const manifest = structuredClone(baseManifest);
@@ -119,8 +165,8 @@ test('mechanic registry rejects incompatible dependency versions', () => {
   const registry = {
     registryVersion: '0.1.0',
     mechanics: [
-      { id: 'MEC-001', version: '1.0.0', actionNamespace: 'a', effectNamespace: 'a', dependencies: [], parameterSchema: { type: 'object', properties: {} } },
-      { id: 'MEC-002', version: '1.0.0', actionNamespace: 'b', effectNamespace: 'b', dependencies: [{ id: 'MEC-001', version: '2.0.0' }], parameterSchema: { type: 'object', properties: {} } }
+      { id: 'MEC-001', version: '1.0.0', actionNamespace: 'a', effectNamespace: 'a', dependencies: [], contract: mechanicContract('a', 'a'), parameterSchema: { type: 'object', properties: {} } },
+      { id: 'MEC-002', version: '1.0.0', actionNamespace: 'b', effectNamespace: 'b', dependencies: [{ id: 'MEC-001', version: '2.0.0' }], contract: mechanicContract('b', 'b'), parameterSchema: { type: 'object', properties: {} } }
     ]
   };
   const manifest = structuredClone(baseManifest);

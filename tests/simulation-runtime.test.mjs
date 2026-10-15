@@ -4,7 +4,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createSimulationRuntime, SimulationRuntimeError } from '../simulation/runtime/simulation-runtime.mjs';
-import { resourceTotal } from '../simulation/rules/mechanic-runtime.mjs';
+import { createMechanicRuntime, resourceTotal, SimulationRuleError } from '../simulation/rules/mechanic-runtime.mjs';
+import { createEnergyCrisisMechanic } from '../simulation/rules/energy-crisis-mechanic.mjs';
 import { createM1EnergyCrisisMechanics, createM1EnergyCrisisPackage } from '../simulation/scenarios/m1-energy-crisis.mjs';
 import { createWorldInstanceStore } from '../simulation/storage/instance-store.mjs';
 
@@ -40,6 +41,47 @@ test('M1 exposes exactly three energy actions through an actor-scoped context', 
   );
   assert.deepEqual(runtime.knowledgeView('INST-ACTIONS', 'FAC-W99-001'), []);
 }));
+
+test('mechanic contracts reject malformed actions, unauthorized writes, and knowledge policies', () => {
+  const base = createEnergyCrisisMechanic();
+  const runtime = createMechanicRuntime([base]);
+  const action = {
+    actionId: 'ACT-CONTRACT', actorId: 'FAC-W99-001', type: 'energy.request', expectedTick: 0,
+    parameters: { regionId: 'LOC-W99-001', amount: 1, hiddenOverride: true }
+  };
+  assert.throws(
+    () => runtime.validate(action, {}),
+    error => error instanceof SimulationRuleError && error.code === 'INVALID_ACTION_CONTRACT'
+  );
+
+  const restrictedWrites = structuredClone(base.contract);
+  restrictedWrites.access.writes = restrictedWrites.access.writes.filter(path => !path.startsWith('entities.'));
+  const writeRuntime = createMechanicRuntime([{ ...base, contract: restrictedWrites }]);
+  assert.throws(
+    () => writeRuntime.resolve({ ...action, parameters: { regionId: 'LOC-W99-001', amount: 1 } }, {}),
+    error => error instanceof SimulationRuleError && error.code === 'UNAUTHORIZED_EFFECT_WRITE'
+  );
+
+  const secretOnly = structuredClone(base.contract);
+  secretOnly.knowledge.classifications = ['secret'];
+  const knowledgeRuntime = createMechanicRuntime([{ ...base, contract: secretOnly }]);
+  assert.throws(
+    () => knowledgeRuntime.knowledgePolicy({ ...action, parameters: { regionId: 'LOC-W99-001', amount: 1 } }, {}),
+    error => error instanceof SimulationRuleError && error.code === 'UNAUTHORIZED_KNOWLEDGE_POLICY'
+  );
+
+  const scoped = createMechanicRuntime([{
+    ...base,
+    validate(_action, context) { return { ok: context.state?.secret === undefined && context.hiddenTruth === undefined }; }
+  }]);
+  assert.deepEqual(
+    scoped.validate({ ...action, parameters: { regionId: 'LOC-W99-001', amount: 1 } }, {
+      tick: 0, actor: { entityId: 'FAC-W99-001' }, knowledge: [], hiddenTruth: 99,
+      state: { regions: [], entities: [], secret: 99 }
+    }),
+    { ok: true }
+  );
+});
 
 test('M1 resolves same-tick resource conflicts deterministically and preserves energy', async () => withRuntime(({ store, runtime, worldPackage }) => {
   store.instantiate(worldPackage, { instanceId: 'INST-A', randomSeed: 'm1-seed' });
