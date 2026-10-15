@@ -297,53 +297,68 @@ const FREE_AGENT_TOOL_GUIDE = `你还可以调用只读资料工具查看作者�
 - 每条资料都带 status 与 truthScope：proposed 是草案、unknown 是刻意留白，都不能当作已批准正史。
 - 取得足够信息后直接给出最终回答，不要为了凑次数反复调用工具。`;
 
-function transcriptOf(messages) {
-  return messages.map(item => `${item.role === 'assistant' ? '助手' : '作者'}：${item.content}`).join('\n\n');
-}
-
 async function callFreeAgent(payload) {
   const config = aiConfig();
   if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
-  const messages = Array.isArray(payload?.messages) ? payload.messages.slice(-20).map(item => ({ role: item?.role === 'assistant' ? 'assistant' : 'user', content: String(item?.content || '').trim().slice(0, 12000) })).filter(item => item.content) : [];
+  const messages = [];
+  for (const item of (Array.isArray(payload?.messages) ? payload.messages.slice(-20) : [])) {
+    const role = item?.role === 'assistant' ? 'assistant' : 'user';
+    const content = String(item?.content || '').trim().slice(0, 12000);
+    if (!content) continue;
+    const message = { role, content };
+    // 作者从素材库显式附加的图片：客户端只发资产编号，服务端在这里读成图片。
+    const assets = role === 'user' && Array.isArray(item?.assets) ? item.assets.slice(0, AGENT_LIMITS.maxImages) : [];
+    if (assets.length) {
+      const attached = await resolveAgentImages(assets, AGENT_LIMITS.maxImages);
+      if (attached.images.length) message.images = attached.images;
+      if (attached.missing.length) message.content = `${content}\n（有 ${attached.missing.length} 张图片附件无法读取：${attached.missing.join('、')}）`;
+    }
+    messages.push(message);
+  }
   if (!messages.length || messages.at(-1).role !== 'user') throw new Error('请先输入创作需求');
   const related = String(payload?.relatedInformation || '').trim().slice(0, 20000);
   const library = prepareLibrary(payload?.library);
   const artAssets = prepareArtAssets(payload?.artAssets);
-  if (!library.length && !artAssets.length) {
-    const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<conversation>\n${transcriptOf(messages)}\n</conversation>\n请直接回复作者的最后一条消息。`;
-    const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
-    if (!reply) throw new Error('模型没有返回内容');
-    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'none', vision: 'none', images: 0, trace: [], rounds: 0, toolCalls: 0 };
-  }
-  const inventory = [`可检索资料 ${library.length} 条`, artAssets.length ? `可查看美术资产 ${artAssets.length} 个` : ''].filter(Boolean).join('，');
+  const useTools = library.length > 0 || artAssets.length > 0;
+  const attachedCount = messages.reduce((sum, message) => sum + (message.images?.length || 0), 0);
+  const inventory = [
+    `作者提供了可检索资料 ${library.length} 条`,
+    artAssets.length ? `可查看美术资产 ${artAssets.length} 个` : '',
+    attachedCount ? `并在消息里直接附了 ${attachedCount} 张图片` : ''
+  ].filter(Boolean).join('，');
   const notes = related ? `\n\n<author_notes>\n${related}\n</author_notes>` : '';
-  const system = `${FREE_AGENT_INSTRUCTIONS}\n\n作者提供了${inventory}。\n\n${FREE_AGENT_TOOL_GUIDE}${notes}`;
+  const systemFor = withTools => [FREE_AGENT_INSTRUCTIONS, `${inventory}。`, withTools ? FREE_AGENT_TOOL_GUIDE : '', notes].filter(Boolean).join('\n\n');
+  const runTool = async (name, args) => {
+    const outcome = runToolCall(name, args, library, artAssets);
+    if (Array.isArray(outcome.imageIds) && outcome.imageIds.length) {
+      const resolved = await resolveAgentImages(outcome.imageIds, AGENT_LIMITS.maxImages);
+      outcome.images = resolved.images;
+      outcome.summary = `附上 ${resolved.images.length} 张原画`;
+      if (resolved.missing.length) outcome.content = `${outcome.content}\n无法读取的美术资产：${resolved.missing.join('、')}`;
+    }
+    return outcome;
+  };
+  const callModelFor = withTools => createToolCaller({ config, system: systemFor(withTools) });
+  const describe = (result, toolMode) => ({
+    reply: result.reply.slice(0, 50000), model: config.model, toolMode,
+    // images 汇报本次模型实际收到的图片总数：作者显式附件 + 工具附图
+    vision: result.vision, images: attachedCount + result.images, trace: result.trace,
+    rounds: result.rounds, toolCalls: result.toolCalls, stopped: result.stopped
+  });
+
   try {
-    const result = await runAgentLoop({
-      messages,
-      tools: FREE_AGENT_TOOLS,
-      callModel: createToolCaller({ config, system }),
-      runTool: async (name, args) => {
-        const outcome = runToolCall(name, args, library, artAssets);
-        if (Array.isArray(outcome.imageIds) && outcome.imageIds.length) {
-          const resolved = await resolveAgentImages(outcome.imageIds, AGENT_LIMITS.maxImages);
-          outcome.images = resolved.images;
-          outcome.summary = `附上 ${resolved.images.length} 张原画`;
-          if (resolved.missing.length) outcome.content = `${outcome.content}\n无法读取的美术资产：${resolved.missing.join('、')}`;
-        }
-        return outcome;
-      }
-    });
-    if (!result.reply) throw new Error('模型只调用了工具但没有给出回答，请重试或更换模型');
-    return { reply: result.reply.slice(0, 50000), model: config.model, toolMode: 'native', vision: result.vision, images: result.images, trace: result.trace, rounds: result.rounds, toolCalls: result.toolCalls, stopped: result.stopped };
+    const result = await runAgentLoop({ messages, tools: useTools ? FREE_AGENT_TOOLS : [], maxRounds: useTools ? undefined : 1, callModel: callModelFor(useTools), runTool });
+    if (!result.reply) throw new Error(useTools ? '模型只调用了工具但没有给出回答，请重试或更换模型' : '模型没有返回内容');
+    return describe(result, useTools ? 'native' : 'none');
   } catch (error) {
-    if (![400, 404, 422].includes(error.status)) throw error;
-    // 兼容接口不支持工具调用：退回一次不带工具的问答，并把条目索引直接放进上下文。
+    if (!useTools || ![400, 404, 422].includes(error.status)) throw error;
+    // 兼容接口不支持工具调用：退回一轮不带工具的问答，把条目索引放进上下文。
+    // 附图仍然保留，因为作者显式附加的图片不该因为接口不支持工具而消失。
     const index = library.slice(0, 120).map(entry => ({ id: entry.id, type: entry.type, name: entry.name, status: entry.status, truthScope: entry.truthScope, worldId: entry.worldId, summary: entry.summary }));
-    const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>\n<conversation>\n${transcriptOf(messages)}\n</conversation>\n请直接回复作者的最后一条消息。`;
-    const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
-    if (!reply) throw new Error('模型没有返回内容');
-    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'unavailable', vision: 'none', images: 0, fallbackReason: error.message, trace: [], rounds: 0, toolCalls: 0 };
+    const fallbackSystem = [FREE_AGENT_INSTRUCTIONS, `${inventory}。`, `<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>`, notes].filter(Boolean).join('\n\n');
+    const result = await runAgentLoop({ messages, tools: [], maxRounds: 1, callModel: createToolCaller({ config, system: fallbackSystem }), runTool: () => ({ ok: false, summary: '本次运行不提供工具', content: '{}' }) });
+    if (!result.reply) throw new Error('模型没有返回内容');
+    return { ...describe(result, 'unavailable'), fallbackReason: error.message };
   }
 }
 

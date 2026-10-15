@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=31">
+  <link rel="stylesheet" href="./styles.css?v=33">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -251,7 +251,7 @@
             <label class="free-message-field"><span>给 Agent 的消息</span><textarea id="freeMessage" rows="4" maxlength="12000" required placeholder="描述你想讨论、生成、改写或分析的内容……"></textarea></label>
             <details class="free-context">
               <summary>添加参考资料 <span>可选</span></summary>
-              <div class="free-context-body"><div class="relation-field"><span>参考资料</span><div class="relation-chips" id="freeRefSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openFreeRefPicker" type="button">选择参考资料</button><small>已选条目会作为 Agent 可检索的资料范围；它可以用只读工具按需读取条目正文，不选则按下方开关决定是否开放整个资料库。</small></div></div><label><span>关联信息</span><textarea id="freeRelatedInfo" rows="4" maxlength="20000" placeholder="粘贴本轮需要参考的设定、摘录、约束或角色关系"></textarea></label><label class="check-label"><input id="freeIncludeLibrary" type="checkbox"><span>未选参考资料时，允许 Agent 检索整个资料库</span></label></div>
+              <div class="free-context-body"><div class="relation-field"><span>参考资料</span><div class="relation-chips" id="freeRefSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openFreeRefPicker" type="button">选择参考资料</button><small>已选条目会作为 Agent 可检索的资料范围；它可以用只读工具按需读取条目正文，不选则按下方开关决定是否开放整个资料库。</small></div></div><div class="free-attach"><div class="free-attach-head"><strong>图片附件</strong><span id="freeAttachCount">0 / 4</span></div><small class="free-attach-help">从素材库选择图片，随下一条消息一起发给 Agent；发送后自动清空。</small><label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="freeAttachSearch" placeholder="搜索用途、绑定目标或提示词" aria-label="搜索素材库图片"></label><div class="free-attach-tray" id="freeAttachTray"></div><p class="art-empty" id="freeAttachEmpty">素材库还没有图片；可先在卡牌编辑器或世界观界面生成候选原画。</p></div><label><span>关联信息</span><textarea id="freeRelatedInfo" rows="4" maxlength="20000" placeholder="粘贴本轮需要参考的设定、摘录、约束或角色关系"></textarea></label><label class="check-label"><input id="freeIncludeLibrary" type="checkbox"><span>未选参考资料时，允许 Agent 检索整个资料库</span></label></div>
             </details>
             <div class="free-actions"><small>自由 Agent 不会自动保存资料或晋升正史。</small><button class="button primary" id="sendFreeMessage" type="submit">发送</button></div>
           </form>
@@ -410,6 +410,6 @@
   <script src="./relation-picker.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=39"></script>
+  <script src="./app.js?v=41"></script>
 </body>
 </html>

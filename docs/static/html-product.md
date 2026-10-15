@@ -1,5 +1,16 @@
 # HTML 产品静态文档
 
+## 2026-10-15 自由对话上下文预览与图片附件增量
+
+- 自由对话的每条用户消息在发送时快照当时的参考资料：`freeContextSnapshot(picked, wholeLibrary, total, artCount)` 产出 `{ references, mode, total, artCount }` 或 `null`（完全无授权时）。快照只在本地的消息对象上，不随请求发回服务端，后续修改参考资料选择不会改写历史消息。
+- `freeContextPreview(message)` 在用户气泡下方渲染预览行：「参考资料」标签 + 条目 chip（超过 6 条折叠为 `+N`）或「整个资料库 · N 条」，再加「原画 N 张」chip；`message.assets` 非空时另起一行显示缩略图，点击调用 `openImageViewer()` 查看大图。
+- 新增素材库图片附件：`renderFreeAttachments()` 渲染可搜索的缩略图托盘（`#freeAttachTray`），`toggleFreeAttachment(id)` 切换选择并把上限固定为 4 张（`FREE_ATTACH_LIMIT`），超限时提示且不写入。`#freeAttachCount` 显示 `已选 / 4`。
+- 附件挂在用户消息的 `assets` 字段上并随请求发送；发送后自动清空待发附件并重绘托盘。「清空本次自由对话」也会清空待发附件。
+- `callFreeAgent` 接受每条用户消息的 `assets`，用 `resolveAgentImages()` 逐条读取；读取失败的编号写进该消息正文的括号说明。无工具路径改为 `tools: []` + `maxRounds: 1` 走同一循环，工具不可用时的降级同理——**附图在两条路径上都会保留**，不再因为接口不支持工具而丢失。原先的一次性提示词路径与 `transcriptOf()` 随之删除。
+- 返回值 `images` 汇报**本次模型实际收到的图片总数**（作者显式附件 + 工具附图），而不是只统计工具附图；`vision` 在任一路径成功收到图片时都为 `ok`。
+- 缓存版本更新为 `app.js?v=41`、`styles.css?v=33`。全量 Node 回归测试为 130 项，全部通过。
+- 另以最小 DOM 桩运行真实 `app.js` 验证 25 项行为：托盘渲染与搜索过滤、4 张上限的拒绝与释放、附件随消息进入请求载荷、发送后清空、预览两行内容与折叠、无参考资料授权时仅显示图片行、历史消息的附件与快照不被后续操作改写。
+
 ## 2026-10-15 Agent 视觉原型增量
 
 - 工具集扩展到五个：新增 `list_art_assets`（按目标/目标类型/用途过滤，返回资产编号、用途、绑定目标、生成通道、尺寸与生成时间的索引）与 `get_art_asset`（按编号查看 1–4 张原画的实际画面）。

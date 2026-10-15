@@ -144,4 +144,25 @@
 .free-trace-row strong{font-size:10px;color:var(--text);font-family:ui-monospace,Consolas,monospace}
 .free-trace-row small{color:var(--faint);font-size:10px}
 .free-trace-row.failed strong{color:#c85555}
+.free-context-preview{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)}
+.free-context-label{color:var(--faint);font-size:10px;font-weight:700;letter-spacing:.04em}
+.free-context-chip{padding:3px 8px;border:1px solid var(--border);border-radius:20px;background:var(--surface-subtle);color:var(--muted);font-size:10px;line-height:1.4}
+.free-context-chip.more{background:transparent;border-style:dashed}
+.free-context-chip.art{border-color:#c9b98f;background:#f3ecd9;color:#7a6a44}
+[data-theme="dark"] .free-context-chip.art{border-color:#5a5240;background:#2b2619;color:#c8b98c}
+.free-context-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%}
+.free-context-row+.free-context-row{margin-top:6px}
+.free-attach{display:grid;gap:8px;margin-top:4px}
+.free-attach-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.free-attach-head strong{font-size:11px}
+.free-attach-head span{color:var(--faint);font-size:10px;font-weight:700}
+.free-attach-help{color:var(--muted);font-size:10px;line-height:1.5}
+.free-attach-tray{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;max-height:210px;overflow:auto;padding:2px}
+.free-attach-item{display:grid;gap:4px;padding:4px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;overflow:hidden}
+.free-attach-item img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:5px}
+.free-attach-item small{color:var(--muted);font-size:9px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.free-attach-item:hover{border-color:var(--primary)}
+.free-attach-item.selected{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
+.free-attach-thumb{display:block;padding:0;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:zoom-in;overflow:hidden;width:46px;height:46px}
+.free-attach-thumb img{display:block;width:100%;height:100%;object-fit:cover}
 @media(max-width:900px){.relation-picker{grid-template-columns:1fr}.relation-panel.chosen{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:12px}.relation-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}

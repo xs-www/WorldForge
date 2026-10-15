@@ -14,9 +14,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=39/);
+  assert.match(htmlSource, /app\.js\?v=41/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=31/);
+  assert.match(htmlSource, /styles\.css\?v=33/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /world-scope\.js\?v=1/);
   assert.match(htmlSource, /relation-picker\.js\?v=1/);
@@ -195,7 +195,7 @@ test('one picker window serves lore relations, card sources and free-agent refer
   assert.match(appSource, /function populateCardLoreRefs\(selected=\[\]\)\{cardLoreSelection=normalizeSelection\(selected\)/);
   assert.match(appSource, /relationIds:\[\.\.\.relationSelection\]/);
   assert.match(appSource, /loreRefs:selectedCardLoreRefs\(\)/);
-  assert.match(appSource, /granted=picked\.length\?picked:\(q\('#freeIncludeLibrary'\)\.checked\?readLore\(\):\[\]\)/);
+  assert.match(appSource, /wholeLibrary=!picked\.length&&q\('#freeIncludeLibrary'\)\.checked,granted=picked\.length\?picked:\(wholeLibrary\?readLore\(\):\[\]\)/);
   assert.match(appSource, /library:granted/);
   assert.match(appSource, /WorldforgeRelationPicker\.filter\(all,\{\.\.\.pickerFilters\(\),excludeId:exclude,selectedIds:pickerDraft\}\)/);
   assert.match(appSource, /WorldforgeRelationPicker\.toggle\(pickerDraft,entry\.id\)/);
@@ -230,29 +230,70 @@ test('the free agent reaches lore and art through read-only server-side tools', 
   assert.match(serverSource, /const FREE_AGENT_TOOL_GUIDE/);
   assert.match(serverSource, /const library = prepareLibrary\(payload\?\.library\)/);
   assert.match(serverSource, /const artAssets = prepareArtAssets\(payload\?\.artAssets\)/);
-  assert.match(serverSource, /callModel: createToolCaller\(\{ config, system \}\)/);
+  assert.match(serverSource, /callModel: callModelFor\(useTools\)/);
   assert.match(serverSource, /runToolCall\(name, args, library, artAssets\)/);
   assert.match(serverSource, /async function resolveAgentImages\(value, maximum = AGENT_LIMITS\.maxImages\)/);
   assert.match(serverSource, /outcome\.images = resolved\.images/);
-  assert.match(serverSource, /if \(!library\.length && !artAssets\.length\)/);
+  assert.match(serverSource, /const useTools = library\.length > 0 \|\| artAssets\.length > 0/);
   // 美术资产必须能被真正看到，而不是只给元数据
   assert.match(serverSource, /get_art_asset：按资产编号把 1–4 张原画的实际画面附到本次对话/);
   assert.match(serverSource, /必须先用 get_art_asset 把图附上来/);
   // 三种模式都要如实回报，方便前端说明当前是工具检索还是退回单轮
-  assert.match(serverSource, /toolMode: 'native'/);
-  assert.match(serverSource, /toolMode: 'unavailable'/);
-  assert.match(serverSource, /toolMode: 'none'/);
-  assert.match(serverSource, /vision: result\.vision/);
+  assert.match(serverSource, /describe\(result, useTools \? 'native' : 'none'\)/);
+  assert.match(serverSource, /describe\(result, 'unavailable'\)/);
+  assert.match(serverSource, /vision: result\.vision, images: attachedCount \+ result\.images/);
   assert.match(serverSource, /if \(!\[400, 404, 422\]\.includes\(error\.status\)\) throw error;/);
   // 旧的“客户端开关决定是否附带索引”不再由服务端判断
   assert.doesNotMatch(serverSource, /payload\?\.includeLibrary/);
   assert.match(appSource, /function freeAgentMeta\(message\)/);
-  assert.match(appSource, /freeMessages\.map\(item=>\(\{role:item\.role,content:item\.content\}\)\)/);
+  assert.match(appSource, /freeMessages\.map\(item=>\(\{role:item\.role,content:item\.content,/);
   assert.match(appSource, /artAssets:grantedArt/);
   assert.match(appSource, /grantedArt=granted\.length\?artAssets\.slice\(0,200\)/);
   assert.match(appSource, /data\.trace/);
   assert.match(styleSource, /\.free-trace\{/);
   assert.match(htmlSource, /允许 Agent 检索整个资料库/);
+});
+
+test('each free-chat turn snapshots the reference material it was sent with', () => {
+  // 每条用户消息在发送时快照当时的参考资料，之后改选择不会回溯改写历史消息。
+  assert.match(appSource, /function freeContextSnapshot\(picked,wholeLibrary,total,artCount\)/);
+  assert.match(appSource, /function freeContextPreview\(message\)/);
+  assert.match(appSource, /context:freeContextSnapshot\(picked,wholeLibrary,granted\.length,grantedArt\.length\)/);
+  assert.match(appSource, /else\{const preview=freeContextPreview\(message\);if\(preview\)item\.append\(preview\)\}/);
+  assert.match(appSource, /chip\.className='free-context-chip'/);
+  assert.match(appSource, /art\.className='free-context-chip art'/);
+  assert.match(appSource, /free-context-chip more/);
+  assert.match(styleSource, /\.free-context-preview\{/);
+  assert.match(styleSource, /\.free-context-chip\.art\{/);
+  // 快照只留在本地消息上，不随请求发回服务端
+  assert.match(appSource, /freeMessages\.map\(item=>\(\{role:item\.role,content:item\.content/);
+});
+
+test('the free chat can attach images picked from the asset library', () => {
+  assert.match(appSource, /const FREE_ATTACH_LIMIT=4/);
+  assert.match(appSource, /let freeAttachmentIds=\[\]/);
+  assert.match(appSource, /function renderFreeAttachments\(\)/);
+  assert.match(appSource, /function toggleFreeAttachment\(id\)/);
+  assert.match(appSource, /一条消息最多附加/);
+  // 附件挂在用户消息上，只发资产编号；发送后清空
+  assert.match(appSource, /assets:\[\.\.\.freeAttachmentIds\]/);
+  assert.match(appSource, /\.\.\.\(item\.assets\?\.length\?\{assets:item\.assets\}:\{\}\)/);
+  assert.match(appSource, /freeAttachmentIds=\[\];renderFreeAttachments\(\)/);
+  assert.match(appSource, /renderFreeAttachments\(\)\};/);
+  assert.match(htmlSource, /id="freeAttachTray"/);
+  assert.match(htmlSource, /id="freeAttachSearch"/);
+  assert.match(htmlSource, /id="freeAttachCount"/);
+  assert.match(htmlSource, /id="freeAttachEmpty"/);
+  assert.match(styleSource, /\.free-attach-tray\{/);
+  assert.match(styleSource, /\.free-attach-item\.selected\{/);
+  assert.match(styleSource, /\.free-attach-thumb\{/);
+  assert.match(styleSource, /\.free-context-row\{/);
+  // 服务端按编号把附件读成图片，且无工具路径也保留附图
+  assert.match(serverSource, /const assets = role === 'user' && Array\.isArray\(item\?\.assets\)/);
+  assert.match(serverSource, /const attached = await resolveAgentImages\(assets, AGENT_LIMITS\.maxImages\)/);
+  assert.match(serverSource, /const useTools = library\.length > 0 \|\| artAssets\.length > 0/);
+  assert.match(serverSource, /maxRounds: useTools \? undefined : 1/);
+  assert.doesNotMatch(serverSource, /transcriptOf/);
 });
 
 test('artwork gallery covers the whole asset library with a used/unused filter', () => {
