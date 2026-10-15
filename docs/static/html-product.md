@@ -193,7 +193,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `createMechanicRuntime(mechanics)`：按 Action 命名空间注册受信任机制，统一调用可用行动、校验和效果候选接口；在业务 Validator 前校验 Action，在 Resolver 后校验 Effect 类型/Schema/写集，并限制知识分类与 TTL。
 - `resourceTotal(state, resourceId)`：汇总地区储备、已消耗池与实体余额，拒绝负数、非整数或不安全总量。
 - `applyWorldEffects(state, effects)`：在状态副本上只执行白名单 `resource.transfer`，检查端点、余额和转移前后总量守恒，不直接写数据库。
-- `createEnergyCrisisMechanic({ resourceId })`：建立 `MEC-001@1.0.0`，提供 `energy.request / transfer / consume`；资源不足的公共储备拒绝原因不返回隐藏余额。
+- `createEnergyCrisisMechanic({ resourceId })`：建立 `MEC-001@1.1.0`，提供 `energy.request / transfer / consume` 及其契约；资源不足的公共储备拒绝原因不返回隐藏余额。
 - `compileKnowledgeView(records, subjectId, atTick)`：只返回属于该主体、已观测且尚未过期的知识，按观测 Tick 和稳定 ID 排序。
 - `knowledgeRecipients(action, state, policy)`：默认只包含行动者；能源转交包含接收者；仅受信任机制返回公开知识策略时广播给全部实体，主体不能自行指定传播或过期策略。
 - `createSimulationRuntime({ store, mechanics })`：组合机制运行时和实例存储，提供 `advance`、`availableActions`、`knowledgeView` 与 `replay`。
@@ -209,6 +209,15 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `validateContractSchema(schema, path)`：编译期验证首版受限 Schema 结构，要求对象拒绝额外字段且必填字段必须有属性定义。
 - `compileMechanicContract(mechanic)`：验证 Action/Effect 命名空间、唯一类型、受控资源路径、知识分类与最大 TTL，并生成进入 World Package 的契约副本。
 - `compileMechanics(...)`：除版本、参数与依赖拓扑外，将机制契约嵌入编译模块；契约变化会改变规范 JSON 和 `packageHash`。
+
+### M2A 模拟观察台函数
+
+- `createSimulationDashboardService(databasePath, options)`：打开独立模拟存档，确保固定 W99 实验实例存在，并组合运行时提供 `view`、`advance`、健康检查和关闭入口。
+- `normalizeProposals(proposals, instance)`：限制每 Tick 至多 10 个提案，只接受当前实例主体和 `energy.*` 类型，由服务器生成 Action ID 与 expected Tick。
+- `view()`：返回实例元数据、机制 Action 契约、地区/主体资源、总能源、记录计数、最近 30 条 Action/Event 和逐主体 KnowledgeView。
+- `advance(payload)`：校验 expectedStateVersion 后把外部提案送入现有模拟运行时，成功提交后返回新的完整观察视图；过期版本返回 409。
+- `refreshSimulation()` / `renderSimulation()`：读取观察 API，并把 Tick、版本、能源、权威状态、主体知识、行动审计和事件流渲染到“世界模拟”模块。
+- `simulationPreset(name)` / `advanceSimulation(name)`：构造竞争申请、主体转交、能源消耗或空 Tick 提案，通过带请求标记的相对 API URL 提交并刷新页面。
 
 ### `apiUrl(path: string): URL`
 
@@ -236,6 +245,8 @@ M0B 发布清单与定义包使用 UTF-8 JSON。清单固定声明世界、Defin
 模拟存档 Schema 版本 2 使用独立数据库和 `sim_schema_migrations`。版本 1 的 `sim_instances / regions / entities / events` 继续保留；版本 2 为实例增加 `state_version` 和状态，并新增 `sim_actions`、`sim_knowledge_records`、`sim_snapshots`。实例仍内嵌完整只读定义包；旧 M0B 实例升级时会在当前 Tick 回填状态快照。
 
 M1 每次推进恰好增加一个 Tick 和一个状态版本。行动状态变更、接受/拒绝审计、效果事件、知识观察事件、Tick 提交事件及目标快照在同一 SQLite 事务中提交。快照保存地区/实体权威状态、截至该 Tick 的知识日志和规范状态哈希；重放不会从目标真值补写过去知识。
+
+M2A 默认在内容数据库同目录建立 `worldforge-simulation.sqlite`，也可用 `WORLDFORGE_SIM_DB_PATH` 指定。`GET /api/simulation` 只公开固定 W99 实验实例的观察视图；`POST /api/simulation/advance` 要求 `X-Worldforge-Simulation: 1` 和当前状态版本，只接受 Action 提案，不接受客户端 Effect、知识记录、随机样本、Action ID 或 Tick。
 
 浏览器缓存键 `worldforge-decisions-v1` 的数据结构为：
 
@@ -1098,3 +1109,33 @@ M1 每次推进恰好增加一个 Tick 和一个状态版本。行动状态变�
 - 更新：机制编译器、机制运行时、能源机制、W99 场景、机制/产物 Schema、两组模拟测试、README、项目进展、2.0 设计、规则/测试说明、ADR 索引、`CHANGELOG.md`、`todo.md` 与本静态文档。
 - 定向测试 15 项全部通过；新增测试覆盖契约随包发布并参与哈希、非法访问路径、Action 额外参数、越权资源写入和越权知识策略。
 - 完整 `npm run check` 通过，46 项 Node 测试全部成功，0 失败；未调用真实 LLM、图像服务或修改 W01 正史。
+
+## 33. 2026-10-15 V2.0-M2A 实验模拟观察台归档
+
+本阶段把 M1 纯规则纵切首次接入实际产品 UI。目标是先让作者看见状态、行动和主体认知，再接入 LLM Action 提案，避免规则、模型和界面同时成为不可观察黑箱。W99 仍为 `experimental`，不属于 W01 或宇宙正史。
+
+### 模拟服务与 API
+
+- 新增 `simulation/dashboard-service.mjs`，使用独立 `worldforge-simulation.sqlite`，服务启动时确保 `INST-W99-DASHBOARD` 存在；内容数据库和模拟数据库保持物理分离。
+- `GET /api/simulation` 返回 Tick、状态版本、定义哈希、机制 Action 契约、地区/主体资源、总能源、记录计数、最近 Action/Event 和逐主体 KnowledgeView。
+- `POST /api/simulation/advance` 要求请求标记和当前版本，每 Tick 最多接收 10 个 W99 energy Action 提案。服务器生成 ID/Tick，客户端不能提交 Effect、随机样本或知识范围。
+- `/api/health` 增加模拟数据库健康与迁移信息；Docker 的现有 `/data` 持久卷同时保存模拟数据库，无需新增卷或数据库迁移。
+
+### 世界模拟 UI
+
+- 顶部导航新增“世界模拟”。页面明确标记 `experimental · W99`，显示当前 Tick、状态版本、总能源、行动数、城市储备/消耗、主体余额、KnowledgeView、行动审计与事件流。
+- 提供四种手动实验：双方同 Tick 竞争申请、持有能源最多的主体向另一方转交、主体消耗能源、无 Action 推进空 Tick。
+- 页面使用相对 `apiUrl`，继续兼容根路径和 `/worldforge` 子路径；`styles.css` 升至 `v=16`，`app.js` 升至 `v=22`。
+- 桌面三栏展示权威状态、单步控制和主体视野；中等宽度降为两栏并把主体视野铺满，窄屏降为单栏、顶栏模块导航可横向滚动，审计区域同步纵向排列。
+
+### 验证与限制
+
+- 新增 `simulation-dashboard.test.mjs` 两项服务测试，并扩展静态路由/UI 测试；覆盖 W99 标记、初始状态、Action 发现、单步推进、版本冲突、能源守恒、审计与主体知识差异。
+- 隔离本机服务在 `127.0.0.1:8091` 完成真实浏览器验收：初始 Tick 0/能源 12；点击竞争申请后进入 Tick 1，一项接受、一项拒绝，能源仍为 12，只有接受主体出现私有知识记录。
+- 完整 `npm run check` 通过，49 项 Node 测试全部成功，0 失败；视觉验收后已停止隔离服务并删除临时数据库。
+- 当前只有固定 W99 实例和预设 Action，尚无实例生命周期、认证、重置、地图/趋势/因果图、LLM Action 提案或预算调度。
+
+### 文件与文档
+
+- 新增：`simulation/dashboard-service.mjs`、`tests/simulation-dashboard.test.mjs`、`docs/adr/ADR-0013-experimental-simulation-dashboard.md`。
+- 更新：`server.mjs`、`dist/index.html`、`dist/app.js`、`dist/styles.css`、`package.json`、`.env.example`、README、项目进展、2.0 设计、模拟/测试说明、ADR 索引、`CHANGELOG.md`、`todo.md` 与本静态文档。

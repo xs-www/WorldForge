@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=15">
+  <link rel="stylesheet" href="./styles.css?v=16">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -20,6 +20,7 @@
       <button class="module-tab active" type="button" data-module="world"><span class="tab-icon" aria-hidden="true">◫</span>世界观架构</button>
       <button class="module-tab" type="button" data-module="cards"><span class="tab-icon" aria-hidden="true">▤</span>卡牌设计</button>
       <button class="module-tab" type="button" data-module="free"><span class="tab-icon" aria-hidden="true">✦</span>自由创作</button>
+      <button class="module-tab" type="button" data-module="simulation"><span class="tab-icon" aria-hidden="true">◉</span>世界模拟</button>
     </nav>
     <div class="header-actions"><span class="local-status saving" id="storageStatus"><i></i><span>正在连接 SQLite…</span></span><button class="button secondary compact" id="openSettings" type="button">设置</button><button class="button secondary compact" id="exportData" type="button">导出数据</button></div>
   </header>
@@ -242,6 +243,49 @@
         </aside>
       </div>
     </section>
+
+    <section class="module-page simulation-page" id="simulationModule" data-page="simulation" aria-labelledby="simulationTitle" hidden>
+      <div class="page-heading">
+        <div><p class="breadcrumb">WorldForge 2.0 / W99 实验场</p><h1 id="simulationTitle">世界模拟观察台</h1><p>查看真实 Tick、资源、行动审计与主体知识差异。W99 是技术测试世界，不属于正史。</p></div>
+        <div class="heading-actions"><span class="simulation-live"><i></i><span id="simulationConnection">尚未连接</span></span><button class="button secondary" id="refreshSimulation" type="button">刷新状态</button></div>
+      </div>
+
+      <div class="simulation-banner"><strong>experimental · W99</strong><span>所有操作只进入独立模拟数据库，不会修改作者资料库或 W01 canon。</span></div>
+      <div class="metric-row simulation-metrics">
+        <article><span>当前 Tick</span><strong id="simulationTick">—</strong><small>每次推进 +1</small></article>
+        <article><span>状态版本</span><strong id="simulationVersion">—</strong><small>防止过期写入</small></article>
+        <article><span>能源总量</span><strong id="simulationEnergy">—</strong><small>守恒目标 12</small></article>
+        <article><span>已记录行动</span><strong id="simulationActionCount">—</strong><small>接受与拒绝均审计</small></article>
+      </div>
+
+      <div class="simulation-grid">
+        <section class="panel simulation-state-panel">
+          <div class="panel-title"><div><h2>权威状态</h2><small id="simulationInstance">等待实例</small></div><span id="simulationHash">—</span></div>
+          <div class="simulation-state" id="simulationState"><p class="simulation-empty">打开观察台后加载 W99 状态。</p></div>
+        </section>
+
+        <section class="panel simulation-control-panel">
+          <div class="panel-title"><div><h2>单步实验</h2><small>M1 契约与 Validator</small></div><span>MEC-001@1.1.0</span></div>
+          <div class="simulation-controls">
+            <button class="simulation-preset" type="button" data-simulation-preset="conflict"><strong>竞争申请</strong><span>两个主体同 Tick 各申请 8 能源，观察确定性冲突。</span></button>
+            <button class="simulation-preset" type="button" data-simulation-preset="transfer"><strong>主体转交</strong><span>由当前能源最多的主体向另一方转交最多 3 点。</span></button>
+            <button class="simulation-preset" type="button" data-simulation-preset="consume"><strong>消耗能源</strong><span>由当前能源最多的主体消耗最多 2 点并进入城市消耗池。</span></button>
+            <button class="simulation-preset quiet" type="button" data-simulation-preset="empty"><strong>空 Tick</strong><span>不提交行动，只推进时间并保存快照。</span></button>
+            <p id="simulationControlStatus" role="status">选择一个实验推进下一 Tick。</p>
+          </div>
+        </section>
+
+        <aside class="panel simulation-knowledge-panel">
+          <div class="panel-title"><div><h2>主体视野</h2><small>KnowledgeView</small></div><span>非上帝视角</span></div>
+          <div class="simulation-knowledge" id="simulationKnowledge"><p class="simulation-empty">暂无观测记录。</p></div>
+        </aside>
+      </div>
+
+      <div class="simulation-audit-grid">
+        <section class="panel"><div class="panel-title"><h2>行动审计</h2><span>最近 30 条</span></div><div class="simulation-log" id="simulationActions"><p class="simulation-empty">尚无行动。</p></div></section>
+        <section class="panel"><div class="panel-title"><h2>事件流</h2><span>最近 30 条</span></div><div class="simulation-log" id="simulationEvents"><p class="simulation-empty">尚无事件。</p></div></section>
+      </div>
+    </section>
   </main>
 
   <dialog id="noteDialog"><form method="dialog" class="dialog-card"><div class="dialog-header"><div><p class="eyebrow">本地备注</p><h2 id="noteTitle">编辑备注</h2></div><button class="close-button" value="cancel" aria-label="关闭">×</button></div><p class="dialog-description" id="noteDescription"></p><label for="noteText">备注内容</label><textarea id="noteText" rows="7" placeholder="记录倾向、约束、反例或待验证项……"></textarea><p class="field-help">内容保存在服务端 SQLite，不会自动写入仓库。</p><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button class="button primary" id="saveNote" value="default">保存备注</button></div></form></dialog>
@@ -257,6 +301,6 @@
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
   <script src="./cards.js?v=1"></script>
-  <script src="./app.js?v=21"></script>
+  <script src="./app.js?v=22"></script>
 </body>
 </html>

@@ -1,8 +1,9 @@
 # Simulation
 
-此目录用于 WorldForge 2.0 世界实例与规则模拟。M0B 已实现 JSON World Package 与独立实例化；M1 已实现单城市能源危机的确定性 Tick、行动结算、主体知识、逐 Tick 快照和事件重放，并由 ADR-0012 补齐可发布 Action/Effect 契约、资源读写集与知识权限。尚未实现 LLM 模拟、多地区扩展或外部实例 API。
+此目录用于 WorldForge 2.0 世界实例与规则模拟。M0B 已实现 JSON World Package 与独立实例化；M1 已实现单城市能源危机的确定性 Tick、行动结算、主体知识、逐 Tick 快照和事件重放，并由 ADR-0012 补齐可发布 Action/Effect 契约、资源读写集与知识权限。M2A 新增 W99 实验观察 API 与手动推进 UI；尚未实现 LLM 模拟、多地区扩展或通用实例 API。
 
 - `compiler/`：确定性 World Package 编译器、关键契约校验与内容哈希。
+- `dashboard-service.mjs`：固定 W99 实验实例的状态投影、Action 提案规范化与观察台服务。
 - `schemas/`：发布清单、内容源、机制注册表、Action/Effect 和产物的 JSON Schema。
 - `manifests/`：经审核的 JSON 发布清单。
 - `content/`：从 Git 正史显式投影的编译内容源，不接受 SQLite 草案直连。

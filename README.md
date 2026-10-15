@@ -12,9 +12,11 @@ WorldForge 2.0 第一阶段 V2.0-M0A 已完成：首次 `init` Git 基线、作�
 
 V2.0-M0B 已完成最小定义编译与实例基础：JSON 发布清单可编译为带版本和内容哈希的只读 World Package，默认排除未显式发布的 `proposed` 内容；机制注册表会校验版本、参数与依赖图；定义包可实例化到独立 SQLite 存档。该阶段本身不包含 Tick 和结算。
 
-V2.0-M1 已完成纯规则纵切：W99 合成实验场景用一个城市、两个主体、一种守恒能源和三种行动验证确定性 Tick、状态版本、Validator/Resolver、事件日志、逐 Tick 快照、事件重放和主体 KnowledgeView。W99 不属于正史；当前没有 LLM 模拟、UI 或外部实例 API。
+V2.0-M1 已完成纯规则纵切：W99 合成实验场景用一个城市、两个主体、一种守恒能源和三种行动验证确定性 Tick、状态版本、Validator/Resolver、事件日志、逐 Tick 快照、事件重放和主体 KnowledgeView。W99 不属于正史；当前没有 LLM 模拟或通用外部实例 API。
 
 M1 后续契约加固已完成：Action/Effect Schema、机制资源读写集和知识权限随 World Package 发布并参与哈希；运行时在业务校验前拒绝非法 Action，在状态提交前拒绝未登记 Effect、越权资源写入和越权知识策略。该边界为后续 LLM Action 提案和外部实例 API 提供默认拒绝的安全入口。
+
+V2.0-M2A 已提供首个可见模拟闭环：顶部“世界模拟”打开 W99 实验观察台，可查看 Tick、状态版本、城市/主体能源、行动审计、事件流和逐主体 KnowledgeView，并用四种预设手动推进。数据进入独立 `worldforge-simulation.sqlite`，不会修改作者资料库或 W01 正史。
 
 ## HTML 产品
 

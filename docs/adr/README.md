@@ -12,5 +12,6 @@
 - [ADR-0010：发布清单与 World Package 使用 JSON 契约](ADR-0010-json-world-package-contract.md) — canon（技术边界）
 - [ADR-0011：M1 使用确定性 Tick、统一效果结算与主体知识日志](ADR-0011-deterministic-m1-runtime.md) — canon（技术边界）
 - [ADR-0012：发布 Action/Effect 契约并限制机制状态访问](ADR-0012-action-effect-contracts.md) — canon（技术边界）
+- [ADR-0013：以 W99 实验 API 与观察台公开首个模拟界面](ADR-0013-experimental-simulation-dashboard.md) — canon（技术边界）
 
-新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0013` 开始。
+新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0014` 开始。

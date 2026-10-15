@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### Added
+- 完成 V2.0-M2A 实验模拟观察台：新增独立 W99 模拟服务与 SQLite 存档、`GET /api/simulation`、受控 `POST /api/simulation/advance`，并在单页产品中显示 Tick、状态版本、能源、主体 KnowledgeView、Action 审计与事件流。
+- 新增竞争申请、主体转交、能源消耗和空 Tick 四种手动实验；浏览器实测竞争申请后保持总能源 12、一项接受一项拒绝且主体视野隔离。新增 3 项服务/UI 测试，Node 测试总数增至 49。
 - 完成 ADR-0012 Action/Effect 契约加固：新增通用 Schema，机制注册表与 World Package 携带具体 Action/Effect、资源读写集和知识权限；运行时默认拒绝非法 Action、未登记 Effect、越权资源写入和越权知识策略。
 - `MEC-001` 升至 `1.1.0`，W99 三种能源 Action 的参数契约、`resource.transfer` Effect 和权限声明参与定义包哈希；新增 2 项契约测试，Node 测试总数增至 46。
 - AI 候选卡新增“应用到当前表单”：只覆盖模型本次返回的内容块且不立即落盘；背景故事候选会打开未保存的故事表单。世界地图生成契约明确加入与编辑器对应的“详细设定”。

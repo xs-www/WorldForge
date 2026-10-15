@@ -9,6 +9,7 @@ import { createContentStore } from './storage.mjs';
 import { composeImagePrompt } from './image-context.mjs';
 import { generateSeedreamImage, seedreamConfig, validateImageRequest, validateSeedreamSettings } from './seedream.mjs';
 import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, DEFAULT_VISUAL_STYLE_PROMPT, normalizePromptSettings, validatePromptSettings } from './prompt-settings.mjs';
+import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const dist = join(root, 'dist');
@@ -34,6 +35,8 @@ await loadLocalEnv();
 const databasePath = process.env.WORLDFORGE_DB_PATH || join(root, '.data', 'worldforge.sqlite');
 const assetsPath = process.env.WORLDFORGE_ASSETS_PATH || join(dirname(databasePath), 'assets', 'cards');
 const contentStore = createContentStore(databasePath);
+const simulationDatabasePath = process.env.WORLDFORGE_SIM_DB_PATH || join(dirname(databasePath), 'worldforge-simulation.sqlite');
+const simulationDashboard = createSimulationDashboardService(simulationDatabasePath);
 await mkdir(assetsPath, { recursive: true });
 
 async function saveLocalEnv(values) {
@@ -265,7 +268,12 @@ async function serveStatic(req, res) {
 createServer(async (req, res) => {
   try {
     const pathname = new URL(req.url, 'http://localhost').pathname;
-    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health() });
+    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health() });
+    if (req.method === 'GET' && req.url === '/api/simulation') return json(res, 200, simulationDashboard.view());
+    if (req.method === 'POST' && req.url === '/api/simulation/advance') {
+      if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      return json(res, 200, simulationDashboard.advance(await readBody(req)));
+    }
     if (req.method === 'GET' && req.url === '/api/content') return json(res, 200, contentStore.read());
     if (req.method === 'PUT' && req.url === '/api/content') {
       if (req.headers['x-worldforge-content'] !== '1') return json(res, 403, { error: '缺少内容保存请求标记' });
