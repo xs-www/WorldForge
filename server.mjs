@@ -452,6 +452,13 @@ createServer(async (req, res) => {
     }
     const artMatch = pathname.match(/^\/api\/art-assets\/(ART-[A-F0-9-]+)\/file$/i);
     if (req.method === 'GET' && artMatch) return serveArtAsset(artMatch[1], res, requestUrl.searchParams.get('download') === '1');
+    const artUnbindMatch = pathname.match(/^\/api\/art-assets\/(ART-[A-F0-9-]+)\/unbind$/i);
+    if (req.method === 'POST' && artUnbindMatch) {
+      if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少美术资产操作请求标记' });
+      const asset = contentStore.setArtAssetTarget(artUnbindMatch[1], null);
+      if (!asset) return json(res, 404, { error: '美术资产不存在' });
+      return json(res, 200, { asset });
+    }
     if (req.method === 'GET' && req.url === '/api/seedream/status') { const c = seedreamConfig(); return json(res, 200, { configured: Boolean(c.key), model: c.model, baseUrl: c.baseUrl }); }
     if (req.method === 'GET' && req.url === '/api/images/status') { const seedream = seedreamConfig(), comfyUi = comfyUiConfig(); return json(res, 200, { seedream: { configured: Boolean(seedream.key), model: seedream.model, baseUrl: seedream.baseUrl }, comfyUi: { configured: Boolean(await loadComfyWorkflow()), baseUrl: comfyUi.baseUrl } }); }
     if (req.method === 'POST' && req.url === '/api/images/generate') {

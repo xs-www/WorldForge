@@ -1,5 +1,16 @@
 # HTML 产品静态文档
 
+## 2026-10-15 AI 助手浮动化与素材解绑增量
+
+- AI 设定助手由资料工作区第三列改为浮动子窗口（`#aiPanel`），工作区回到两列。三态由 `setAiPanel(state)` / `applyAiPanel()` 管理：`open`、`min`（46px 竖条，点击任意处展开）、`closed`（隐藏，由右侧 `#openAiPanel` 竖按钮重开）；状态保存在本地键 `worldforge-ui-state-v1`，不进入导出与 SQLite。窄屏改为底部抽屉。
+- 候选数量新增「1 份」。服务端 `expectedCount`、`createLoreResponseSchema` 与 `completeAiVariants` 早已按 1–5 处理，因此只改界面选项。
+- 非故事模式下每张候选新增「覆盖当前条目」（`overwriteWithAiVariant(index)`）：确认后调用 `applyAiVariant()` 覆盖已勾选内容块并立即 `saveLore()`，仍走完整字段校验；仅在已保存条目上出现。
+- 卡牌编辑器新增「不使用原画」（`clearCardArt()`），把 `selectedArtAssetId` 置空并重绘卡面。
+- 设定视觉原型新增「解除绑定」：`unbindArtAsset(asset)` 调用 `POST /api/art-assets/:id/unbind`，成功后本地标记 `unbound` 并重绘视觉原型、附件托盘与原画集。
+- `storage.mjs` 新增 `setArtAssetTarget(id, target)` 与 `unbound` 语义：解除时不删除文件与记录，只清空 `targetType` / `targetId` / `cardId`；`normalizeArtAsset()` 在未绑定时保留空目标，`prepareArtAssets()` 不再把未知 `targetType` 兜底成 `card`。
+- 缓存版本更新为 `app.js?v=42`、`styles.css?v=34`。全量 Node 回归测试为 132 项，全部通过。
+- 另以最小 DOM 桩运行真实 `app.js` 验证：窗口三态切换与持久化、非法状态回退、竖条点击展开、候选两按钮与"覆盖不新建"（条目数不变、正文已换、名称保留）、卡牌原画取消、视觉原型解除绑定调用正确的 URL 与请求标记、本地标记与列表移除、另一张画作不受影响；存储层另测解除与重新绑定的往返。
+
 ## 2026-10-15 正史约束位置调整增量
 
 - `FREE_AGENT_INSTRUCTIONS` 删去「不要擅自把候选晋升为 canon」，改写为输出纪律：引用资料时按其 `status` 与 `truthScope` 表述，`proposed` 是草案、`unknown` 是留白，不要写成已定论，也不要补全资料本身没写的内容。理由是 Agent 的五个工具全部只读，这条禁令禁止的是一件不可能发生的事。
@@ -428,6 +439,13 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `parseChatText(data)` / `parseChatToolCalls(data)` / `parseResponsesText(data)` / `parseResponsesToolCalls(data)`：从两种响应体提取文本与工具调用。
 - `createToolCaller({ config, system, fetchImpl, timeout })`：返回 `callModel({ messages, tools })`；`tools` 为空数组时不发送工具字段，用于强制收尾。
 
+### 界面偏好与素材绑定函数
+
+- `readUiState()` / `setAiPanel(state)` / `applyAiPanel()` / `aiPanelState()`：AI 助手浮动窗口的三态开关，状态存于本地键 `worldforge-ui-state-v1`。
+- `clearCardArt(): void`：取消当前卡牌的原画选择并重绘卡面。
+- `unbindArtAsset(asset): void`：确认后调用 `POST /api/art-assets/:id/unbind`，成功时把本地资产标记为 `unbound` 并重绘视觉原型、附件托盘与原画集。
+- `overwriteWithAiVariant(index): void`：用指定候选覆盖当前已保存条目已勾选的内容块并立即保存；仅在非故事模式且存在 `activeLoreId` 时提供入口。
+
 ### 服务端函数
 
 - `loadLocalEnv()`：解析本机配置文件；持久化配置优先于启动时注入的同名 LLM 环境变量。
@@ -448,7 +466,8 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `resolveAgentImages(value, maximum)`：按资产编号从资产目录读取图片并转成 data URL；单个编号失败只记入 `missing`，不影响其余图片。
 - `callNameGenerator(payload)`：按命名类型、数量、要求和上下文执行独立的结构化名称生成。
 - `serveStatic(req, res)`：安全解析路径并提供 `dist/` 静态文件。
-- `createContentStore(databasePath)`：打开 SQLite、设置连接参数并执行内容域前向迁移；迁移失败时关闭连接，成功后返回快照读取、事务替换、健康检查和关闭接口。
+- `createContentStore(databasePath)`：打开 SQLite、设置连接参数并执行内容域前向迁移；迁移失败时关闭连接，成功后返回快照读取、事务替换、健康检查、美术资产读写与关闭接口。
+- `setArtAssetTarget(id, target)`：`target` 为空或缺少 `targetId` 时解除该美术资产的绑定（置 `unbound`、清空目标），否则重新绑定；资产不存在返回 `null`。解除不删除文件与记录。
 - `contentSchemaVersion(database)`：读取 `PRAGMA user_version`，作为现有作者内容域的 Schema 版本。
 - `applyContentMigrations(database)`：从当前版本顺序应用缺失迁移；每一步在独立事务中完成 DDL、索引和版本提交，并返回本次启动的迁移报告。
 - `UnsupportedContentSchemaError`：数据库版本高于当前程序支持版本时抛出的明确错误，防止旧程序误写未来格式。

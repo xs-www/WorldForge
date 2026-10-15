@@ -13,6 +13,36 @@ async function withStore(run) {
   try { await run(store); } finally { store.close(); await rm(directory, { recursive: true, force: true }); }
 }
 
+test('art assets can be unbound and rebound without losing the file record', async () => withStore(store => {
+  const base = { id: 'ART-1111-2222', targetType: 'lore', targetId: 'CHR-W01-001', purpose: 'portrait', prompt: '提示词', model: 'seedream', size: '2K', mimeType: 'image/jpeg', fileName: 'ART-1111-2222.jpg', status: 'proposed', createdAt: '2026-10-15T00:00:00.000Z' };
+  store.createArtAsset(base);
+  assert.equal(store.getArtAsset(base.id).targetType, 'lore');
+  assert.equal(store.getArtAsset(base.id).unbound, false);
+
+  const unbound = store.setArtAssetTarget(base.id, null);
+  assert.equal(unbound.unbound, true);
+  assert.equal(unbound.targetType, '');
+  assert.equal(unbound.targetId, '');
+  // 图片本体与文件记录保留，解除的只是绑定关系
+  const reread = store.getArtAsset(base.id);
+  assert.equal(reread.fileName, 'ART-1111-2222.jpg');
+  assert.equal(reread.unbound, true);
+  // 重新读取列表时不能被 normalize 退回成 card 目标
+  assert.equal(store.listArtAssets().find(asset => asset.id === base.id).targetType, '');
+  assert.equal(store.listArtAssets().find(asset => asset.id === base.id).cardId, '');
+
+  const rebound = store.setArtAssetTarget(base.id, { targetType: 'lore', targetId: 'CHR-W01-002' });
+  assert.equal(rebound.unbound, false);
+  assert.equal(rebound.targetType, 'lore');
+  assert.equal(rebound.targetId, 'CHR-W01-002');
+
+  const cardBound = store.setArtAssetTarget(base.id, { targetType: 'card', targetId: 'CARD-W01-0001' });
+  assert.equal(cardBound.targetType, 'card');
+  assert.equal(cardBound.cardId, 'CARD-W01-0001');
+
+  assert.equal(store.setArtAssetTarget('ART-NOPE', null), null);
+}));
+
 test('SQLite content store persists structured world data', async () => withStore(store => {
   assert.equal(store.read().initialized, false);
   const saved = store.replace({

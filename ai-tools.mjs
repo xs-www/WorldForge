@@ -123,7 +123,7 @@ export function prepareArtAssets(value) {
   return (Array.isArray(value) ? value : []).slice(0, AGENT_LIMITS.maxArtAssets).map(asset => ({
     id: text(asset?.id, 60),
     purpose: text(asset?.purpose, 40),
-    targetType: asset?.targetType === 'lore' ? 'lore' : 'card',
+    targetType: asset?.targetType === 'lore' || asset?.targetType === 'card' ? asset.targetType : '',
     targetId: text(asset?.targetId || asset?.cardId, 100),
     provider: text(asset?.provider || asset?.model, 60),
     size: text(asset?.size, 30),

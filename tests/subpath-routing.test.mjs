@@ -14,9 +14,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=41/);
+  assert.match(htmlSource, /app\.js\?v=42/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=33/);
+  assert.match(htmlSource, /styles\.css\?v=34/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /world-scope\.js\?v=1/);
   assert.match(htmlSource, /relation-picker\.js\?v=1/);
@@ -294,6 +294,38 @@ test('the free chat can attach images picked from the asset library', () => {
   assert.match(serverSource, /const useTools = library\.length > 0 \|\| artAssets\.length > 0/);
   assert.match(serverSource, /maxRounds: useTools \? undefined : 1/);
   assert.doesNotMatch(serverSource, /transcriptOf/);
+});
+
+test('AI assistant is a minimizable dock, candidates can overwrite, bindings can be released', () => {
+  // AI 助手改成浮动子窗口，可最小化成侧边竖条，也可关闭后从边缘重开
+  assert.match(htmlSource, /id="aiPanel" data-state="open"/);
+  assert.match(htmlSource, /id="minimizeAi"/);
+  assert.match(htmlSource, /id="closeAi"/);
+  assert.match(htmlSource, /id="openAiPanel"/);
+  assert.match(appSource, /const UI_KEY='worldforge-ui-state-v1'/);
+  assert.match(appSource, /function setAiPanel\(state\)/);
+  assert.match(appSource, /function applyAiPanel\(\)/);
+  assert.match(appSource, /panel\.onclick=state==='min'\?\(\)=>setAiPanel\('open'\):null/);
+  assert.match(appSource, /updateLoreVisualState\(\);applyAiPanel\(\)\}bootstrap\(\)/);
+  assert.match(styleSource, /\.ai-panel\{position:fixed;top:64px;right:0;bottom:0;width:368px/);
+  assert.match(styleSource, /\.ai-panel\[data-state="min"\]\{width:46px/);
+  assert.match(styleSource, /\.ai-panel\[data-state="closed"\]\{display:none\}/);
+  assert.match(styleSource, /\.ai-reopen\{position:fixed/);
+  // 候选可以只生成 1 份，并且可以一步覆盖当前条目
+  assert.match(htmlSource, /<option value="1">1 份<\/option>/);
+  assert.match(serverSource, /const expectedCount = Math\.min\(5, Math\.max\(1, Number\(payload\?\.variantCount\) \|\| 3\)\)/);
+  assert.match(appSource, /function overwriteWithAiVariant\(index\)/);
+  assert.match(appSource, /overwrite\.textContent='覆盖当前条目'/);
+  assert.match(appSource, /applyAiVariant\(index\);saveLore\(\)/);
+  // 卡牌原画可以取消选择；设定画作可以解除绑定且图片留在素材库
+  assert.match(htmlSource, /id="clearCardArt"/);
+  assert.match(appSource, /function clearCardArt\(\)/);
+  assert.match(appSource, /function unbindArtAsset\(asset\)/);
+  assert.match(appSource, /art-assets\/\$\{encodeURIComponent\(asset\.id\)\}\/unbind/);
+  assert.match(appSource, /unbound:true,targetType:'',targetId:'',cardId:''/);
+  assert.match(serverSource, /const artUnbindMatch = pathname\.match/);
+  assert.match(serverSource, /contentStore\.setArtAssetTarget\(artUnbindMatch\[1\], null\)/);
+  assert.match(styleSource, /\.art-unbind\{/);
 });
 
 test('artwork gallery covers the whole asset library with a used/unused filter', () => {

@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=33">
+  <link rel="stylesheet" href="./styles.css?v=34">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -161,12 +161,12 @@
           </form>
         </section>
 
-        <aside class="panel ai-panel">
-          <div class="panel-title"><div><h2>AI 设定助手</h2><small id="aiStatus">正在检查配置…</small></div><span class="ai-dot" id="aiDot"></span></div>
+        <aside class="panel ai-panel" id="aiPanel" data-state="open">
+          <div class="panel-title ai-title"><div><h2>AI 设定助手</h2><small id="aiStatus">正在检查配置…</small></div><span class="ai-rail">AI 设定助手</span><span class="ai-dot" id="aiDot"></span><div class="ai-title-actions"><button class="panel-action" id="minimizeAi" type="button" aria-label="最小化 AI 设定助手" title="最小化到侧边栏">–</button><button class="panel-action" id="closeAi" type="button" aria-label="关闭 AI 设定助手" title="关闭">×</button></div></div>
           <div class="ai-body">
             <div class="info-callout"><strong>草案边界</strong><p>AI 只返回 proposed 建议；勾选并保存才会进入资料库，何时晋升 canon 由你在世界观界面决定。</p></div>
             <label>协助方式<select id="aiAction"><option value="brainstorm">扩写候选方向</option><option value="background_story">生成背景故事</option><option value="polish">润色当前设定</option><option value="conflict_check">检查冲突与缺口</option><option value="relations">建议关联与剧情钩子</option></select></label>
-            <label>候选数量<select id="aiVariantCount"><option value="2">2 份</option><option value="3" selected>3 份</option><option value="4">4 份</option><option value="5">5 份</option></select></label>
+            <label>候选数量<select id="aiVariantCount"><option value="1">1 份</option><option value="2">2 份</option><option value="3" selected>3 份</option><option value="4">4 份</option><option value="5">5 份</option></select></label>
             <fieldset class="ai-block-fieldset"><legend>生成内容块</legend><p>只生成勾选部分；未勾选字段会保留当前内容。</p><div class="ai-block-grid" id="aiContentBlocks"></div><button class="text-action" id="toggleAiBlocks" type="button">全选 / 全不选</button></fieldset>
             <label>补充要求<textarea id="aiPrompt" rows="5" maxlength="3000" placeholder="例如：提供三种互相区分的政治结构，并说明代价"></textarea></label>
             <label>本次补充示例<textarea id="aiExamples" rows="4" maxlength="6000" placeholder="可选：粘贴希望本次生成参考的片段、写法或结构示例"></textarea><small id="aiExampleMeta">还会自动参考同世界、同类型的 canon 条目。</small></label>
@@ -176,6 +176,7 @@
             <p class="ai-config-help">模型设置可在右上角“设置”中修改；密钥只由本地服务读取。</p>
           </div>
         </aside>
+        <button class="ai-reopen" id="openAiPanel" type="button" hidden>AI 设定助手</button>
         </div>
       </div>
     </section>
@@ -228,7 +229,7 @@
               <div class="option-group"><span>已选关键词</span><div class="selected-keywords" id="selectedKeywords"><p>未选择关键词</p></div></div>
               <div class="option-group"><label for="cardFlavor">趣闻信息</label><textarea id="cardFlavor" class="card-flavor-input" rows="3" maxlength="500" placeholder="可选：轶事、引语或世界内传闻。不会显示在卡面上，但会随卡牌保存。"></textarea><p class="field-help">默认不显示在卡面；可在卡牌库详情与导出数据中读取。</p></div>
               <div class="option-group crop-controls"><span>原画裁剪</span><label>横向焦点<input id="cardCropX" type="range" min="0" max="100" value="50"></label><label>纵向焦点<input id="cardCropY" type="range" min="0" max="100" value="50"></label><label>缩放<input id="cardCropZoom" type="range" min="100" max="250" value="100"></label><button class="button secondary compact" id="resetCardCrop" type="button">重置裁剪</button><p class="field-help">可直接在卡面原画上拖动位置，并用滚轮缩放；滑杆可精调。保存后同一裁剪会进入编译 PNG。</p></div>
-              <div class="option-group card-art-controls"><span>AI 候选卡面</span><label for="cardArtProvider">生成通道</label><select id="cardArtProvider"><option value="seedream">火山方舟 Seedream（API Key）</option><option value="comfyui">本地 ComfyUI</option></select><label for="cardArtPrompt">插画提示词</label><textarea id="cardArtPrompt" rows="6" maxlength="3000" placeholder="描述主体、场景、构图、材质、色彩与光影……"></textarea><div class="reference-panel"><div><strong>参考图片</strong><small>上传或复用关联设定的画作，适合连续生成同系列卡面；最多 10 张。</small></div><label class="button secondary compact upload-button">＋ 添加参考图<input id="cardReferenceUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label><div class="reference-assets" id="cardReferenceAssets"></div><p class="art-empty" id="cardReferenceEmpty">暂无可用参考图。</p></div><label for="cardArtSize">画面尺寸</label><select id="cardArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select><div class="art-actions"><button class="button secondary compact" id="optimizeCardArtPrompt" type="button">语言模型优化</button><button class="button primary compact" id="generateCardArt" type="button" disabled>生成 1 张（可能付费）</button></div><p class="art-status" id="seedreamCardStatus" role="status">正在读取图像服务…</p><div class="art-candidates" id="cardArtCandidates"></div><p class="art-empty" id="cardArtEmpty">当前卡牌暂无候选插画。</p></div>
+              <div class="option-group card-art-controls"><span>AI 候选卡面</span><label for="cardArtProvider">生成通道</label><select id="cardArtProvider"><option value="seedream">火山方舟 Seedream（API Key）</option><option value="comfyui">本地 ComfyUI</option></select><label for="cardArtPrompt">插画提示词</label><textarea id="cardArtPrompt" rows="6" maxlength="3000" placeholder="描述主体、场景、构图、材质、色彩与光影……"></textarea><div class="reference-panel"><div><strong>参考图片</strong><small>上传或复用关联设定的画作，适合连续生成同系列卡面；最多 10 张。</small></div><label class="button secondary compact upload-button">＋ 添加参考图<input id="cardReferenceUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label><div class="reference-assets" id="cardReferenceAssets"></div><p class="art-empty" id="cardReferenceEmpty">暂无可用参考图。</p></div><label for="cardArtSize">画面尺寸</label><select id="cardArtSize"><option value="2K">2K（约 3:2）</option><option value="1872x1248">1872 × 1248 横向</option><option value="1248x1872">1248 × 1872 竖向</option></select><div class="art-actions"><button class="button secondary compact" id="optimizeCardArtPrompt" type="button">语言模型优化</button><button class="button secondary compact" id="clearCardArt" type="button">不使用原画</button><button class="button primary compact" id="generateCardArt" type="button" disabled>生成 1 张（可能付费）</button></div><p class="art-status" id="seedreamCardStatus" role="status">正在读取图像服务…</p><div class="art-candidates" id="cardArtCandidates"></div><p class="art-empty" id="cardArtEmpty">当前卡牌暂无候选插画。</p></div>
               <div class="info-callout"><strong>关键词显示</strong><p>附加说明为可选；填写后显示为“关键词：附加说明”，并随卡牌一起保存。</p></div>
             </div>
           </div>
@@ -410,6 +411,6 @@
   <script src="./relation-picker.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=41"></script>
+  <script src="./app.js?v=42"></script>
 </body>
 </html>

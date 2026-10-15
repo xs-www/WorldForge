@@ -80,6 +80,7 @@ export function createContentStore(databasePath) {
   const selectArtAssets = db.prepare('SELECT metadata_json FROM art_assets ORDER BY created_at DESC, id');
   const selectArtAsset = db.prepare('SELECT metadata_json FROM art_assets WHERE id = ?');
   const insertArtAsset = db.prepare('INSERT INTO art_assets(id, card_id, prompt, model, size, mime_type, file_name, status, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const updateArtAssetTarget = db.prepare('UPDATE art_assets SET card_id = ?, metadata_json = ? WHERE id = ?');
 
   function meta(key, fallback = null) { return getMeta.get(key)?.value ?? fallback; }
 
@@ -131,9 +132,21 @@ export function createContentStore(databasePath) {
 
   function normalizeArtAsset(value){
     const asset=JSON.parse(JSON.stringify(value));
-    const targetType=asset.targetType==='lore'?'lore':'card';
-    const targetId=stringField(asset.targetId||asset.cardId).trim();
-    return{...asset,targetType,targetId,purpose:stringField(asset.purpose,targetType==='card'?'card_art':'concept'),cardId:targetType==='card'?targetId:stringField(asset.cardId)};
+    // unbound 表示这张画作已与绑定目标解除关系，但仍留在素材库里（会显示为“未使用”）。
+    const unbound=asset.unbound===true||asset.targetType==='';
+    const targetType=unbound?'':(asset.targetType==='lore'?'lore':'card');
+    const targetId=unbound?'':stringField(asset.targetId||asset.cardId).trim();
+    return{...asset,unbound,targetType,targetId,purpose:stringField(asset.purpose,targetType==='card'?'card_art':'concept'),cardId:targetType==='card'?targetId:''};
+  }
+
+  // target 为 null 或缺少 targetId 时解除绑定；否则重新绑定到指定目标。
+  function setArtAssetTarget(id, target) {
+    const current = getArtAsset(id);
+    if (!current) return null;
+    const targetId = target && stringField(target.targetId).trim();
+    const next = normalizeArtAsset({ ...current, unbound: !targetId, targetType: targetId ? target.targetType : '', targetId: targetId || '' });
+    updateArtAssetTarget.run(next.cardId || '', JSON.stringify(next), next.id);
+    return next;
   }
 
   function createArtAsset(value) {
@@ -151,5 +164,5 @@ export function createContentStore(databasePath) {
   function listArtAssets() { return selectArtAssets.all().map(row => normalizeArtAsset(JSON.parse(row.metadata_json))); }
   function getArtAsset(id) { const row = selectArtAsset.get(id); return row ? normalizeArtAsset(JSON.parse(row.metadata_json)) : null; }
 
-  return { read, replace, health, createArtAsset, listArtAssets, getArtAsset, close: () => db.close() };
+  return { read, replace, health, createArtAsset, listArtAssets, getArtAsset, setArtAssetTarget, close: () => db.close() };
 }
