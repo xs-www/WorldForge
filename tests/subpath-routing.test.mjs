@@ -14,10 +14,10 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=32/);
+  assert.match(htmlSource, /app\.js\?v=33/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=26/);
-  assert.match(htmlSource, /cards\.js\?v=5/);
+  assert.match(htmlSource, /styles\.css\?v=27/);
+  assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
 });
@@ -98,4 +98,22 @@ test('card library, artwork, and editor stay independent', () => {
   assert.doesNotMatch(appSource, /ctx\.fillText\(label,x,y\+69\)/);
   assert.match(styleSource, /\.card-stat span\{display:none\}/);
   assert.match(styleSource, /\.compiled-inline\.italic\{font-style:italic\}/);
+});
+
+test('minion tribe and spell school render on the card face per type', () => {
+  assert.match(htmlSource, /id="cardSubtype"/);
+  assert.match(htmlSource, /id="cardSubtypeLabel">种族</);
+  assert.match(htmlSource, /id="cardTribeLine"/);
+  assert.match(htmlSource, /id="cardSchoolLine"/);
+  assert.match(appSource, /function renderCardSubtype\(type,pending\)/);
+  assert.match(appSource, /function updateCardSubtypeLines\(type,value\)/);
+  assert.match(appSource, /function drawCardName\(ctx,card\)/);
+  assert.match(appSource, /function drawCardSchool\(ctx,card\)/);
+  assert.match(appSource, /WorldforgeCards\.schoolTierLabels\[tier\]/);
+  assert.match(appSource, /tribeId:type==='minion'\?q\('#cardSubtype'\)\.value:''/);
+  assert.match(appSource, /spellSchoolId:type==='spell'\?q\('#cardSubtype'\)\.value:''/);
+  assert.match(appSource, /WorldforgeCards\.subtypeText\(c\)/);
+  assert.match(styleSource, /\.card-subtype-line\{/);
+  assert.match(styleSource, /\.card-school-line\{/);
+  assert.match(styleSource, /#cardSubtypeLabel\[hidden\],#cardSubtype\[hidden\]\{display:none\}/);
 });

@@ -11,6 +11,16 @@
     "world_id": { "type": "string", "pattern": "^W[0-9]{2}$" },
     "card_type": { "enum": ["minion", "spell", "equipment"] },
     "rarity": { "enum": ["common", "rare", "epic", "legendary"] },
+    "tribe": {
+      "description": "随从种族；仅有 card_type=minion 可取值，法术与武器必须为 null。候选词表为 proposed，等待作者裁定。",
+      "type": ["string", "null"],
+      "enum": [null, "human", "construct", "machine", "undead", "beast"]
+    },
+    "spell_school": {
+      "description": "法术派系；仅有 card_type=spell 可取值，对应 W01 canon 的咒语派系字段 C。随从与武器必须为 null。",
+      "type": ["string", "null"],
+      "enum": [null, "fire", "water", "earth", "wind", "lightning", "light", "dark", "life", "death", "time", "space"]
+    },
     "cost": { "type": "number", "minimum": 0 },
     "stats": {
       "type": "object",
@@ -44,9 +54,9 @@
     "effects": { "type": "array" }
   },
   "allOf": [
-    { "if": { "properties": { "card_type": { "const": "minion" } } }, "then": { "properties": { "stats": { "required": ["attack", "health"], "not": { "required": ["durability"] } } } } },
-    { "if": { "properties": { "card_type": { "const": "spell" } } }, "then": { "properties": { "stats": { "maxProperties": 0 } } } },
-    { "if": { "properties": { "card_type": { "const": "equipment" } } }, "then": { "properties": { "stats": { "required": ["attack", "durability"], "not": { "required": ["health"] } } } } }
+    { "if": { "properties": { "card_type": { "const": "minion" } } }, "then": { "properties": { "stats": { "required": ["attack", "health"], "not": { "required": ["durability"] } }, "spell_school": { "const": null } } } },
+    { "if": { "properties": { "card_type": { "const": "spell" } } }, "then": { "properties": { "stats": { "maxProperties": 0 }, "tribe": { "const": null } } } },
+    { "if": { "properties": { "card_type": { "const": "equipment" } } }, "then": { "properties": { "stats": { "required": ["attack", "durability"], "not": { "required": ["health"] } }, "tribe": { "const": null }, "spell_school": { "const": null } } } }
   ],
   "additionalProperties": true
 }

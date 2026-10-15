@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=26">
+  <link rel="stylesheet" href="./styles.css?v=27">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -192,16 +192,18 @@
                 <img class="card-frame-overlay" id="cardFrameOverlay" src="./assets/card-frames/shared.png" alt="" aria-hidden="true">
                 <label class="card-stat cost-stat"><span>费用</span><input id="cardCost" type="number" min="0" value="0" aria-label="费用"></label>
                 <label class="card-name-field"><span>卡牌名称</span><input id="cardName" maxlength="40" value="未命名卡牌" aria-label="卡牌名称"></label>
+                <span class="card-subtype-line" id="cardTribeLine" hidden></span>
                 <div class="card-art-placeholder"><img id="cardArtImage" hidden alt="当前卡牌插画"><span id="cardArtPlaceholder" aria-hidden="true">W01</span></div>
                 <div class="card-description-field"><div class="card-keyword-preview empty" id="cardKeywordPreview">未填写描述</div></div>
                 <label class="card-stat attack-stat"><span>攻击</span><input id="cardAttack" type="number" min="0" value="0" aria-label="攻击"></label>
                 <label class="card-stat health-stat"><span id="cardSecondaryLabel">生命</span><input id="cardHealth" type="number" min="1" value="1" aria-label="生命"></label>
+                <span class="card-school-line" id="cardSchoolLine" hidden></span>
               </article>
-              <p class="preview-help">直接修改费用、类型属性与描述；法术无底部属性，武器使用耐久。保存后可从卡牌库再次打开。</p>
+              <p class="preview-help">直接修改费用、类型属性与描述；法术无底部属性，武器使用耐久。随从在名称下方显示种族，法术在底部显示派系。保存后可从卡牌库再次打开。</p>
             </div>
 
             <div class="card-options">
-              <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" value="W01" maxlength="20"></div>
+              <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select><label for="cardSubtype" id="cardSubtypeLabel">种族</label><select id="cardSubtype" aria-label="随从种族"></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" value="W01" maxlength="20"></div>
               <div class="option-group"><label for="cardLoreRefs">设定来源</label><select id="cardLoreRefs" multiple size="5" aria-describedby="cardLoreHelp"></select><p class="field-help" id="cardLoreHelp">可关联多个设定条目；从世界观生成时只预填草案，不会自动保存或晋升正史。</p></div>
               <div class="option-group"><label for="cardRules">普通文本描述</label><textarea id="cardRules" class="card-flavor-input" rows="4" maxlength="1000" placeholder="写入关键词之后显示的普通规则文本……"></textarea><p class="field-help">保存与卡面显示会自动编译为：独立关键词 → 带附加描述关键词 → 普通文本。支持 <code>&lt;b&gt;粗体&lt;/b&gt;</code>、<code>&lt;i&gt;斜体&lt;/i&gt;</code>、<code>**粗体**</code> 与 <code>*斜体*</code>。</p></div>
               <div class="option-group"><span>已选关键词</span><div class="selected-keywords" id="selectedKeywords"><p>未选择关键词</p></div></div>
@@ -359,8 +361,8 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
-  <script src="./cards.js?v=5"></script>
+  <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=32"></script>
+  <script src="./app.js?v=33"></script>
 </body>
 </html>

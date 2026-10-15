@@ -134,6 +134,7 @@ stats:
   attack: 3
   health: 4
 rarity: common
+tribe: null          # 随从种族；法术用 spell_school，武器两者都为 null
 keywords:
   - id: KEY-001
     detail: "本卡对该关键词的可选附加说明"
@@ -153,7 +154,7 @@ notes:
   - 示例卡，只测试数据格式；压力用途尚未确定。
 ```
 
-建议将执行逻辑与展示文案分开；`effects` 是结构化设计描述，不意味着已有可执行引擎。实现前需正式定义允许的 trigger/operation/target 集合，避免不受控自由文本成为伪结构化数据。卡牌类型固定为 `minion / spell / equipment`（随从 / 法术 / 武器）：随从 stats 为攻击与生命，法术 stats 为空对象，武器 stats 为攻击与耐久。稀有度固定为 `common / rare / epic / legendary`（普通 / 稀有 / 史诗 / 传说）。`lore_refs` 可保留多个设定来源，但创建卡牌草案不会改变来源条目或卡牌的 `proposed` 状态。
+建议将执行逻辑与展示文案分开；`effects` 是结构化设计描述，不意味着已有可执行引擎。实现前需正式定义允许的 trigger/operation/target 集合，避免不受控自由文本成为伪结构化数据。卡牌类型固定为 `minion / spell / equipment`（随从 / 法术 / 武器）：随从 stats 为攻击与生命，法术 stats 为空对象，武器 stats 为攻击与耐久。稀有度固定为 `common / rare / epic / legendary`（普通 / 稀有 / 史诗 / 传说）。随从可带 `tribe`（种族），法术可带 `spell_school`（派系），两者互斥且武器均不适用；法术派系沿用 W01 canon 的十一种魔法派系，随从种族词表仍为 `proposed` 候选，详见 [ADR-0017](adr/ADR-0017-minion-tribe-and-spell-school.md)。`lore_refs` 可保留多个设定来源，但创建卡牌草案不会改变来源条目或卡牌的 `proposed` 状态。
 
 ### 4.3 关键词规范
 每个关键词至少包含：

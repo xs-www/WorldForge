@@ -67,3 +67,38 @@ test('entity-like lore entries receive deterministic draft card types',()=>{
   assert.equal(cards.isCardableLore({id:'STORY-W01-001',type:'story'}),false);
   assert.equal(cards.isCardableLore({id:'CHR-W01-001',type:'character'}),true);
 });
+
+test('minion tribe and spell school stay exclusive to their card type',()=>{
+  const minion=cards.normalize({type:'minion',tribeId:'human',spellSchoolId:'fire'});
+  assert.equal(minion.tribeId,'human');
+  assert.equal(minion.spellSchoolId,'');
+  const spell=cards.normalize({type:'spell',tribeId:'human',spellSchoolId:'fire'});
+  assert.equal(spell.tribeId,'');
+  assert.equal(spell.spellSchoolId,'fire');
+  const weapon=cards.normalize({type:'equipment',tribeId:'human',spellSchoolId:'fire'});
+  assert.equal(weapon.tribeId,'');
+  assert.equal(weapon.spellSchoolId,'');
+});
+
+test('unknown tribe and school ids are dropped instead of stored',()=>{
+  assert.equal(cards.normalize({type:'minion',tribeId:'murloc'}).tribeId,'');
+  assert.equal(cards.normalize({type:'spell',spellSchoolId:'arcane'}).spellSchoolId,'');
+  assert.equal(cards.normalize({type:'minion'}).tribeId,'');
+});
+
+test('subtype text resolves for search and rendering but never crosses types',()=>{
+  assert.equal(cards.subtypeText({type:'minion',tribeId:'construct'}),'构装体');
+  assert.equal(cards.subtypeText({type:'spell',spellSchoolId:'space'}),'空间');
+  assert.equal(cards.subtypeText({type:'equipment',tribeId:'human'}),'');
+  assert.equal(cards.subtypeText({type:'minion',tribeId:'unknown'}),'');
+  assert.equal(cards.tribeName('beast'),'野兽');
+  assert.equal(cards.spellSchoolName('death'),'死亡');
+});
+
+test('spell school vocabulary matches the canon eleven schools in three tiers',()=>{
+  assert.equal(cards.spellSchools.length,11);
+  const tiers=cards.spellSchools.reduce((map,item)=>{map[item.tier]=(map[item.tier]||0)+1;return map},{});
+  assert.deepEqual(tiers,{basic:5,advanced:4,higher:2});
+  assert.equal(cards.spellSchools.every(item=>item.status==='canon'),true);
+  assert.equal(cards.minionTribes.every(item=>item.status==='proposed'),true);
+});

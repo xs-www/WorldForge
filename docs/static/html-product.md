@@ -1,5 +1,17 @@
 # HTML 产品静态文档
 
+## 2026-10-15 随从种族与法术派系增量
+
+- 新增卡牌子类型词表：随从种族由 `WorldforgeCards.minionTribes`（`proposed` 候选：人类、构装体、蒸汽机械、亡灵、野兽）提供，法术派系由 `WorldforgeCards.spellSchools` 提供，直接采用 W01 canon 的十一种魔法派系并按基础 / 高阶 / 更高层分组。
+- `WorldforgeCards.normalizeSubtype(type, card)` 按类型固化子类型：随从只保留 `tribeId`，法术只保留 `spellSchoolId`，武器两者清空；未知 ID 读取时丢弃，切换类型不保留不适用字段的旧值。
+- `WorldforgeCards.tribeName(id)` / `spellSchoolName(id)` / `subtypeText(card)` 解析显示名与搜索文本；卡牌库搜索命中范围加入种族与派系。
+- `renderCardSubtype(type, pending)` 按类型重建编辑器选择器：种族为平铺选项并带“无种族”，派系按层次使用 `<optgroup>` 并带“无派系”；武器隐藏标签与选择器，标签文本在“种族 / 派系”之间切换。
+- `updateCardSubtypeLines(type, value)` 同步卡面预览的种族行与派系行；`drawCardName(ctx, card)` 在名称横幅内绘制种族，`drawCardSchool(ctx, card)` 在法术卡面底部中央绘制派系，编辑器预览与编译 PNG 使用同一排布规则。
+- 卡面排布对齐同类产品：随从种族位于名称下方，法术派系位于底部属性位；名称与种族同时存在时名称上移，字号自适应宽度不变。
+- 编辑器原画窗在随从与法术下移 16px 为种族行让位；`#cardSubtypeLabel[hidden]` 与 `#cardSubtype[hidden]` 显式隐藏，避免被既有 `display` 规则覆盖。
+- `cards/schema/card.schema.json` 新增 `tribe` 与 `spell_school` 枚举，并以类型条件约束武器两者为 `null`；`templates/card.yaml` 同步。SQLite 物理 Schema 与完整 JSON 导出结构不变。
+- 缓存版本更新为 `app.js?v=33`、`cards.js?v=6`、`styles.css?v=27`。全量 Node 回归测试为 72 项，全部通过。
+
 ## 2026-10-15 卡牌有限富文本、无水印与属性圆章增量
 
 - `buildSeedreamBody(config, request)` 固定发送 `watermark: false`；Mock 回归测试断言请求边界，不调用真实 Seedream 或产生费用。
@@ -159,6 +171,41 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 
 - 在卡面原画上监听拖动与滚轮，换算并限制横向/纵向焦点及 1–2.5 倍缩放。
 - 实时同步三个裁剪滑杆，点击未拖动的原画仍打开大图查看器。
+
+### `minionTribes` / `spellSchools` / `schoolTierLabels`
+
+- 位置：`dist/cards.js`
+- `minionTribes` 为随从种族候选词表，当前五项均标记 `proposed`：人类、构装体、蒸汽机械、亡灵、野兽。
+- `spellSchools` 为法术派系词表，取自 W01 canon 的十一种魔法派系并标记 `canon`，保留 `basic / advanced / higher` 三档；`schoolTierLabels` 提供中文层次名。
+
+### `normalizeSubtype(type, card): { tribeId, spellSchoolId }`
+
+- 按卡牌类型固化子类型：随从只保留合法 `tribeId`，法术只保留合法 `spellSchoolId`，武器两者清空。
+- 未知或越界 ID 返回空字符串；不适用于该类型的字段不保留旧值。
+
+### `tribeName(id)` / `spellSchoolName(id)` / `subtypeText(card): string`
+
+- 前两者把词表 ID 解析为显示名，未命中返回空字符串。
+- `subtypeText(card)` 只在对应类型返回内容：随从返回种族，法术返回派系，武器返回空；用于卡牌库搜索与卡面显示。
+
+### `renderCardSubtype(type, pending): void`
+
+- 位置：`dist/app.js`
+- 按当前类型重建编辑器子类型选择器：随从使用平铺种族选项并带“无种族”，法术按层次用 `<optgroup>` 分组并带“无派系”。
+- 武器隐藏标签与选择器；`pending` 显式指定时优先于当前选择，切换类型时只保留仍然合法的值。
+
+### `updateCardSubtypeLines(type, value): void`
+
+- 同步卡面预览的种族行与派系行文本；空值隐藏对应行，不留下空占位。
+
+### `drawCardName(ctx, card): void`
+
+- 位置：`dist/app.js`
+- 在名称横幅内绘制卡牌名称；存在随从种族时把名称上移并在名称下方绘制种族文字，字号仍按 450px 宽度自适应收缩。
+
+### `drawCardSchool(ctx, card): void`
+
+- 法术在卡面底部中央绘制派系文字，与前两者的属性圆章同一高度；非法术或未选派系时不绘制任何内容。
 
 ### `renderKeywords(): void`
 

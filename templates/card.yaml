@@ -11,6 +11,10 @@ stats:
   health: 1
 # minion 使用 attack + health；spell 使用空对象；equipment（界面显示“武器”）使用 attack + durability。
 rarity: common
+# 随从填 tribe（种族），法术填 spell_school（派系）；另一个必须为 null，武器两者都为 null。
+# tribe 候选词表为 proposed 待裁定；spell_school 取自 W01 canon 的十一种魔法派系，对应咒语信息 I = (C, E) 的派系字段 C。
+tribe: null
+spell_school: null
 # 每项可选 detail；用于“关键词：本卡附加说明”，不修改关键词通用定义。
 keywords: []
 effects: []
