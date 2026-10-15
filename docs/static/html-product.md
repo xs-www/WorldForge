@@ -1,5 +1,16 @@
 # HTML 产品静态文档
 
+## 2026-10-15 选择窗口三处复用增量
+
+- 选择窗口从写死「关联资料」改为按目标驱动：新增 `pickerTargets` 注册表，共 `lore`（关联资料）、`card`（卡牌设定来源）、`free`（自由创作参考资料）三个目标，各自声明标题、排除规则、读写状态、已选区容器、按钮文案、空状态与提交后副作用。打开时按目标改写 `#relationDialogTitle` 与 `#relationDialogEyebrow`。
+- 卡牌「设定来源」不再使用多选下拉：改为已选标签（`#cardLoreRefSummary`）加「选择设定来源（N）」按钮（`#openCardLoreRefPicker`）；`populateCardLoreRefs()` 写入状态数组，`selectedCardLoreRefs()` 读取该数组，卡牌保存、生图上下文与参考图画作池继续沿用同一入口。
+- 自由创作新增「参考资料」已选区（`#freeRefSummary`）与选择入口（`#openFreeRefPicker`）。`sendFreeMessage()` 在已选条目时把 `library` 收窄为这些条目并自动附带索引（即使「附带资料库条目索引」未勾选）；未选时维持原行为，由该复选框决定是否附带全部条目索引。服务端 `/api/ai/free` 契约不变。
+- 三个目标共用同一份草稿窗口与过滤器；切换目标不会串档，提交只影响当前目标。
+- 失效引用在三个目标上都按「N 条已失效引用」提示。
+- `renderPickerSummary(key)` / `renderPickerSummaries()` 取代原先只服务关联资料的渲染函数；`openPicker` / `renderPicker` / `applyPicker` 取代 `openRelationPicker` / `renderRelationPicker` / `applyRelations`。
+- 缓存版本更新为 `app.js?v=37`（样式与其余模块未变）。全量 Node 回归测试为 90 项，全部通过。
+- 另以最小 DOM 桩运行真实 `app.js` 验证三处目标：启动时三个已选区均为空状态、窗口标题与眉标随目标切换、关联资料排除当前编辑条目而卡牌与自由创作不排除、选择互不串档、`collectLoreForm()` 与 `selectedCardLoreRefs()` 读取正确、自由创作实际发出的请求载荷在已选时收窄为所选条目并自动附带索引、未选且未勾选时不附带索引且回退为全量、失效引用在卡牌侧同样提示，共 24 项行为断言全部通过。
+
 ## 2026-10-15 关联资料选择窗口增量
 
 - 「关联资料」由 `<select multiple>` 改为 `<dialog id="relationDialog">` 分栏选择窗口：一侧为全量资料池，另一侧为已选关联，窄屏上下堆叠。编辑器表单里只保留已选标签（`#relationSummary`）与「选择关联资料（N）」按钮。
@@ -333,16 +344,19 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `searchWorlds(groups, query)`：按世界标题、编号、摘要与正文过滤分组。
 - `reassign(entries, sourceWorldId, targetWorldId)`：把来源编号下的非世界条目改到目标编号，返回新数组与实际搬运条数；世界条目自身不参与搬运。
 
-### 关联选择函数
+### 选择窗口函数
 
+- `pickerTargets`：选择窗口的目标注册表。`lore`（关联资料，排除当前编辑条目）、`card`（卡牌设定来源，提交后刷新参考图画作池）、`free`（自由创作参考资料）；每个目标声明 `title`、`eyebrow`、`exclude`、`get`、`set`、`summary`、`button`、`label`、`empty`、`after`。
 - `relationTypeOptions(): void`：首次打开窗口时用 13 类资料填充 `#relationTypeFilter`。
-- `populateRelations(selected): void`：把条目的 `relationIds` 装入 `relationSelection` 并刷新表单标签；保留原签名，供载入、保存与 AI 候选应用复用。
-- `renderRelationSummary(): void`：渲染已选标签与「N 条已失效引用」提示，并把按钮文案更新为「选择关联资料（N）」。
-- `relationFilters(): object`：从窗口控件与当前世界组装过滤条件。
-- `openRelationPicker(): void` / `renderRelationPicker(): void`：打开窗口并把已提交选择复制为草稿；渲染资料池与已选区并更新计数与空状态。
-- `relationPoolRow(entry)` / `relationChosenRow(entry)`：生成资料池条目（点击切换选择）与已选条目（带移除按钮）。
-- `applyRelations(): void`：把草稿写回 `relationSelection`；「取消」或关闭窗口不会写回。
-- `collectLoreForm()`：`relationIds` 直接取 `relationSelection`，不再读下拉框的 `selectedOptions`。
+- `normalizeSelection(value): string[]`：去重、去空并规范化为稳定 ID 数组，供三个目标共用。
+- `renderPickerSummary(key)` / `renderPickerSummaries(): void`：渲染某个目标（或全部目标）的已选标签、失效引用提示、空状态与按钮文案。
+- `populateRelations(selected): void` / `populateCardLoreRefs(selected): void`：把已保存条目装入对应目标的选择状态；名称保留，供载入、保存与 AI 候选应用复用。
+- `selectedCardLoreRefs(): string[]` / `freeReferenceIds(): string[]`：读取卡牌设定来源与自由创作参考资料的当前选择。
+- `pickerFilters(): object`：从窗口控件与当前世界组装过滤条件。
+- `openPicker(key): void`：按目标改写标题与眉标、把该目标的选择复制为草稿、重置过滤器并打开窗口。
+- `renderPicker(): void`：渲染资料池与已选区并更新计数与空状态；排除规则来自当前目标。
+- `pickerPoolRow(entry)` / `pickerChosenRow(entry)`：生成资料池条目（点击切换草稿）与已选条目（带移除按钮）。
+- `applyPicker(): void`：把草稿写回当前目标、刷新该目标已选区并执行其 `after` 副作用；取消或关闭窗口不会写回。
 
 ### Relation Picker 纯函数
 

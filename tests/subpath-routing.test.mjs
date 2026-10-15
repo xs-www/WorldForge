@@ -14,7 +14,7 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=36/);
+  assert.match(htmlSource, /app\.js\?v=37/);
   assert.match(htmlSource, /macro\.js\?v=3/);
   assert.match(htmlSource, /styles\.css\?v=30/);
   assert.match(htmlSource, /cards\.js\?v=6/);
@@ -162,11 +162,15 @@ test('worldview module is a world list that scopes every entry to one world', ()
   assert.match(styleSource, /\.field-readonly\{/);
 });
 
-test('relations use a filtered picker window instead of a multi-select', () => {
+test('one picker window serves lore relations, card sources and free-agent references', () => {
+  // 三处多选控件都被同一个选择窗口取代，不再有裸 select multiple。
   assert.doesNotMatch(htmlSource, /id="loreRelations"/);
-  assert.match(htmlSource, /id="relationSummary"/);
-  assert.match(htmlSource, /id="openRelationPicker"/);
+  assert.doesNotMatch(htmlSource, /id="cardLoreRefs"/);
+  assert.doesNotMatch(appSource, /q\('#loreRelations'\)/);
+  assert.doesNotMatch(appSource, /q\('#cardLoreRefs'\)/);
   assert.match(htmlSource, /id="relationDialog"/);
+  assert.match(htmlSource, /id="relationDialogEyebrow"/);
+  assert.match(htmlSource, /id="relationDialogTitle"/);
   assert.match(htmlSource, /id="relationSearch"/);
   assert.match(htmlSource, /id="relationTypeFilter"/);
   assert.match(htmlSource, /id="relationWorldFilter"/);
@@ -175,14 +179,28 @@ test('relations use a filtered picker window instead of a multi-select', () => {
   assert.match(htmlSource, /id="relationPoolList"/);
   assert.match(htmlSource, /id="relationChosenList"/);
   assert.match(htmlSource, /id="applyRelations"/);
-  assert.match(appSource, /function openRelationPicker\(\)/);
-  assert.match(appSource, /function renderRelationPicker\(\)/);
-  assert.match(appSource, /function applyRelations\(\)/);
-  assert.match(appSource, /function renderRelationSummary\(\)/);
+  // 每个目标都有自己的已选区与打开按钮
+  assert.match(htmlSource, /id="relationSummary"/);
+  assert.match(htmlSource, /id="openRelationPicker"/);
+  assert.match(htmlSource, /id="cardLoreRefSummary"/);
+  assert.match(htmlSource, /id="openCardLoreRefPicker"/);
+  assert.match(htmlSource, /id="freeRefSummary"/);
+  assert.match(htmlSource, /id="openFreeRefPicker"/);
+  assert.match(appSource, /const pickerTargets=\{/);
+  for (const key of ['lore', 'card', 'free']) assert.match(appSource, new RegExp(`\\n  ${key}:\\{title:`));
+  assert.match(appSource, /function openPicker\(key\)/);
+  assert.match(appSource, /function renderPicker\(\)/);
+  assert.match(appSource, /function applyPicker\(\)/);
+  assert.match(appSource, /function renderPickerSummaries\(\)/);
+  assert.match(appSource, /function populateCardLoreRefs\(selected=\[\]\)\{cardLoreSelection=normalizeSelection\(selected\)/);
   assert.match(appSource, /relationIds:\[\.\.\.relationSelection\]/);
-  assert.match(appSource, /WorldforgeRelationPicker\.filter\(all,\{\.\.\.relationFilters\(\),selectedIds:relationDraft\}\)/);
-  assert.match(appSource, /WorldforgeRelationPicker\.toggle\(relationDraft,entry\.id\)/);
-  assert.doesNotMatch(appSource, /q\('#loreRelations'\)/);
+  assert.match(appSource, /loreRefs:selectedCardLoreRefs\(\)/);
+  assert.match(appSource, /includeLibrary:q\('#freeIncludeLibrary'\)\.checked\|\|picked\.length>0/);
+  assert.match(appSource, /library:picked\.length\?picked:readLore\(\)/);
+  assert.match(appSource, /WorldforgeRelationPicker\.filter\(all,\{\.\.\.pickerFilters\(\),excludeId:exclude,selectedIds:pickerDraft\}\)/);
+  assert.match(appSource, /WorldforgeRelationPicker\.toggle\(pickerDraft,entry\.id\)/);
+  assert.match(appSource, /q\('#openCardLoreRefPicker'\)\.onclick=\(\)=>openPicker\('card'\)/);
+  assert.match(appSource, /q\('#openFreeRefPicker'\)\.onclick=\(\)=>openPicker\('free'\)/);
   assert.match(styleSource, /\.relation-picker\{/);
   assert.match(styleSource, /\.relation-row\.chosen\{/);
 });

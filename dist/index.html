@@ -223,7 +223,7 @@
 
             <div class="card-options">
               <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select><label for="cardSubtype" id="cardSubtypeLabel">种族</label><select id="cardSubtype" aria-label="随从种族"></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" value="W01" maxlength="20"></div>
-              <div class="option-group"><label for="cardLoreRefs">设定来源</label><select id="cardLoreRefs" multiple size="5" aria-describedby="cardLoreHelp"></select><p class="field-help" id="cardLoreHelp">可关联多个设定条目；从世界观生成时只预填草案，不会自动保存或晋升正史。</p></div>
+              <div class="option-group"><span>设定来源</span><div class="relation-chips" id="cardLoreRefSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openCardLoreRefPicker" type="button">选择设定来源</button><small id="cardLoreHelp">可关联多个设定条目；从世界观生成时只预填草案，不会自动保存或晋升正史。</small></div></div>
               <div class="option-group"><label for="cardRules">普通文本描述</label><textarea id="cardRules" class="card-flavor-input" rows="4" maxlength="1000" placeholder="写入关键词之后显示的普通规则文本……"></textarea><p class="field-help">保存与卡面显示会自动编译为：独立关键词 → 带附加描述关键词 → 普通文本。支持 <code>&lt;b&gt;粗体&lt;/b&gt;</code>、<code>&lt;i&gt;斜体&lt;/i&gt;</code>、<code>**粗体**</code> 与 <code>*斜体*</code>。</p></div>
               <div class="option-group"><span>已选关键词</span><div class="selected-keywords" id="selectedKeywords"><p>未选择关键词</p></div></div>
               <div class="option-group"><label for="cardFlavor">趣闻信息</label><textarea id="cardFlavor" class="card-flavor-input" rows="3" maxlength="500" placeholder="可选：轶事、引语或世界内传闻。不会显示在卡面上，但会随卡牌保存。"></textarea><p class="field-help">默认不显示在卡面；可在卡牌库详情与导出数据中读取。</p></div>
@@ -251,7 +251,7 @@
             <label class="free-message-field"><span>给 Agent 的消息</span><textarea id="freeMessage" rows="4" maxlength="12000" required placeholder="描述你想讨论、生成、改写或分析的内容……"></textarea></label>
             <details class="free-context">
               <summary>添加参考资料 <span>可选</span></summary>
-              <div class="free-context-body"><label><span>关联信息</span><textarea id="freeRelatedInfo" rows="4" maxlength="20000" placeholder="粘贴本轮需要参考的设定、摘录、约束或角色关系"></textarea></label><label class="check-label"><input id="freeIncludeLibrary" type="checkbox"><span>附带资料库条目索引（名称、摘要与状态）</span></label></div>
+              <div class="free-context-body"><div class="relation-field"><span>参考资料</span><div class="relation-chips" id="freeRefSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openFreeRefPicker" type="button">选择参考资料</button><small>已选条目会作为本次对话的资料库索引；不选则按下方开关决定是否附带全部条目索引。</small></div></div><label><span>关联信息</span><textarea id="freeRelatedInfo" rows="4" maxlength="20000" placeholder="粘贴本轮需要参考的设定、摘录、约束或角色关系"></textarea></label><label class="check-label"><input id="freeIncludeLibrary" type="checkbox"><span>附带资料库条目索引（名称、摘要与状态）</span></label></div>
             </details>
             <div class="free-actions"><small>自由 Agent 不会自动保存资料或晋升正史。</small><button class="button primary" id="sendFreeMessage" type="submit">发送</button></div>
           </form>
@@ -371,7 +371,7 @@
   <dialog id="keywordDialog"><form method="dialog" class="dialog-card" id="keywordForm"><div class="dialog-header"><div><p class="eyebrow">关键词定义</p><h2>新建关键词</h2></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="form-grid"><label class="full">关键词名称<input id="keywordName" required maxlength="20" placeholder="例如：过载"></label><label class="full">规则说明<textarea id="keywordDefinition" required rows="4" placeholder="明确说明触发时机、效果和持续时间"></textarea></label></div><p class="field-help">关键词保存在服务端 SQLite，默认状态为 proposed。</p><div class="dialog-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="saveKeyword" value="default">保存关键词</button></div></form></dialog>
   <dialog id="relationDialog" class="relation-dialog">
     <form method="dialog" class="dialog-card relation-card" id="relationForm">
-      <div class="dialog-header"><div><p class="eyebrow">关联资料</p><h2 id="relationDialogTitle">选择关联资料</h2></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div>
+      <div class="dialog-header"><div><p class="eyebrow" id="relationDialogEyebrow">关联资料</p><h2 id="relationDialogTitle">选择关联资料</h2></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div>
       <div class="relation-picker">
         <section class="relation-panel">
           <div class="relation-panel-head"><strong>全部资料</strong><span id="relationPoolCount">0 条</span></div>
@@ -410,6 +410,6 @@
   <script src="./relation-picker.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=36"></script>
+  <script src="./app.js?v=37"></script>
 </body>
 </html>
