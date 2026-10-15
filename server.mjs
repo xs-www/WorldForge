@@ -4,6 +4,8 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, createLoreResponseSchema, createModelBody, FREE_AGENT_INSTRUCTIONS, HARNESS_VERSION, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
+import { FREE_AGENT_TOOLS, prepareLibrary, runToolCall } from './ai-tools.mjs';
+import { createToolCaller, runAgentLoop } from './ai-agent.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
 import { createContentStore } from './storage.mjs';
 import { composeImagePrompt } from './image-context.mjs';
@@ -261,18 +263,53 @@ async function callAi(payload) {
   return { ...result, harnessVersion: HARNESS_VERSION, contextMeta: {...bundle.contextMeta,visionAssetIds:vision.ids} };
 }
 
+const FREE_AGENT_TOOL_GUIDE = `你还可以调用只读资料工具查看作者资料库：
+- search_lore：按关键词、类型、世界或状态检索，返回编号、名称、状态、事实层次与摘要。
+- get_lore_entry：按稳定 ID 读取完整正文、约束、开放问题与关联编号。
+- list_lore：列出资料库条目索引。
+使用规则：
+- 需要引用具体设定内容时，先用 get_lore_entry 读到正文，不要凭摘要或记忆臆测细节。
+- 工具是只读的；你无法写入、删除，也无法读取资料库以外的任何内容（包括本机文件、密钥或环境变量）。
+- 每条资料都带 status 与 truthScope：proposed 是草案、unknown 是刻意留白，都不能当作已批准正史。
+- 取得足够信息后直接给出最终回答，不要为了凑次数反复调用工具。`;
+
+function transcriptOf(messages) {
+  return messages.map(item => `${item.role === 'assistant' ? '助手' : '作者'}：${item.content}`).join('\n\n');
+}
+
 async function callFreeAgent(payload) {
   const config = aiConfig();
   if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
   const messages = Array.isArray(payload?.messages) ? payload.messages.slice(-20).map(item => ({ role: item?.role === 'assistant' ? 'assistant' : 'user', content: String(item?.content || '').trim().slice(0, 12000) })).filter(item => item.content) : [];
   if (!messages.length || messages.at(-1).role !== 'user') throw new Error('请先输入创作需求');
   const related = String(payload?.relatedInformation || '').trim().slice(0, 20000);
-  const library = payload?.includeLibrary && Array.isArray(payload?.library) ? payload.library.slice(0, 120).map(entry => ({ id: String(entry?.id || '').slice(0, 100), type: String(entry?.type || '').slice(0, 40), name: String(entry?.name || '').slice(0, 100), status: String(entry?.status || '').slice(0, 20), truthScope: String(entry?.truthScope || '').slice(0, 30), worldId: String(entry?.worldId || '').slice(0, 30), summary: String(entry?.summary || '').slice(0, 1200) })) : [];
-  const transcript = messages.map(item => `${item.role === 'assistant' ? '助手' : '作者'}：${item.content}`).join('\n\n');
-  const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<library_context>\n${JSON.stringify(library, null, 2)}\n</library_context>\n<conversation>\n${transcript}\n</conversation>\n请直接回复作者的最后一条消息。`;
-  const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
-  if (!reply) throw new Error('模型没有返回内容');
-  return { reply: reply.slice(0, 50000), model: config.model };
+  const library = prepareLibrary(payload?.library);
+  if (!library.length) {
+    const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<conversation>\n${transcriptOf(messages)}\n</conversation>\n请直接回复作者的最后一条消息。`;
+    const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
+    if (!reply) throw new Error('模型没有返回内容');
+    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'none', trace: [], rounds: 0, toolCalls: 0 };
+  }
+  const notes = related ? `\n\n<author_notes>\n${related}\n</author_notes>` : '';
+  const system = `${FREE_AGENT_INSTRUCTIONS}\n\n作者提供了 ${library.length} 条可检索资料。\n\n${FREE_AGENT_TOOL_GUIDE}${notes}`;
+  try {
+    const result = await runAgentLoop({
+      messages,
+      tools: FREE_AGENT_TOOLS,
+      callModel: createToolCaller({ config, system }),
+      runTool: (name, args) => runToolCall(name, args, library)
+    });
+    if (!result.reply) throw new Error('模型只调用了工具但没有给出回答，请重试或更换模型');
+    return { reply: result.reply.slice(0, 50000), model: config.model, toolMode: 'native', trace: result.trace, rounds: result.rounds, toolCalls: result.toolCalls, stopped: result.stopped };
+  } catch (error) {
+    if (![400, 404, 422].includes(error.status)) throw error;
+    // 兼容接口不支持工具调用：退回一次不带工具的问答，并把条目索引直接放进上下文。
+    const index = library.slice(0, 120).map(entry => ({ id: entry.id, type: entry.type, name: entry.name, status: entry.status, truthScope: entry.truthScope, worldId: entry.worldId, summary: entry.summary }));
+    const prompt = `<related_information>\n${related || '无'}\n</related_information>\n<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>\n<conversation>\n${transcriptOf(messages)}\n</conversation>\n请直接回复作者的最后一条消息。`;
+    const reply = String(await requestModel(config, prompt, { structured: false, system: FREE_AGENT_INSTRUCTIONS }) || '').trim();
+    if (!reply) throw new Error('模型没有返回内容');
+    return { reply: reply.slice(0, 50000), model: config.model, toolMode: 'unavailable', fallbackReason: error.message, trace: [], rounds: 0, toolCalls: 0 };
+  }
 }
 
 async function callNameGenerator(payload) {

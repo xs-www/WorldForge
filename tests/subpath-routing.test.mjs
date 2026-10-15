@@ -14,9 +14,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=37/);
+  assert.match(htmlSource, /app\.js\?v=38/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=30/);
+  assert.match(htmlSource, /styles\.css\?v=31/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /world-scope\.js\?v=1/);
   assert.match(htmlSource, /relation-picker\.js\?v=1/);
@@ -195,8 +195,8 @@ test('one picker window serves lore relations, card sources and free-agent refer
   assert.match(appSource, /function populateCardLoreRefs\(selected=\[\]\)\{cardLoreSelection=normalizeSelection\(selected\)/);
   assert.match(appSource, /relationIds:\[\.\.\.relationSelection\]/);
   assert.match(appSource, /loreRefs:selectedCardLoreRefs\(\)/);
-  assert.match(appSource, /includeLibrary:q\('#freeIncludeLibrary'\)\.checked\|\|picked\.length>0/);
-  assert.match(appSource, /library:picked\.length\?picked:readLore\(\)/);
+  assert.match(appSource, /granted=picked\.length\?picked:\(q\('#freeIncludeLibrary'\)\.checked\?readLore\(\):\[\]\)/);
+  assert.match(appSource, /library:granted/);
   assert.match(appSource, /WorldforgeRelationPicker\.filter\(all,\{\.\.\.pickerFilters\(\),excludeId:exclude,selectedIds:pickerDraft\}\)/);
   assert.match(appSource, /WorldforgeRelationPicker\.toggle\(pickerDraft,entry\.id\)/);
   assert.match(appSource, /q\('#openCardLoreRefPicker'\)\.onclick=\(\)=>openPicker\('card'\)/);
@@ -222,6 +222,27 @@ test('bulk form fill only writes ids that exist in the markup', () => {
     assert.ok(keys.length >= 15, `${fnName} should expose keys, got ${keys.length}`);
     assert.deepEqual(keys.filter(key => !htmlSource.includes(`id="${key}"`)), [], `${fnName} writes unknown ids`);
   }
+});
+
+test('the free agent reaches lore through read-only server-side tools', () => {
+  assert.match(serverSource, /import \{ FREE_AGENT_TOOLS, prepareLibrary, runToolCall \} from '\.\/ai-tools\.mjs'/);
+  assert.match(serverSource, /import \{ createToolCaller, runAgentLoop \} from '\.\/ai-agent\.mjs'/);
+  assert.match(serverSource, /const FREE_AGENT_TOOL_GUIDE/);
+  assert.match(serverSource, /const library = prepareLibrary\(payload\?\.library\)/);
+  assert.match(serverSource, /callModel: createToolCaller\(\{ config, system \}\)/);
+  assert.match(serverSource, /runTool: \(name, args\) => runToolCall\(name, args, library\)/);
+  // 三种模式都要如实回报，方便前端说明当前是工具检索还是退回单轮
+  assert.match(serverSource, /toolMode: 'native'/);
+  assert.match(serverSource, /toolMode: 'unavailable'/);
+  assert.match(serverSource, /toolMode: 'none'/);
+  assert.match(serverSource, /if \(!\[400, 404, 422\]\.includes\(error\.status\)\) throw error;/);
+  // 旧的“客户端开关决定是否附带索引”不再由服务端判断
+  assert.doesNotMatch(serverSource, /payload\?\.includeLibrary/);
+  assert.match(appSource, /function freeAgentMeta\(message\)/);
+  assert.match(appSource, /freeMessages\.map\(item=>\(\{role:item\.role,content:item\.content\}\)\)/);
+  assert.match(appSource, /data\.trace/);
+  assert.match(styleSource, /\.free-trace\{/);
+  assert.match(htmlSource, /允许 Agent 检索整个资料库/);
 });
 
 test('artwork gallery covers the whole asset library with a used/unused filter', () => {

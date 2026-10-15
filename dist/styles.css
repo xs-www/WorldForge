@@ -137,4 +137,11 @@
 .relation-drop{border:0;background:transparent;color:var(--muted);font-size:10px;font-weight:700;cursor:pointer;padding:4px 6px;flex:none}
 .relation-drop:hover{color:#c85555}
 #relationDialog .dialog-actions{padding:16px 18px 18px}
+.free-trace{margin-top:8px}
+.free-trace>summary{cursor:pointer;color:var(--muted);font-size:10px;font-weight:600}
+.free-trace-list{display:grid;gap:4px;margin-top:6px}
+.free-trace-row{display:flex;align-items:baseline;gap:8px}
+.free-trace-row strong{font-size:10px;color:var(--text);font-family:ui-monospace,Consolas,monospace}
+.free-trace-row small{color:var(--faint);font-size:10px}
+.free-trace-row.failed strong{color:#c85555}
 @media(max-width:900px){.relation-picker{grid-template-columns:1fr}.relation-panel.chosen{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:12px}.relation-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}

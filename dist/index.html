@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=30">
+  <link rel="stylesheet" href="./styles.css?v=31">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -251,7 +251,7 @@
             <label class="free-message-field"><span>给 Agent 的消息</span><textarea id="freeMessage" rows="4" maxlength="12000" required placeholder="描述你想讨论、生成、改写或分析的内容……"></textarea></label>
             <details class="free-context">
               <summary>添加参考资料 <span>可选</span></summary>
-              <div class="free-context-body"><div class="relation-field"><span>参考资料</span><div class="relation-chips" id="freeRefSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openFreeRefPicker" type="button">选择参考资料</button><small>已选条目会作为本次对话的资料库索引；不选则按下方开关决定是否附带全部条目索引。</small></div></div><label><span>关联信息</span><textarea id="freeRelatedInfo" rows="4" maxlength="20000" placeholder="粘贴本轮需要参考的设定、摘录、约束或角色关系"></textarea></label><label class="check-label"><input id="freeIncludeLibrary" type="checkbox"><span>附带资料库条目索引（名称、摘要与状态）</span></label></div>
+              <div class="free-context-body"><div class="relation-field"><span>参考资料</span><div class="relation-chips" id="freeRefSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openFreeRefPicker" type="button">选择参考资料</button><small>已选条目会作为 Agent 可检索的资料范围；它可以用只读工具按需读取条目正文，不选则按下方开关决定是否开放整个资料库。</small></div></div><label><span>关联信息</span><textarea id="freeRelatedInfo" rows="4" maxlength="20000" placeholder="粘贴本轮需要参考的设定、摘录、约束或角色关系"></textarea></label><label class="check-label"><input id="freeIncludeLibrary" type="checkbox"><span>未选参考资料时，允许 Agent 检索整个资料库</span></label></div>
             </details>
             <div class="free-actions"><small>自由 Agent 不会自动保存资料或晋升正史。</small><button class="button primary" id="sendFreeMessage" type="submit">发送</button></div>
           </form>
@@ -410,6 +410,6 @@
   <script src="./relation-picker.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=37"></script>
+  <script src="./app.js?v=38"></script>
 </body>
 </html>

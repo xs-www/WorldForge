@@ -1,5 +1,16 @@
 # HTML 产品静态文档
 
+## 2026-10-15 自由创作 Agent 工具调用增量
+
+- 自由创作从单轮问答升级为多轮工具调用。新增 `ai-tools.mjs`：`prepareLibrary(entries)` 规范化并裁剪资料库快照；`FREE_AGENT_TOOLS` 声明 `search_lore`、`get_lore_entry`、`list_lore` 三个只读工具；`runToolCall(name, args, library)` 执行单个调用并返回 `{ ok, content, summary }`，未知工具与非法参数以可恢复错误回给模型而不是抛出。
+- 新增 `ai-agent.mjs`：`runAgentLoop({ messages, tools, callModel, runTool, maxRounds, maxToolCalls, onTrace })` 是纯编排，模型调用与工具执行由调用方注入；预算用尽后不再提供工具，轮次用尽则追加收尾指令强制作答，停止原因如实返回。
+- `createToolCaller({ config, system, fetchImpl })` 把 Chat Completions 与 Responses 两种风格统一成 `callModel({ messages, tools })`；`buildChatMessages` / `buildResponsesInput` / `parseChatToolCalls` / `parseResponsesToolCalls` 等线格式函数独立可测。
+- `callFreeAgent` 重写：资料库快照经 `prepareLibrary` 进入工具；系统提示追加工具使用规则（先读正文再引用、`proposed`/`unknown` 不得当作正史、工具只读）；返回 `{ reply, toolMode, trace, rounds, toolCalls, stopped }`。模型服务拒绝工具（400/404/422）时退回不带工具的单轮问答并标注 `toolMode: 'unavailable'`；没有可检索范围时标注 `toolMode: 'none'`。
+- 前端 `sendFreeMessage()` 按「参考资料选择 → 全库开关 → 无」决定发给服务端的可检索范围，并在会话气泡下用 `freeAgentMeta(message)` 以可折叠形式展示检索轨迹（轮次、工具名、成败与摘要）。
+- `Dockerfile` 的 COPY 白名单补入两个新模块。此前漏登记会导致镜像构建成功但容器启动即 `ERR_MODULE_NOT_FOUND`；新增 `tests/docker-packaging.test.mjs` 从 `server.mjs` 解析本地模块传递闭包并逐个核对 COPY 白名单。
+- 缓存版本更新为 `app.js?v=38`、`styles.css?v=31`。全量 Node 回归测试为 118 项，全部通过。
+- 对真实模型做了一次端到端验证（Responses 风格）：给定两条资料，问一个只有读到正文才能答的问题。结果为 4 轮、5 次工具调用、`toolMode: native`、`stopped: answer`，轨迹依次为 `search_lore` → `get_lore_entry` → 收尾检索，回答准确给出正文中的两个事实并标注了条目的 `status` 与 `truthScope`，同时说明条目未涵盖的内容以避免臆测。
+
 ## 2026-10-15 选择窗口三处复用增量
 
 - 选择窗口从写死「关联资料」改为按目标驱动：新增 `pickerTargets` 注册表，共 `lore`（关联资料）、`card`（卡牌设定来源）、`free`（自由创作参考资料）三个目标，各自声明标题、排除规则、读写状态、已选区容器、按钮文案、空状态与提交后副作用。打开时按目标改写 `#relationDialogTitle` 与 `#relationDialogEyebrow`。
@@ -137,6 +148,8 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 | `simulation/storage/instance-store.mjs` | 独立模拟 SQLite Schema、定义包实例化、基础地区/实体/事件读取 |
 | `scripts/compile-world-package.mjs` | 从命令行把 JSON 发布清单编译到指定 World Package 文件 |
 | `ai-harness.mjs` | AI 上下文排序与预算、提示边界、候选 Schema、解析和校验 |
+| `ai-tools.mjs` | 自由创作 Agent 的只读资料工具：资料库快照规范化、`search_lore` / `get_lore_entry` / `list_lore` 执行与结果裁剪 |
+| `ai-agent.mjs` | 多轮工具调用编排、Chat Completions 与 Responses 两种工具的线格式构造与解析 |
 | `ai-content-specs.mjs` | 13 类资料的内容块定义、标签、字段说明与动态 Schema 类型 |
 | `prompt-settings.mjs` | 13 类默认提示词、个性化提示词规范化、分类白名单与长度校验 |
 | `.env.example` | LLM 服务配置模板；实际密钥使用不入库的 `.env.local` |
@@ -367,6 +380,23 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `summarize(ids, entries)`：按选择顺序返回仍然存在的条目，用于标签与已选区渲染。
 - `missingCount(ids, entries)`：返回已失效引用的数量。
 
+### Agent 工具函数
+
+- 位置：`ai-tools.mjs`
+- `AGENT_LIMITS`：条目数、正文长度、搜索/读取条数与单次结果字符的硬上限。
+- `prepareLibrary(entries)`：只保留带稳定 ID 的条目，逐字段裁剪并补齐标签、关联、约束与开放问题。
+- `FREE_AGENT_TOOLS` / `FREE_AGENT_TOOL_NAMES`：三个只读工具的说明与参数 Schema，全部 `additionalProperties: false`。
+- `runToolCall(name, args, library)`：执行单个工具，返回 `{ ok, content, summary }`；未知工具、缺参或越界都以可恢复错误文本交回模型，不抛出。
+
+### Agent 循环与线格式函数
+
+- 位置：`ai-agent.mjs`
+- `runAgentLoop(options)`：多轮编排。模型调用与工具执行由 `callModel` / `runTool` 注入；`maxRounds` 默认 6、`maxToolCalls` 默认 12；返回 `{ reply, trace, rounds, toolCalls, stopped }`，`stopped` 为 `answer` / `tool_budget` / `round_limit`。
+- `toolsForChat(tools)` / `toolsForResponses(tools)`：把统一工具声明转成两种风格的线格式。
+- `buildChatMessages(system, messages)` / `buildResponsesInput(messages)`：把统一会话转成 `tool_calls` + `role: 'tool'`，或 `function_call` + `function_call_output`。
+- `parseChatText(data)` / `parseChatToolCalls(data)` / `parseResponsesText(data)` / `parseResponsesToolCalls(data)`：从两种响应体提取文本与工具调用。
+- `createToolCaller({ config, system, fetchImpl, timeout })`：返回 `callModel({ messages, tools })`；`tools` 为空数组时不发送工具字段，用于强制收尾。
+
 ### 服务端函数
 
 - `loadLocalEnv()`：解析本机配置文件；持久化配置优先于启动时注入的同名 LLM 环境变量。
@@ -383,7 +413,7 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 - `validateAiResponse(value, payload)` / `parseAiResponse(raw, payload)`：验证候选数量、唯一 key、选中字段的类型，并拒绝缺失块或任何未选择字段。
 - `parseNameResponse(raw, expectedCount)`：验证名称生成器的候选数量、名称与简短说明。
 - `callAi(payload)`：执行结构化请求、兼容降级、一次格式修复和候选数量复核。
-- `callFreeAgent(payload)`：裁剪最近 20 条对话、作者关联信息及可选资料库摘要，以自由文本方式调用模型。
+- `callFreeAgent(payload)`：裁剪最近 20 条对话与作者关联信息；有可检索范围时以只读资料工具驱动多轮调用（`runAgentLoop` + `createToolCaller`），否则退回单轮问答；返回 `{ reply, toolMode, trace, rounds, toolCalls, stopped }`。模型拒绝工具时降级为不带工具的单轮问答并标注 `toolMode: 'unavailable'`。
 - `callNameGenerator(payload)`：按命名类型、数量、要求和上下文执行独立的结构化名称生成。
 - `serveStatic(req, res)`：安全解析路径并提供 `dist/` 静态文件。
 - `createContentStore(databasePath)`：打开 SQLite、设置连接参数并执行内容域前向迁移；迁移失败时关闭连接，成功后返回快照读取、事务替换、健康检查和关闭接口。
