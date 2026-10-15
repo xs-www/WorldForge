@@ -9,11 +9,11 @@ const styleSource = await readFile(new URL('../dist/styles.css', import.meta.url
 test('browser API requests follow the script mount path', () => {
   assert.match(appSource, /new URL\('\.\/api\/',document\.currentScript\.src\)/);
   assert.doesNotMatch(appSource, /fetch\('\/api\//);
-  for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance']) {
+  for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=22/);
-  assert.match(htmlSource, /styles\.css\?v=16/);
+  assert.match(htmlSource, /app\.js\?v=23/);
+  assert.match(htmlSource, /styles\.css\?v=17/);
   assert.match(htmlSource, /cards\.js\?v=1/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
@@ -23,6 +23,8 @@ test('simulation dashboard exposes state, actor knowledge, audits, and controlle
   assert.match(htmlSource, /data-module="simulation"/);
   assert.match(htmlSource, /id="simulationModule"/);
   assert.match(htmlSource, /data-simulation-preset="conflict"/);
+  assert.match(htmlSource, /id="runFullSimulation"/);
+  assert.match(htmlSource, /id="resetSimulation"/);
   assert.match(appSource, /function renderSimulation\(\)/);
   assert.match(appSource, /X-Worldforge-Simulation/);
   assert.match(styleSource, /\.simulation-grid/);

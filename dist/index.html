@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=16">
+  <link rel="stylesheet" href="./styles.css?v=17">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -257,6 +257,12 @@
         <article><span>能源总量</span><strong id="simulationEnergy">—</strong><small>守恒目标 12</small></article>
         <article><span>已记录行动</span><strong id="simulationActionCount">—</strong><small>接受与拒绝均审计</small></article>
       </div>
+      <section class="simulation-progress" aria-label="能源危机进度">
+        <div><span>城市储备</span><strong id="simulationReserve">—</strong></div>
+        <i aria-hidden="true">→</i><div><span>主体持有</span><strong id="simulationHeld">—</strong></div>
+        <i aria-hidden="true">→</i><div><span>累计消耗</span><strong id="simulationConsumed">—</strong></div>
+        <span class="simulation-verification" id="simulationVerification">等待重放校验</span>
+      </section>
 
       <div class="simulation-grid">
         <section class="panel simulation-state-panel">
@@ -265,8 +271,14 @@
         </section>
 
         <section class="panel simulation-control-panel">
-          <div class="panel-title"><div><h2>单步实验</h2><small>M1 契约与 Validator</small></div><span>MEC-001@1.1.0</span></div>
+          <div class="panel-title"><div><h2>模拟控制</h2><small>先完整运行，再按需单步观察</small></div><span>MEC-001@1.1.0</span></div>
           <div class="simulation-controls">
+            <div class="simulation-auto-card">
+              <strong>一键跑完整个能源危机</strong>
+              <span>两个规则主体会自主申请、转交并消耗能源，直到 12 点能源全部进入消耗池；结束后自动验证历史重放。</span>
+              <div><button class="button primary" id="runFullSimulation" type="button">运行完整模拟</button><button class="button secondary" id="resetSimulation" type="button">重置实验</button></div>
+            </div>
+            <small class="simulation-manual-label">手动单步调试</small>
             <button class="simulation-preset" type="button" data-simulation-preset="conflict"><strong>竞争申请</strong><span>两个主体同 Tick 各申请 8 能源，观察确定性冲突。</span></button>
             <button class="simulation-preset" type="button" data-simulation-preset="transfer"><strong>主体转交</strong><span>由当前能源最多的主体向另一方转交最多 3 点。</span></button>
             <button class="simulation-preset" type="button" data-simulation-preset="consume"><strong>消耗能源</strong><span>由当前能源最多的主体消耗最多 2 点并进入城市消耗池。</span></button>
@@ -301,6 +313,6 @@
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
   <script src="./cards.js?v=1"></script>
-  <script src="./app.js?v=22"></script>
+  <script src="./app.js?v=23"></script>
 </body>
 </html>

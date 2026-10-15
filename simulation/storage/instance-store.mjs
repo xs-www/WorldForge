@@ -198,7 +198,7 @@ export function createWorldInstanceStore(databasePath) {
     return stateHash;
   }
 
-  function instantiate(worldPackage, { instanceId, randomSeed }) {
+  function validateInstantiation(worldPackage, { instanceId, randomSeed }) {
     if (!INSTANCE_ID_PATTERN.test(instanceId ?? '')) throw new WorldInstanceError('INVALID_INSTANCE_ID', 'instanceId 格式无效');
     if (typeof randomSeed !== 'string' || !randomSeed) throw new WorldInstanceError('INVALID_RANDOM_SEED', 'randomSeed 必须是非空字符串');
     if (!worldPackage || worldPackage.formatVersion !== 1 || typeof worldPackage.packageHash !== 'string'
@@ -208,9 +208,10 @@ export function createWorldInstanceStore(databasePath) {
     }
     const { packageHash: expectedHash, ...definition } = worldPackage;
     if (packageHash(definition) !== expectedHash) throw new WorldInstanceError('WORLD_PACKAGE_HASH_MISMATCH', 'World Package 内容哈希不匹配');
+    return expectedHash;
+  }
 
-    db.exec('BEGIN IMMEDIATE');
-    try {
+  function insertInstance(worldPackage, { instanceId, randomSeed }, expectedHash) {
       db.prepare(`INSERT INTO sim_instances(
         instance_id, world_id, definition_version, definition_hash, definition_json, random_seed, current_tick, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)`)
@@ -231,12 +232,37 @@ export function createWorldInstanceStore(databasePath) {
         regions: worldPackage.initialState.regions.map(region => ({ regionId: region.regionId, sourceId: region.sourceId, state: structuredClone(region.state ?? {}) })),
         entities: worldPackage.initialState.entities.map(entity => ({ entityId: entity.entityId, sourceId: entity.sourceId, regionId: entity.regionId ?? null, state: structuredClone(entity.state ?? {}) }))
       }, []);
+  }
+
+  function instantiate(worldPackage, options) {
+    const expectedHash = validateInstantiation(worldPackage, options);
+    const { instanceId } = options;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      insertInstance(worldPackage, options, expectedHash);
       db.exec('COMMIT');
     } catch (error) {
       db.exec('ROLLBACK');
       if (String(error.message).includes('UNIQUE constraint failed: sim_instances.instance_id')) {
         throw new WorldInstanceError('INSTANCE_ALREADY_EXISTS', `实例已存在：${instanceId}`);
       }
+      throw error;
+    }
+    return read(instanceId);
+  }
+
+  function reset(worldPackage, options) {
+    const expectedHash = validateInstantiation(worldPackage, options);
+    const { instanceId } = options;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (db.prepare('DELETE FROM sim_instances WHERE instance_id = ?').run(instanceId).changes !== 1) {
+        throw new WorldInstanceError('INSTANCE_NOT_FOUND', `实例不存在：${instanceId}`);
+      }
+      insertInstance(worldPackage, options, expectedHash);
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
       throw error;
     }
     return read(instanceId);
@@ -356,5 +382,5 @@ export function createWorldInstanceStore(databasePath) {
     return { ok: db.prepare('PRAGMA quick_check').get().quick_check === 'ok', databasePath, schemaVersion: SIMULATION_SCHEMA_VERSION, migrations: migration };
   }
 
-  return { instantiate, read, commitTick, readSnapshot, readEvents, readKnowledge, readActions, health, close: () => db.close() };
+  return { instantiate, reset, read, commitTick, readSnapshot, readEvents, readKnowledge, readActions, health, close: () => db.close() };
 }

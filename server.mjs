@@ -274,6 +274,14 @@ createServer(async (req, res) => {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
       return json(res, 200, simulationDashboard.advance(await readBody(req)));
     }
+    if (req.method === 'POST' && req.url === '/api/simulation/run') {
+      if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      return json(res, 200, simulationDashboard.run(await readBody(req)));
+    }
+    if (req.method === 'POST' && req.url === '/api/simulation/reset') {
+      if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      return json(res, 200, simulationDashboard.reset(await readBody(req)));
+    }
     if (req.method === 'GET' && req.url === '/api/content') return json(res, 200, contentStore.read());
     if (req.method === 'PUT' && req.url === '/api/content') {
       if (req.headers['x-worldforge-content'] !== '1') return json(res, 403, { error: '缺少内容保存请求标记' });

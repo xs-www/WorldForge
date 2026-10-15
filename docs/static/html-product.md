@@ -212,12 +212,17 @@ Worldforge 是一个无前端构建依赖的单页写作资料工作台，分为
 
 ### M2A 模拟观察台函数
 
-- `createSimulationDashboardService(databasePath, options)`：打开独立模拟存档，确保固定 W99 实验实例存在，并组合运行时提供 `view`、`advance`、健康检查和关闭入口。
+- `createSimulationDashboardService(databasePath, options)`：打开独立模拟存档，确保固定 W99 实验实例存在，并组合运行时提供 `view`、`advance`、`run`、`reset`、健康检查和关闭入口。
 - `normalizeProposals(proposals, instance)`：限制每 Tick 至多 10 个提案，只接受当前实例主体和 `energy.*` 类型，由服务器生成 Action ID 与 expected Tick。
-- `view()`：返回实例元数据、机制 Action 契约、地区/主体资源、总能源、记录计数、最近 30 条 Action/Event 和逐主体 KnowledgeView。
+- `view()`：返回实例元数据、机制 Action 契约、地区/主体资源、能源流转进度、重放校验、记录计数、最近 30 条 Action/Event 和逐主体 KnowledgeView。
 - `advance(payload)`：校验 expectedStateVersion 后把外部提案送入现有模拟运行时，成功提交后返回新的完整观察视图；过期版本返回 409。
+- `proposeEnergyCrisisActions(instance)`：为 W99 的供能机构和市政机构生成确定性 Action 提案，只使用主体角色、自身余额、公开地区和目标 ID。
+- `energyCrisisProgress(instance)`：汇总储备、主体持有和累计消耗，并在储备与持有同时归零时标记危机完成。
+- `run(payload)`：在 1–50 Tick 的有界循环中调用规则主体和标准运行时，达到完成条件或上限后停止并验证 Tick 0 历史重放。
+- `reset(worldPackage, options)` / `reset(payload)`：在 SQLite 事务内删除固定实验实例的全部关联记录并以相同定义和随机种子重建 Tick 0；服务层要求当前状态版本。
 - `refreshSimulation()` / `renderSimulation()`：读取观察 API，并把 Tick、版本、能源、权威状态、主体知识、行动审计和事件流渲染到“世界模拟”模块。
 - `simulationPreset(name)` / `advanceSimulation(name)`：构造竞争申请、主体转交、能源消耗或空 Tick 提案，通过带请求标记的相对 API URL 提交并刷新页面。
+- `runFullSimulation()` / `resetSimulation()`：从 UI 发起完整有界推演或经确认后重置，期间锁定控制区并显示完成原因和重放结果。
 
 ### `apiUrl(path: string): URL`
 
@@ -1139,3 +1144,38 @@ M2A 默认在内容数据库同目录建立 `worldforge-simulation.sqlite`，也
 
 - 新增：`simulation/dashboard-service.mjs`、`tests/simulation-dashboard.test.mjs`、`docs/adr/ADR-0013-experimental-simulation-dashboard.md`。
 - 更新：`server.mjs`、`dist/index.html`、`dist/app.js`、`dist/styles.css`、`package.json`、`.env.example`、README、项目进展、2.0 设计、模拟/测试说明、ADR 索引、`CHANGELOG.md`、`todo.md` 与本静态文档。
+
+## 34. 2026-10-15 W99 全量规则推演闭环归档
+
+本阶段按作者“先全量跑通模拟”的要求，把 M2A 的手动单步观察台扩展为可重复的一键完整推演。它只改变 W99 experimental 技术场景和模拟接口，不修改 W01 canon，也不把规则主体描述为通用智能或 LLM 模拟。
+
+### 规则主体与完整运行
+
+- 新增 `simulation/agents/rule-agent.mjs`：供能机构在持有能源时向市政机构转交，否则申请固定配额；市政机构持有能源时消耗，否则申请固定配额。提案只包含标准 `energy.*` Action，不直接写 Effect 或状态。
+- `energyCrisisProgress()` 汇总城市储备、主体持有、累计消耗和守恒总量；储备与主体持有同时归零时视为本场能源危机完成。
+- `dashboard-service.run()` 校验状态版本和 `maxTicks`，在默认 20、最大 50 Tick 的有界循环中逐 Tick 调用规则主体与原运行时。所有提案继续经过 Action/Effect 契约、Validator、确定性冲突排序、Resolver、事件/知识写入和原子快照。
+- 每次视图读取均从 Tick 0 快照重放到当前 Tick 并核对权威状态哈希；完整运行响应记录实际推进 Tick、停止原因、接受/拒绝数和重放结果。
+
+### 重置与 API
+
+- `instance-store.reset()` 先校验 World Package 与随机种子，再在单个 SQLite 事务内级联删除旧实例历史并重建相同 `instanceId` 的 Tick 0 状态；失败会回滚，不留下半重置实例。
+- 新增 `POST /api/simulation/run` 与 `POST /api/simulation/reset`。两者都要求 `X-Worldforge-Simulation: 1` 和当前 `expectedStateVersion`；过期页面返回 409。
+- 重置只作用于固定 `INST-W99-DASHBOARD`，不接触内容数据库、W01、模型设置或图片资产。
+
+### UI
+
+- 模拟页新增能源流转条，直接显示“城市储备 → 主体持有 → 累计消耗”和历史重放状态。
+- 控制区把“运行完整模拟”作为主入口，说明两个规则主体将自主推进至危机结束；“重置实验”需要用户确认。原有四个单步按钮保留为调试入口。
+- 前端继续使用子路径感知 API；`styles.css` 缓存版本升至 `v=17`，`app.js` 升至 `v=23`，新增控件在窄屏下保持可读。
+
+### 文件与文档
+
+- 新增：`simulation/agents/rule-agent.mjs`、`docs/adr/ADR-0014-bounded-rule-agent-full-run.md`。
+- 更新：`simulation/dashboard-service.mjs`、`simulation/storage/instance-store.mjs`、`server.mjs`、`dist/index.html`、`dist/app.js`、`dist/styles.css`、`package.json`、模拟/测试 README、两组测试、根 README、项目进展、2.0 设计、ADR 索引、`CHANGELOG.md`、`todo.md` 与本静态文档。
+
+### 验证与限制
+
+- `npm run check` 通过，50 项 Node 测试全部成功、0 失败；新增测试确认自动推演在 7 Tick 完成、12 能源守恒、13 项 Action 接受、1 项拒绝、重放一致，重置后再次运行得到相同最终状态哈希。
+- Docker 镜像已重建并复用现有 `worldforge-data` 卷，容器状态为 `healthy`。真实容器 API 先重置再运行，最终为 Tick 7、储备 0、主体持有 0、累计消耗 12，状态哈希为 `6366981b0df899226f0795f17295cf331cbe1f63e76310c32fe0e21297666e97`。
+- 真实浏览器确认新版脚本 `v=23`、完整模拟主按钮、重置按钮、能源流转、Tick 7 完成态、14 条行动审计、主体 KnowledgeView 和“历史重放一致”均正常显示。
+- 当前仍是单个 W99、单城市、单资源和同步有界运行；没有真实 LLM 提案、预算调度、多地区经济、后台任务、取消、分支或通用实例管理，后续不得把本阶段描述成完整 2.0 成品。

@@ -1,9 +1,12 @@
 import { createSimulationRuntime } from './runtime/simulation-runtime.mjs';
 import { createM1EnergyCrisisMechanics, createM1EnergyCrisisPackage } from './scenarios/m1-energy-crisis.mjs';
 import { createWorldInstanceStore } from './storage/instance-store.mjs';
+import { energyCrisisProgress, proposeEnergyCrisisActions } from './agents/rule-agent.mjs';
 
 const DEFAULT_INSTANCE_ID = 'INST-W99-DASHBOARD';
 const MAX_ACTIONS_PER_TICK = 10;
+const MAX_AUTO_TICKS = 50;
+const RANDOM_SEED = 'worldforge-dashboard-seed';
 
 export class SimulationDashboardError extends Error {
   constructor(code, message, status = 400) {
@@ -49,7 +52,7 @@ function normalizeProposals(proposals, instance) {
 export function createSimulationDashboardService(databasePath, { instanceId = DEFAULT_INSTANCE_ID } = {}) {
   const store = createWorldInstanceStore(databasePath);
   const runtime = createSimulationRuntime({ store, mechanics: createM1EnergyCrisisMechanics() });
-  if (!store.read(instanceId)) store.instantiate(createM1EnergyCrisisPackage(), { instanceId, randomSeed: 'worldforge-dashboard-seed' });
+  if (!store.read(instanceId)) store.instantiate(createM1EnergyCrisisPackage(), { instanceId, randomSeed: RANDOM_SEED });
 
   function view() {
     const instance = store.read(instanceId);
@@ -63,6 +66,8 @@ export function createSimulationDashboardService(databasePath, { instanceId = DE
       + Number(region.state?.resources?.energy?.reserve ?? 0)
       + Number(region.state?.resources?.energy?.consumed ?? 0), 0);
     const entityEnergy = instance.entities.reduce((total, entity) => total + Number(entity.state?.resources?.energy ?? 0), 0);
+    const progress = energyCrisisProgress(instance);
+    const replay = runtime.replay(instanceId, instance.currentTick);
     return {
       experimental: true,
       instance: {
@@ -81,6 +86,8 @@ export function createSimulationDashboardService(databasePath, { instanceId = DE
       regions: instance.regions.map(region => ({ ...region, title: titles.get(region.regionId) ?? region.regionId })),
       entities: instance.entities.map(entity => ({ ...entity, title: titles.get(entity.entityId) ?? entity.entityId })),
       totals: { energy: regionEnergy + entityEnergy },
+      progress,
+      verification: { replayVerified: true, stateHash: replay.stateHash },
       counts: { actions: allActions.length, events: allEvents.length },
       knowledge,
       actions,
@@ -106,5 +113,44 @@ export function createSimulationDashboardService(databasePath, { instanceId = DE
     return view();
   }
 
-  return { view, advance, health: () => store.health(), close: () => store.close() };
+  function run(payload) {
+    let instance = store.read(instanceId);
+    const startingTick = instance.currentTick;
+    if (!Number.isInteger(payload?.expectedStateVersion) || payload.expectedStateVersion !== instance.stateVersion) {
+      fail('STALE_STATE_VERSION', '页面状态已经过期，请刷新后重试', 409);
+    }
+    const maxTicks = payload.maxTicks ?? 20;
+    if (!Number.isInteger(maxTicks) || maxTicks < 1 || maxTicks > MAX_AUTO_TICKS) {
+      fail('INVALID_MAX_TICKS', `maxTicks 必须是 1 到 ${MAX_AUTO_TICKS} 的整数`);
+    }
+    let ticksAdvanced = 0;
+    while (!energyCrisisProgress(instance).completed && ticksAdvanced < maxTicks) {
+      const actions = normalizeProposals(proposeEnergyCrisisActions(instance), instance);
+      instance = runtime.advance(instanceId, { expectedStateVersion: instance.stateVersion, actions });
+      ticksAdvanced += 1;
+    }
+    const result = view();
+    const runActions = store.readActions(instanceId, result.instance.currentTick).filter(action => action.tick > startingTick);
+    return {
+      ...result,
+      run: {
+        ticksAdvanced,
+        stopReason: result.progress.completed ? 'completed' : 'tick_limit',
+        acceptedActions: runActions.filter(action => action.status === 'accepted').length,
+        rejectedActions: runActions.filter(action => action.status === 'rejected').length,
+        replayVerified: result.verification.replayVerified
+      }
+    };
+  }
+
+  function reset(payload) {
+    const instance = store.read(instanceId);
+    if (!Number.isInteger(payload?.expectedStateVersion) || payload.expectedStateVersion !== instance.stateVersion) {
+      fail('STALE_STATE_VERSION', '页面状态已经过期，请刷新后重试', 409);
+    }
+    store.reset(createM1EnergyCrisisPackage(), { instanceId, randomSeed: RANDOM_SEED });
+    return view();
+  }
+
+  return { view, advance, run, reset, health: () => store.health(), close: () => store.close() };
 }

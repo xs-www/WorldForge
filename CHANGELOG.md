@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### Added
+- 完成 W99 全量自动推演闭环：新增确定性规则主体、最多 50 Tick 的有界运行、完成条件、事务重置、最终事件重放校验，以及“一键运行完整模拟”UI；初始 12 能源可在 7 Tick 后全部进入消耗池，重置后得到相同状态哈希。
+- 新增 `POST /api/simulation/run` 与 `POST /api/simulation/reset`，通过 ADR-0014 固化“规则主体为可靠基线、LLM 为可降级提案器”的边界；新增 1 项服务测试，Node 测试总数增至 50。
 - 完成 V2.0-M2A 实验模拟观察台：新增独立 W99 模拟服务与 SQLite 存档、`GET /api/simulation`、受控 `POST /api/simulation/advance`，并在单页产品中显示 Tick、状态版本、能源、主体 KnowledgeView、Action 审计与事件流。
 - 新增竞争申请、主体转交、能源消耗和空 Tick 四种手动实验；浏览器实测竞争申请后保持总能源 12、一项接受一项拒绝且主体视野隔离。新增 3 项服务/UI 测试，Node 测试总数增至 49。
 - 完成 ADR-0012 Action/Effect 契约加固：新增通用 Schema，机制注册表与 World Package 携带具体 Action/Effect、资源读写集和知识权限；运行时默认拒绝非法 Action、未登记 Effect、越权资源写入和越权知识策略。

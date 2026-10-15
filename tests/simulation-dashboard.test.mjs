@@ -48,3 +48,38 @@ test('simulation dashboard advances through contracts and returns auditable acto
     error => error instanceof SimulationDashboardError && error.status === 400 && error.code === 'INVALID_ACTION_CONTRACT'
   );
 }));
+
+test('rule agents run the energy crisis to completion and reset it reproducibly', async () => withDashboard(service => {
+  const initial = service.view();
+  const completed = service.run({ expectedStateVersion: initial.instance.stateVersion, maxTicks: 20 });
+  assert.equal(completed.run.stopReason, 'completed');
+  assert.equal(completed.run.ticksAdvanced, 7);
+  assert.equal(completed.instance.currentTick, 7);
+  assert.deepEqual(completed.progress, { reserve: 0, held: 0, consumed: 12, total: 12, completed: true });
+  assert.equal(completed.verification.replayVerified, true);
+  assert.equal(completed.run.replayVerified, true);
+  assert.equal(completed.run.acceptedActions, 13);
+  assert.equal(completed.run.rejectedActions, 1);
+  assert.equal(completed.counts.actions, 14);
+  assert.equal(completed.actions.filter(action => action.status === 'rejected').length, 1);
+
+  assert.throws(
+    () => service.run({ expectedStateVersion: initial.instance.stateVersion, maxTicks: 20 }),
+    error => error instanceof SimulationDashboardError && error.status === 409
+  );
+  assert.throws(
+    () => service.run({ expectedStateVersion: completed.instance.stateVersion, maxTicks: 51 }),
+    error => error instanceof SimulationDashboardError && error.code === 'INVALID_MAX_TICKS'
+  );
+  assert.throws(
+    () => service.reset({ expectedStateVersion: initial.instance.stateVersion }),
+    error => error instanceof SimulationDashboardError && error.status === 409
+  );
+  const reset = service.reset({ expectedStateVersion: completed.instance.stateVersion });
+  assert.equal(reset.instance.currentTick, 0);
+  assert.equal(reset.counts.actions, 0);
+  assert.deepEqual(reset.progress, { reserve: 12, held: 0, consumed: 0, total: 12, completed: false });
+  const repeated = service.run({ expectedStateVersion: reset.instance.stateVersion, maxTicks: 20 });
+  assert.equal(repeated.instance.currentTick, 7);
+  assert.equal(repeated.verification.stateHash, completed.verification.stateHash);
+}));
