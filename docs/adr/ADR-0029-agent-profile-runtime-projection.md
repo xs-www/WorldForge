@@ -137,8 +137,14 @@ Sprint 1 的 Registry 必须使用下列已冻结错误码，不得另起名字�
 | `AGENT_PROMPT_MISSING` | `systemPrompt` 指向的文件不存在或不是普通文件 |
 | `AGENT_PROMPT_PATH_UNSAFE` | 绝对路径、`..` 穿越、符号链接逃逸或非相对路径 |
 | `AGENT_PROMPT_TOO_LARGE` | prompt 超过 32768 字符 |
-| `AGENT_PROFILE_UNKNOWN` | 请求的 `presetId` 不在 Registry 中 |
+| `AGENT_PROFILE_UNKNOWN` | 请求的 `presetId` 不在 Registry 中；**或启动时某个 surface 没有可用 preset** |
 | `AGENT_PROFILE_INCOMPATIBLE` | preset 存在但不支持请求入口的 surface |
+
+启动完整性（计划 §12.1「默认 preset 文件缺失」）：`lore`、`free`、`card` 三个入口都必须有至少一个可用 preset。缺少任意一个时 Registry 抛出 `AGENT_PROFILE_UNKNOWN` 并**拒绝启动**，不得把该入口静默降级为 `null` 或临时改用其他 persona。
+
+路径安全（Sprint 1 加固）：preset 目录、manifest 文件、prompt 文件及其**中间目录**都不得是符号链接；解析后用 `realpath` 复核真实路径仍在 preset 根目录与 Registry 根目录之内，任何逃逸报 `AGENT_PROMPT_PATH_UNSAFE`。
+
+只读快照（Sprint 1 加固）：Registry 返回的 profile 必须**深度冻结**，包括 `manifest` 与其嵌套数组；`Object.freeze` 只冻结顶层不算满足 S1-04。
 
 ## 影响范围
 

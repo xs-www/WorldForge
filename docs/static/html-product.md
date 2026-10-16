@@ -1,5 +1,67 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 1 只读验收修正与真实 Docker 比对归档
+
+Sprint 1 只读验收暂不通过：4 个代码问题 + 1 个错误码分类问题 + Docker 一致性未完成。本次全部修正并完成真实镜像比对。设定助手与自由创作的生成行为仍未改变（Sprint 2）。测试 173 → 177 项，全部通过。
+
+### 阻断项 1：完整性门（删除默认 preset 必须拒绝启动）
+
+`loadAgentProfiles` 原先只为每个 surface 找第一个 preset，找不到写 `null`，导致「删除 `lore-writer` 后服务照常启动」。现在按契约登记的 `AGENT_SURFACES` 逐项检查，缺少任一入口即抛 `AGENT_PROFILE_UNKNOWN` 并拒绝启动：
+
+- 实测删除 `lore-writer`：`STARTUP_ACCEPTED: false`、`AGENT_PROFILE_UNKNOWN: 入口 lore 没有可用的 preset；已加载 card-designer、free-creator`。
+- 门依据契约常量而不是已加载 profile 的 key，避免清单被篡改时漏掉某个入口。
+- 容器内实测：挂载只含两个入口的目录，退出码 1 并打印同一条诊断。
+
+### 阻断项 3：符号链接与中间目录逃逸
+
+- `listPresetDirectories`：preset 目录本身是符号链接即抛 `AGENT_PROMPT_PATH_UNSAFE`（原先主动接受符号链接目录）。
+- `loadManifestFile`：对 preset 目录与 `worldforge.runtime.json` 分别 `realpath` 并核对仍在 Registry 根目录内；manifest 是符号链接直接拒绝。
+- `resolveAgentPromptPath`：改为**逐段**检查 prompt 路径的每一段（含中间目录）都不是符号链接，再对最终文件 `realpath` 复核；原先只查最后一段。
+
+### 阻断项 4：快照深度冻结
+
+新增 `deepFreeze`，profile 及其 `manifest`、`manifest.surfaces` 全部冻结。原先 `Object.freeze({ ...manifest })` 是浅冻结，`profile.manifest.surfaces.push('card')` 可以成功改写快照。
+
+### 错误码分类修正
+
+校验器改为两遍并携带 `path` 与 `keyword`：`evaluateBase` 只跑字段级约束（剥离 `allOf`/`if`/`then`/`contains`），条件分支单独跑并归类：
+
+| 缺陷 | 原错误码 | 现错误码 |
+|---|---|---|
+| 非法 surface/mode 组合 | `AGENT_ENUM_UNKNOWN` | `AGENT_COMPAT_MISMATCH` |
+| `systemPrompt` 绝对路径或 `..` 穿越 | `AGENT_ENUM_UNKNOWN` | `AGENT_MANIFEST_INVALID`（路径安全在解析层报 `AGENT_PROMPT_PATH_UNSAFE`） |
+| 不支持的 `schemaVersion` | `AGENT_ENUM_UNKNOWN` | `AGENT_MANIFEST_INVALID` |
+| 缺少必填字段、对象类型错误 | `AGENT_ENUM_UNKNOWN` | `AGENT_MANIFEST_INVALID` |
+| 未知 mode/toolPolicy/outputContract/statusPolicy/surface | `AGENT_ENUM_UNKNOWN` | 保持 `AGENT_ENUM_UNKNOWN` |
+
+`AGENT_MANIFEST_UNREADABLE` 的分工也收紧为「文件缺失 / 无法读取 / JSON 解析失败」，不再与结构校验混用。对应地，「所有错误码可达」测试由「比较手写集合」改为**逐个真实触发**：11 个错误码全部由真实代码路径产生并断言实际 `error.code`；另加一张 15 行的分类矩阵测试。
+
+### 顺带修正的真实缺陷
+
+`server.mjs` 启动失败时原先只 `throw`，而 `contentStore` 与模拟服务此时已打开，事件循环不会退出：容器表现为「启动失败但不退出」，本机则留下锁定的 SQLite 文件（测试中出现 `EBUSY ... content.sqlite-wal`）。改为打印诊断后 `process.exit(1)`。
+
+### Docker 真实比对（`docker compose up -d --build`）
+
+| 项目 | 本机 | 容器 | 一致 |
+|---|---|---|---|
+| `card-designer` | `1.0.0` / `sha256:aa6718ec…b5e5` | 同 | 是 |
+| `free-creator` | `1.0.0` / `sha256:d6d58ae3…8cee` | 同 | 是 |
+| `lore-writer` | `1.0.0` / `sha256:b62e4de1…1882` | 同 | 是 |
+| `GET /api/ai/presets` | 200 JSON | 200 `application/json`，`defaults` 三项齐全 | 是 |
+| `GET /api/health` | 含 `agentProfiles` | `count: 3`、各 surface 各 1、`diagnostics: []` | 是 |
+| 容器状态 | — | `Up (healthy)` | — |
+| 镜像内 `.agent-presets` | 6 个投影文件 | `find` 结果恰为 6 个，无 `agent.cordis.yml`/`preset.yml`/`SKILL.md` | 是 |
+| 残缺根目录 | 拒绝启动 | 退出码 1 + `AGENT_PROFILE_UNKNOWN` 指出缺失 `card` | 是 |
+
+重建前实测旧容器：`/api/health` 无 `agentProfiles`，`/api/ai/presets` 返回首页 HTML（`text/html`）——与验收描述一致，现已修复。
+
+### 测试与文档
+
+- `tests/agent-profile-registry.test.mjs` 12 → 15 项：新增错误码真实触发、15 行分类矩阵、三入口缺失拒绝、符号链接三类（preset 目录 / manifest / 中间目录）；深度冻结断言扩展到 `manifest.surfaces`。
+- `tests/agent-profile-api.test.mjs` 4 → 5 项：缺陷夹具改为替换进三入口齐全的根目录（否则会先被完整性门拦下），新增缺失入口拒绝与符号链接目录的服务级拒绝。
+- 更新 `.agent-presets/README.md`、`README.md`、Sprint 计划 §8.6、ADR-0029 §9（启动完整性与路径安全语义）、`CHANGELOG.md`、`todo.md`。
+- 未验证：浏览器侧选择器（Sprint 3）、请求快照与卡牌 Agent（Sprint 2/4）、真实模型端到端；符号链接分支在本机可创建链接，已在真实环境执行。
+
 ## 2026-10-17 Sprint 1：Agent Profile Registry、列表端点与 Docker 投影闭包归档
 
 本次交付 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 1：产品侧**发现能力**。设定助手与自由创作的生成行为**未改变**，仍使用 `ai-harness.mjs` 的固定提示常量；请求里的 `presetId` 目前不会影响生成结果（接入属于 Sprint 2）。测试从 157 项增至 173 项，全部通过。

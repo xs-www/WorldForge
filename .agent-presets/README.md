@@ -37,7 +37,9 @@ WorldForge 产品服务不解析 `agent.cordis.yml`：它含 `!!js` 表达式与
 - `GET /api/ai/presets`：返回 `id`、`version`、`displayName`、`description`、`surfaces`、`mode`、`outputContract`、`statusPolicy`、`hash` 与三个入口的默认映射。不返回系统提示正文、文件路径或工具策略。
 - `GET /api/health`：`agentProfiles` 给出数量、按 surface 的数量、ID 列表与诊断码。
 - 任何无效、损坏、重复或不兼容的投影都会让服务**拒绝启动**并打印稳定错误码（如 `AGENT_ENUM_UNKNOWN`、`AGENT_ID_MISMATCH`、`AGENT_PROMPT_TOO_LARGE`）；不会跳过该 preset，也不会自动改用其他 persona。
-- Docker 镜像只复制 6 个投影文件（每个 preset 的 `worldforge.runtime.json` 与 `runtime/system.md`），不包含本 README、`agent.cordis.yml`、`preset.yml` 或 `skills/`。
+- `lore`、`free`、`card` 三个入口必须各自至少有一个可用 preset（删除其中一个 preset 服务即拒绝启动，并指出缺失入口），因此不要删除本目录下的任何 preset。
+- preset 目录、`worldforge.runtime.json`、`runtime/system.md` 及其中间目录都不得是符号链接；解析后会用真实路径复核仍在 preset 根目录内。
+- Docker 镜像只复制 6 个投影文件（每个 preset 的 `worldforge.runtime.json` 与 `runtime/system.md`），不包含本 README、`agent.cordis.yml`、`preset.yml` 或 `skills/`。改投影文件后需要重建镜像，容器内哈希才会与本机一致。
 
 ## 在 DSH 中使用
 

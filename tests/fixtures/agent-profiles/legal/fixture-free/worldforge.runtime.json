@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "fixture-free",
+  "version": "0.1.0",
+  "displayName": "夹具自由创作",
+  "description": "合法夹具：单个 free surface 的投影，供完整性门与其他组合测试使用。",
+  "surfaces": ["free"],
+  "mode": "free_chat",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "free_lore_readonly",
+  "outputContract": "free_chat_v1",
+  "statusPolicy": "proposed_only"
+}

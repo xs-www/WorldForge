@@ -5,7 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
-- 执行进度：Sprint 0 已完成并正式签收；Sprint 1（Registry、确定性哈希、Docker 投影闭包、`GET /api/ai/presets` 与健康摘要）工程实现已完成，见 §8.5，等待验收。Sprint 2–5 未开始：设定助手与自由创作仍使用固定提示常量，产品入口尚不能选择 preset。
+- 执行进度：Sprint 0 已完成并正式签收；Sprint 1 已完成代码修正与真实 Docker 比对（见 §8.5–§8.6），等待复核签收。Sprint 2–5 未开始：设定助手与自由创作仍使用固定提示常量，产品入口尚不能选择 preset。
 
 ## 1. 执行摘要
 
@@ -408,6 +408,36 @@ Sprint 0 的退出条件是「runtime manifest 与兼容矩阵经作者确认」
 - **符号链接夹具**：Windows 未开启开发者模式时无法创建符号链接，测试在该环境下跳过符号链接断言并明确记录为未验证，其余路径拒绝断言仍然执行。
 
 验证：`npm run check` 全通过（173 项测试；新增 `agent-profile-registry.test.mjs` 12 项与 `agent-profile-api.test.mjs` 4 项）。**未验证**：Docker 镜像实际的 ID/版本/哈希与本机一致性（需要真实 `docker build` 与容器运行）、浏览器侧选择器（Sprint 3）、请求快照与卡牌 Agent（Sprint 2/4）。因此本机与容器一致的验收项目前只有打包闭包的静态证据，尚无容器运行证据。
+
+### 8.6 Sprint 1 只读验收与修正（2026-10-17）
+
+只读验收结论：暂不通过。Registry 主体已实现，但存在 4 个代码问题与 1 个错误码分类问题，且 Docker 一致性未完成。逐项修正：
+
+| # | 验收问题 | 修正 |
+|---|---|---|
+| 1 | 删除默认 preset 后服务仍启动，`defaults` 被写成 `null` | `loadAgentProfiles` 增加完整性门：按契约登记的 surface 列表检查，缺少任一入口即抛 `AGENT_PROFILE_UNKNOWN` 并拒绝启动。实测删除 `lore-writer` 后 `STARTUP_ACCEPTED: false`，诊断指出缺失入口 `lore` |
+| 2 | 本机/镜像一致性未完成 | 已真实 `docker compose up -d --build` 重建并逐项比对，见下方结论 |
+| 3 | preset 目录与 manifest 符号链接可绕过根目录 | `listPresetDirectories` 拒绝符号链接目录；`loadManifestFile` 对 preset 目录与 manifest 文件做 `realpath` 复核；`resolveAgentPromptPath` 逐段检查 prompt 路径的每一段（含中间目录）都不是符号链接 |
+| 4 | Registry 快照只浅冻结 `manifest` | 新增 `deepFreeze`，profile 及其 `manifest`、嵌套数组全部冻结 |
+| 5 | 非法组合、绝对路径、`schemaVersion` 都被归为 `AGENT_ENUM_UNKNOWN` | 校验器改为两遍并携带 `path`/`keyword`：字段级缺陷按字段映射错误码（`systemPrompt`→`AGENT_MANIFEST_INVALID`、各枚举字段→`AGENT_ENUM_UNKNOWN`）；`allOf/if/then` 分支命中→`AGENT_COMPAT_MISMATCH`；`schemaVersion` 的 `const`→`AGENT_MANIFEST_INVALID`。另修正 `AGENT_MANIFEST_UNREADABLE` 的分工（JSON 解析失败） |
+| 6 | 「所有错误码可达」只比较手写集合 | 测试改为逐个真实触发：11 个错误码全部由真实路径产生，断言的是实际抛出的 `error.code` |
+
+顺带修正的一个真实缺陷：`server.mjs` 启动失败时只 `throw`，而数据库与模拟服务此时已打开，事件循环不会退出，表现为「启动失败但不退出」并在本机留下锁定的 SQLite 文件。改为打印诊断后 `process.exit(1)`。
+
+Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`）：
+
+| 项目 | 本机 | 容器 | 一致 |
+|---|---|---|---|
+| `card-designer` | `1.0.0` / `sha256:aa6718ec…` | 同 | 是 |
+| `free-creator` | `1.0.0` / `sha256:d6d58ae3…` | 同 | 是 |
+| `lore-writer` | `1.0.0` / `sha256:b62e4de1…` | 同 | 是 |
+| `GET /api/ai/presets` | HTTP 200 JSON | HTTP 200 `application/json`，`defaults` 三项齐全 | 是 |
+| `GET /api/health` | 含 `agentProfiles` | `count: 3`、`countBySurface` 各 1、`diagnostics: []` | 是 |
+| 容器状态 | — | `Up (healthy)` | — |
+| 镜像内 `.agent-presets` | — | 恰好 6 个投影文件，无 `agent.cordis.yml` / `preset.yml` / `SKILL.md` | 是 |
+| 残缺根目录 | 拒绝启动 | 挂载只含两个入口的目录后退出码 1，`AGENT_PROFILE_UNKNOWN` 指出缺失 `card` | 是 |
+
+因此计划 §8.4 的第 2 条「Docker 容器列出的 ID、版本和哈希与本机一致」现在有真实容器证据。仍未验证：浏览器侧选择器（Sprint 3）、请求快照与卡牌 Agent（Sprint 2/4）、真实模型端到端。
 
 ## 9. Sprint 2：设定助手与自由创作接入
 

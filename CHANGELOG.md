@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Changed
+- 2026-10-17：修正 Sprint 1 只读验收提出的 4 个代码问题与 1 个错误码分类问题。Registry 增加**完整性门**：`lore`/`free`/`card` 任一入口缺少可用 preset 时抛 `AGENT_PROFILE_UNKNOWN` 并拒绝启动，不再把 `defaults` 写成 `null`；preset 目录、manifest 文件、prompt 文件及其**中间目录**都拒绝符号链接，并对 preset 目录与 manifest 做 `realpath` 根目录复核；Registry 快照改为**深度冻结**（原先只冻结 `manifest` 顶层，`manifest.surfaces` 仍可改写）；清单校验改为两遍并携带 `path`/`keyword`，非法组合归 `AGENT_COMPAT_MISMATCH`、`systemPrompt` 路径形态与 `schemaVersion` 归 `AGENT_MANIFEST_INVALID`，不再一律报 `AGENT_ENUM_UNKNOWN`；「所有错误码可达」测试改为逐个真实触发。另修正 `server.mjs` 启动失败时仅 `throw` 导致进程不退出、留下锁定 SQLite 文件的问题，改为打印诊断后 `process.exit(1)`。真实 `docker compose up -d --build` 比对确认本机与容器的 ID、版本与 SHA-256 哈希完全一致。
 - 2026-10-17：Sprint 0 正式签收。作者逐条签署 ADR-0029 §10 五项（只读仓库随附投影、按 surface 独立保存、自由聊天切换即新对话、本轮不接受自定义 preset、卡牌 Agent 独立浮动面板且只返回受验证补丁），五项全部接受、无改判；ADR-0029 由 `proposed` 转为 `canon（技术边界）`，签字记录写入该文件 §10，契约内容未因签字改动。签名随后进入 Sprint 1。
 - 2026-10-17：修正 Sprint 0 只读验收提出的治理与测试问题，不改动运行时。ADR-0029 由误标的 `canon` 降回 `proposed` 并新增 §10 作者签字门（作者指示实现 Sprint 0 不等于接受五项推荐项，签字前 Schema 与三个 manifest 是提议契约）；重复 ID 与超长 prompt 改为真实磁盘夹具（`reject/duplicate-id/fixture-a|b`、`reject/oversized-prompt` 34017 字符），不再由测试临时构造；新增 `agent-profile-contract.mjs` 代码侧契约真值与 `tests/snapshots/agent-prompt-layers.json` 顺序快照，替换原先只搜索 ADR 文本的伪 snapshot，并新增代码常量与 Schema/ADR 的交叉校验测试。
 - 收敛「正史」相关约束：Agent 的五个工具全部只读，原本「不要擅自把候选晋升为 canon」禁止的是一件不可能发生的事，因此在提示词里删除，改写为一次输出纪律（按 `status`/`truthScope` 表述，不把草案写成定论、不补全资料没写的内容）。界面从四处重复收敛为一处，并改为说明作者该做什么。由 ADR-0025 固化。

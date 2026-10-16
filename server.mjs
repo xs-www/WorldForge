@@ -59,7 +59,9 @@ try {
   console.error(`[agent-profiles] ${failure.code}: ${failure.message}`);
   for (const detail of failure.details) console.error(`[agent-profiles]   - ${detail}`);
   console.error('[agent-profiles] 拒绝启动：请修复或移除损坏的 preset 投影后重试。产品不会自动改用其他 persona。');
-  throw failure;
+  // 必须显式退出：数据库与模拟服务在启动阶段已经打开，仅 throw 会让事件循环保持存活，
+  // 容器会表现为"启动失败但不退出"，本机也会留下锁定的 SQLite 文件。
+  process.exit(1);
 }
 
 async function saveLocalEnv(values) {

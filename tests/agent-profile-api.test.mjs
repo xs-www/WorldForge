@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rename, rm, cp } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile, cp } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -51,6 +51,34 @@ async function placeFixture(base, relative, layout = 'matching-id') {
   const directoryName = layout === 'source-name' ? relative.split('/').pop() : manifest.id;
   const root = join(base, `presets-${directoryName}`);
   await cp(source, join(root, directoryName), { recursive: true });
+  return root;
+}
+
+/** 三个合法夹具分别覆盖 lore / free / card；部署时目录名就是真实 preset id。 */
+const LEGAL_FIXTURES = ['legal/fixture-lore', 'legal/fixture-free', 'legal/fixture-card'];
+const LEGAL_FIXTURE_IDS = ['lore-writer', 'free-creator', 'card-designer'];
+
+/**
+ * 搭建一个三入口齐全的根目录，目录名使用真实 preset id；可选换入缺陷夹具或删掉某个入口。
+ * 完整性门下，只放一个夹具会先报 AGENT_PROFILE_UNKNOWN，无法考察其他缺陷。
+ */
+async function completePresetRoot(base, defectRelative = null, omitId = null) {
+  const root = join(base, 'presets-complete');
+  for (const [index, relative] of LEGAL_FIXTURES.entries()) {
+    const source = new URL(`${relative}/`, fixturesRoot);
+    const manifest = JSON.parse(await readFile(new URL(RUNTIME_MARKER, source), 'utf8'));
+    await cp(source, join(root, LEGAL_FIXTURE_IDS[index]), { recursive: true });
+    // 夹具自身的 id 与真实 preset id 不同，替换成真实 id 后目录名仍然与 manifest 一致。
+    const manifestPath = join(root, LEGAL_FIXTURE_IDS[index], RUNTIME_MARKER);
+    await writeFile(manifestPath, `${JSON.stringify({ ...manifest, id: LEGAL_FIXTURE_IDS[index] }, null, 2)}\n`, 'utf8');
+  }
+  if (omitId) await rm(join(root, omitId), { recursive: true, force: true });
+  if (defectRelative) {
+    const source = new URL(`${defectRelative}/`, fixturesRoot);
+    const manifest = JSON.parse(await readFile(new URL(RUNTIME_MARKER, source), 'utf8'));
+    await rm(join(root, manifest.id), { recursive: true, force: true });
+    await cp(source, join(root, manifest.id), { recursive: true });
+  }
   return root;
 }
 
@@ -130,20 +158,21 @@ test('GET /api/ai/presets returns sanitized metadata and defaults', async t => {
 });
 
 test('startup refuses a corrupted projection instead of degrading silently', async t => {
+  // 每个缺陷夹具替换进一个三入口齐全的根目录，这样失败原因只能来自该缺陷本身。
   const cases = [
-    ['reject/unknown-enum', 'matching-id', ['AGENT_ENUM_UNKNOWN']],
-    ['reject/absolute-path', 'matching-id', ['AGENT_ENUM_UNKNOWN']],
-    ['reject/traversal', 'matching-id', ['AGENT_ENUM_UNKNOWN']],
-    ['reject/oversized-prompt', 'matching-id', ['AGENT_PROMPT_TOO_LARGE']],
-    ['reject/missing-prompt', 'matching-id', ['AGENT_PROMPT_MISSING']],
-    ['reject/unknown-field', 'matching-id', ['AGENT_MANIFEST_INVALID']],
-    ['reject/empty-prompt', 'matching-id', ['AGENT_MANIFEST_INVALID']],
-    ['reject/directory-mismatch', 'source-name', ['AGENT_ID_MISMATCH']]
+    ['reject/unknown-enum', ['AGENT_ENUM_UNKNOWN']],
+    ['reject/absolute-path', ['AGENT_MANIFEST_INVALID']],
+    ['reject/traversal', ['AGENT_MANIFEST_INVALID']],
+    ['reject/incompatible-combination', ['AGENT_COMPAT_MISMATCH']],
+    ['reject/oversized-prompt', ['AGENT_PROMPT_TOO_LARGE']],
+    ['reject/missing-prompt', ['AGENT_PROMPT_MISSING']],
+    ['reject/unknown-field', ['AGENT_MANIFEST_INVALID']],
+    ['reject/empty-prompt', ['AGENT_MANIFEST_INVALID']]
   ];
-  for (const [relative, layout, codes] of cases) {
+  for (const [relative, codes] of cases) {
     const { base, env } = await temporaryPaths();
     try {
-      const root = await placeFixture(base, relative, layout);
+      const root = await completePresetRoot(base, relative);
       const { code, output } = await startServerExpectingFailure({ ...env, PORT: String(await freePort()), WORLDFORGE_AGENT_PRESETS_DIR: root });
       assert.notEqual(code, 0, `${relative} 应导致启动失败`);
       assert.ok(codes.some(marker => output.includes(marker)), `${relative} 的诊断应包含 ${codes.join(' 或 ')}：\n${output}`);
@@ -154,16 +183,29 @@ test('startup refuses a corrupted projection instead of degrading silently', asy
     }
   }
 
-  // 不兼容组合：目录名与 id 对齐时 Schema 的三条分支最先拦下，
-  // 若清单能通过 Schema，则由 Registry 的兼容矩阵二次拦截。两种情况都必须拒绝启动。
-  const { base, env } = await temporaryPaths();
+  // 目录名与 preset id 不一致。
+  const mismatch = await temporaryPaths();
   try {
-    const root = await placeFixture(base, 'reject/incompatible-combination', 'matching-id');
-    const incompatible = await startServerExpectingFailure({ ...env, PORT: String(await freePort()), WORLDFORGE_AGENT_PRESETS_DIR: root });
-    assert.notEqual(incompatible.code, 0);
-    assert.ok(/AGENT_ENUM_UNKNOWN|AGENT_COMPAT_MISMATCH/.test(incompatible.output), incompatible.output);
+    const root = await placeFixture(mismatch.base, 'reject/directory-mismatch', 'source-name');
+    const result = await startServerExpectingFailure({ ...mismatch.env, PORT: String(await freePort()), WORLDFORGE_AGENT_PRESETS_DIR: root });
+    assert.notEqual(result.code, 0);
+    assert.ok(result.output.includes('AGENT_ID_MISMATCH'), result.output);
   } finally {
-    await rm(base, { recursive: true, force: true });
+    await rm(mismatch.base, { recursive: true, force: true });
+  }
+
+  // 删除任一入口的 preset：服务必须拒绝启动，而不是把该入口降级为 null。
+  for (const [missingId, surface] of [['lore-writer', 'lore'], ['free-creator', 'free'], ['card-designer', 'card']]) {
+    const incomplete = await temporaryPaths();
+    try {
+      const root = await completePresetRoot(incomplete.base, null, missingId);
+      const result = await startServerExpectingFailure({ ...incomplete.env, PORT: String(await freePort()), WORLDFORGE_AGENT_PRESETS_DIR: root });
+      assert.notEqual(result.code, 0, `缺少 ${missingId} 时应拒绝启动`);
+      assert.ok(result.output.includes('AGENT_PROFILE_UNKNOWN'), result.output);
+      assert.ok(result.output.includes(surface), `诊断应指出缺失的入口 ${surface}：\n${result.output}`);
+    } finally {
+      await rm(incomplete.base, { recursive: true, force: true });
+    }
   }
 
   // 重复 id 与缺失根目录。
@@ -180,6 +222,29 @@ test('startup refuses a corrupted projection instead of degrading silently', asy
     assert.ok(missing.output.includes('AGENT_ROOT_UNREADABLE'), missing.output);
   } finally {
     await rm(duplicatePaths.base, { recursive: true, force: true });
+  }
+});
+
+test('startup refuses symlinked preset directories and manifests', async t => {
+  const symlinked = await temporaryPaths();
+  try {
+    const root = await completePresetRoot(symlinked.base);
+    const outside = join(symlinked.base, 'outside');
+    await mkdir(outside, { recursive: true });
+    await cp(join(root, 'lore-writer'), join(outside, 'lore-writer'), { recursive: true });
+    await rm(join(root, 'lore-writer'), { recursive: true, force: true });
+    let linked = true;
+    try { await symlink(join(outside, 'lore-writer'), join(root, 'lore-writer'), 'dir'); }
+    catch (error) { if (error.code !== 'EPERM') throw error; linked = false; }
+    if (!linked) {
+      console.log('# 本机不允许创建符号链接，preset 目录链接的服务级拒绝未验证');
+      return;
+    }
+    const result = await startServerExpectingFailure({ ...symlinked.env, PORT: String(await freePort()), WORLDFORGE_AGENT_PRESETS_DIR: root });
+    assert.notEqual(result.code, 0);
+    assert.ok(result.output.includes('AGENT_PROMPT_PATH_UNSAFE'), result.output);
+  } finally {
+    await rm(symlinked.base, { recursive: true, force: true });
   }
 });
 

@@ -9,6 +9,7 @@ import {
   AgentProfileError,
   asAgentProfileError,
   agentPresetsRoot,
+  deepFreeze,
   loadAgentProfiles,
   profileFingerprint,
   publicAgentProfile,
@@ -49,12 +50,39 @@ async function temporaryRoot(sourceRelative) {
  */
 async function temporaryRootWithMatchingId(sourceRelative) {
   const root = await mkdtemp(join(tmpdir(), 'worldforge-agent-root-'));
-  const directoryName = sourceRelative.split('/').pop();
   const source = new URL(`${sourceRelative}/`, fixturesRoot);
   const manifest = JSON.parse(await readFile(new URL(AGENT_RUNTIME_MANIFEST, source), 'utf8'));
-  await cp(source, join(root, directoryName), { recursive: true });
-  // 目录名必须等于 manifest id，才能只暴露被考察的那个缺陷。
-  await rename(join(root, directoryName), join(root, manifest.id));
+  await cp(source, join(root, manifest.id), { recursive: true });
+  return root;
+}
+
+/** 三个合法夹具分别覆盖 lore / free / card，用来搭建"完整根目录"。 */
+const LEGAL_FIXTURES = ['legal/fixture-lore', 'legal/fixture-free', 'legal/fixture-card'];
+/** 每个合法夹具的 manifest id，同时也是它在临时根目录里的目录名。 */
+const LEGAL_FIXTURE_IDS = ['fixture-lore', 'fixture-free', 'fixture-card'];
+
+/**
+ * 搭建一个三个入口都覆盖的完整根目录。
+ * 目录名一律等于 manifest id，否则会先触发 AGENT_ID_MISMATCH 而掩盖被考察的缺陷；
+ * 覆盖不完整时 Registry 会报 AGENT_PROFILE_UNKNOWN，因此考察其他缺陷必须先补齐。
+ */
+async function completeRoot() {
+  const root = await mkdtemp(join(tmpdir(), 'worldforge-agent-complete-'));
+  for (const relative of LEGAL_FIXTURES) {
+    const source = new URL(`${relative}/`, fixturesRoot);
+    const manifest = JSON.parse(await readFile(new URL(AGENT_RUNTIME_MANIFEST, source), 'utf8'));
+    await cp(source, join(root, manifest.id), { recursive: true });
+  }
+  return root;
+}
+
+/** 把某个缺陷夹具替换进完整根目录，保持另外两个入口可用。 */
+async function completeRootWith(sourceRelative) {
+  const root = await completeRoot();
+  const source = new URL(`${sourceRelative}/`, fixturesRoot);
+  const manifest = JSON.parse(await readFile(new URL(AGENT_RUNTIME_MANIFEST, source), 'utf8'));
+  await rm(join(root, manifest.id), { recursive: true, force: true });
+  await cp(source, join(root, manifest.id), { recursive: true });
   return root;
 }
 
@@ -82,15 +110,22 @@ test('loading the shipped root exposes exactly the three contracted profiles', a
   }
 });
 
-test('the registry is frozen and does not expose mutation of loaded data', async () => {
+test('the registry satisfies the deep-freeze requirement: no nested array is writable', async () => {
   const registry = await loadAgentProfiles();
-  assert.ok(Object.isFrozen(registry));
-  assert.ok(Object.isFrozen(registry.profiles));
-  assert.ok(Object.isFrozen(registry.profiles[0]));
-  assert.ok(Object.isFrozen(registry.profiles[0].surfaces));
-  assert.throws(() => { registry.profiles.push({ id: 'injected' }); }, TypeError);
-  assert.throws(() => { registry.defaults.lore = 'card-designer'; }, TypeError);
-  assert.equal((await loadAgentProfiles()).profiles.length, 3, '被拒绝的改动不应影响下一次加载');
+  assert.ok(Object.isFrozen(registry.defaults));
+  for (const profile of registry.profiles) {
+    assert.ok(Object.isFrozen(profile), `${profile.id} 快照应冻结`);
+    assert.ok(Object.isFrozen(profile.surfaces), `${profile.id}.surfaces 应冻结`);
+    assert.ok(Object.isFrozen(profile.manifest), `${profile.id}.manifest 应冻结`);
+    assert.ok(Object.isFrozen(profile.manifest.surfaces), `${profile.id}.manifest.surfaces 必须冻结`);
+    assert.throws(() => { profile.manifest.surfaces.push('card'); }, TypeError, '嵌套数组不得可写');
+    assert.throws(() => { profile.surfaces.push('card'); }, TypeError);
+    assert.throws(() => { profile.manifest.mode = 'free_chat'; }, TypeError);
+    assert.throws(() => { profile.systemPrompt = 'x'; }, TypeError);
+  }
+  // deepFreeze 自身：嵌套对象与数组都要被冻结。
+  const deep = deepFreeze({ a: { b: [1, { c: 2 }] } });
+  assert.ok(Object.isFrozen(deep.a) && Object.isFrozen(deep.a.b) && Object.isFrozen(deep.a.b[1]));
 });
 
 test('hashes are deterministic and change when the manifest or the prompt changes', async () => {
@@ -146,32 +181,106 @@ test('the browser projection never leaks prompt text, paths or tool internals', 
   assert.ok(!JSON.stringify(registryHealthSummary(registry)).includes('runtime/system.md'));
 });
 
-test('every frozen error code is reachable from the registry surface', () => {
-  const implemented = new Set([
-    'AGENT_ROOT_UNREADABLE', 'AGENT_MANIFEST_UNREADABLE', 'AGENT_MANIFEST_INVALID', 'AGENT_ENUM_UNKNOWN', 'AGENT_ID_MISMATCH',
-    'AGENT_COMPAT_MISMATCH', 'AGENT_PROMPT_MISSING', 'AGENT_PROMPT_PATH_UNSAFE', 'AGENT_PROMPT_TOO_LARGE', 'AGENT_PROFILE_UNKNOWN', 'AGENT_PROFILE_INCOMPATIBLE'
-  ]);
-  assert.deepEqual([...implemented].sort(), [...AGENT_PROFILE_ERROR_CODES].sort(), 'Registry 必须覆盖 ADR-0029 §9 的全部错误码');
-  const wrapped = asAgentProfileError(new Error('boom'));
-  assert.ok(wrapped instanceof AgentProfileError);
-  assert.ok(AGENT_PROFILE_ERROR_CODES.includes(wrapped.code));
-  assert.equal(asAgentProfileError(wrapped), wrapped, '已是 AgentProfileError 时不应重新包装');
+test('every frozen error code is actually produced by the registry, not just declared', async () => {
+  // 逐个真实触发 ADR-0029 §9 的错误码。只比较手写集合无法证明可达性。
+  const produced = new Map();
+  const record = async (code, run) => produced.set(code, (await expectError(run, code)).code);
+  const base = JSON.parse(await readFile(new URL(`../.agent-presets/lore-writer/${AGENT_RUNTIME_MANIFEST}`, import.meta.url), 'utf8'));
+  const cleanup = [];
+
+  try {
+    await record('AGENT_ROOT_UNREADABLE', () => loadAgentProfiles(join(tmpdir(), 'worldforge-absent-root-xyz')));
+    await record('AGENT_MANIFEST_INVALID', () => validateAgentRuntimeManifest({ ...base, plugins: [] }, 'lore-writer'));
+    await record('AGENT_ENUM_UNKNOWN', () => validateAgentRuntimeManifest({ ...base, mode: 'agentic_shell' }, 'lore-writer'));
+    await record('AGENT_ID_MISMATCH', () => validateAgentRuntimeManifest({ ...base }, 'free-creator'));
+    await record('AGENT_COMPAT_MISMATCH', () => validateAgentRuntimeManifest({ ...base, surfaces: ['free'] }, 'lore-writer'));
+
+    const incomplete = await completeRoot();
+    cleanup.push(incomplete);
+    await rm(join(incomplete, 'fixture-lore'), { recursive: true, force: true });
+    await record('AGENT_PROFILE_UNKNOWN', () => loadAgentProfiles(incomplete));
+
+    const brokenJson = await completeRoot();
+    cleanup.push(brokenJson);
+    await writeFile(join(brokenJson, 'fixture-lore', AGENT_RUNTIME_MANIFEST), '{ "id": "fixture-lore",', 'utf8');
+    await record('AGENT_MANIFEST_UNREADABLE', () => loadAgentProfiles(brokenJson));
+
+    const missingPrompt = await completeRootWith('reject/missing-prompt');
+    cleanup.push(missingPrompt);
+    await record('AGENT_PROMPT_MISSING', () => loadAgentProfiles(missingPrompt));
+
+    const oversized = await completeRootWith('reject/oversized-prompt');
+    cleanup.push(oversized);
+    await record('AGENT_PROMPT_TOO_LARGE', () => loadAgentProfiles(oversized));
+
+    const linked = await completeRoot();
+    cleanup.push(linked);
+    const outside = await mkdtemp(join(tmpdir(), 'worldforge-outside-'));
+    cleanup.push(outside);
+    await writeFile(join(outside, 'system.md'), '外部 prompt', 'utf8');
+    await rm(join(linked, 'fixture-lore', 'runtime', 'system.md'));
+    try {
+      await symlink(join(outside, 'system.md'), join(linked, 'fixture-lore', 'runtime', 'system.md'));
+      await record('AGENT_PROMPT_PATH_UNSAFE', () => loadAgentProfiles(linked));
+    } catch (error) {
+      if (error.code !== 'EPERM') throw error;
+      // 无法创建符号链接时，用「逃出目录的同构路径」触发同一错误码，并如实记录差异。
+      await record('AGENT_PROMPT_PATH_UNSAFE', () => resolveAgentPromptPath(join(linked, 'fixture-lore'), 'runtime/../../runtime/system.md'));
+    }
+
+    const registry = await loadAgentProfiles();
+    await record('AGENT_PROFILE_INCOMPATIBLE', () => registry.resolve('lore-writer', 'card'));
+
+    assert.deepEqual([...produced.keys()].sort(), [...AGENT_PROFILE_ERROR_CODES].sort(), '每个冻结错误码都必须由真实触发产生');
+    const wrapped = asAgentProfileError(new Error('boom'));
+    assert.ok(wrapped instanceof AgentProfileError);
+    assert.ok(AGENT_PROFILE_ERROR_CODES.includes(wrapped.code));
+    assert.equal(asAgentProfileError(wrapped), wrapped, '已是 AgentProfileError 时不应重新包装');
+  } finally {
+    for (const path of cleanup) await rm(path, { recursive: true, force: true });
+  }
 });
 
-test('manifest validation rejects unknown fields, enums, ids and unsafe prompt paths', async () => {
+test('manifest validation classifies each defect with its own error code', async () => {
   const base = JSON.parse(await readFile(new URL(`../.agent-presets/lore-writer/${AGENT_RUNTIME_MANIFEST}`, import.meta.url), 'utf8'));
-  assert.equal((await validateAgentRuntimeManifest({ ...base }, 'lore-writer')).id, 'lore-writer');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, plugins: [] }, 'lore-writer'), 'AGENT_MANIFEST_INVALID');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, mode: 'agentic_shell' }, 'lore-writer'), 'AGENT_ENUM_UNKNOWN');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, surfaces: ['simulation'] }, 'lore-writer'), 'AGENT_ENUM_UNKNOWN');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, surfaces: ['free'] }, 'lore-writer'), 'AGENT_ENUM_UNKNOWN');
-  await expectError(() => validateAgentRuntimeManifest({ ...base }, 'free-creator'), 'AGENT_ID_MISMATCH');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, schemaVersion: 2 }, 'lore-writer'), 'AGENT_ENUM_UNKNOWN');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, systemPrompt: '' }, 'lore-writer'), 'AGENT_MANIFEST_INVALID');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, systemPrompt: 'C:\\evil\\system.md' }, 'lore-writer'), 'AGENT_ENUM_UNKNOWN');
-  await expectError(() => validateAgentRuntimeManifest({ ...base, id: 'Not-Kebab' }, 'Not-Kebab'), 'AGENT_MANIFEST_INVALID');
+  const cases = [
+    // 字段级结构问题
+    ['额外字段', { plugins: [] }, 'AGENT_MANIFEST_INVALID'],
+    ['非法 id 格式', { id: 'Not-Kebab' }, 'AGENT_MANIFEST_INVALID'],
+    ['prompt 为空', { systemPrompt: '' }, 'AGENT_MANIFEST_INVALID'],
+    ['prompt 绝对路径', { systemPrompt: 'C:\\evil\\system.md' }, 'AGENT_MANIFEST_INVALID'],
+    ['prompt 相对穿越', { systemPrompt: '../../agent.cordis.yml' }, 'AGENT_MANIFEST_INVALID'],
+    ['缺少必填字段', base => { const copy = { ...base }; delete copy.mode; return copy; }, 'AGENT_MANIFEST_INVALID'],
+    ['不支持的 schemaVersion', { schemaVersion: 2 }, 'AGENT_MANIFEST_INVALID'],
+    // 枚举
+    ['未知 mode', { mode: 'agentic_shell' }, 'AGENT_ENUM_UNKNOWN'],
+    ['未知 surface', { surfaces: ['simulation'] }, 'AGENT_ENUM_UNKNOWN'],
+    ['surface 数组为空', { surfaces: [] }, 'AGENT_ENUM_UNKNOWN'],
+    ['未知 toolPolicy', { toolPolicy: 'full_access' }, 'AGENT_ENUM_UNKNOWN'],
+    ['未知 outputContract', { outputContract: 'anything' }, 'AGENT_ENUM_UNKNOWN'],
+    ['未知 statusPolicy', { statusPolicy: 'balanced' }, 'AGENT_ENUM_UNKNOWN'],
+    // 兼容矩阵
+    ['lore 配 free 行', { surfaces: ['free'] }, 'AGENT_COMPAT_MISMATCH'],
+    ['契约与 surface 不符', { outputContract: 'card_patch_v1' }, 'AGENT_COMPAT_MISMATCH']
+  ];
+  for (const [label, patch, code] of cases) {
+    // patch 可以是对象，也可以是基于 base 构造完整清单的函数（用于删除字段等场景）。
+    const manifest = typeof patch === 'function' ? patch(base) : { ...base, ...patch };
+    const error = await expectError(() => validateAgentRuntimeManifest(manifest, 'lore-writer'), code);
+    assert.ok(error.message.includes(code), `${label} 的错误消息应带错误码`);
+  }
   await expectError(() => validateAgentRuntimeManifest('not an object', 'lore-writer'), 'AGENT_MANIFEST_INVALID');
   await expectError(() => validateAgentRuntimeManifest(null), 'AGENT_MANIFEST_INVALID');
+  assert.equal((await validateAgentRuntimeManifest({ ...base }, 'lore-writer')).id, 'lore-writer');
+});
+
+test('surface compatibility is enforced for multi-surface manifests too', async () => {
+  const base = JSON.parse(await readFile(new URL(`../.agent-presets/lore-writer/${AGENT_RUNTIME_MANIFEST}`, import.meta.url), 'utf8'));
+  // 一个 preset 同时服务多个入口时，Schema 的单行分支无法覆盖，必须由兼容矩阵逐行复核。
+  const multi = { ...base, surfaces: ['lore'] };
+  assert.equal((await validateAgentRuntimeManifest(multi, 'lore-writer')).surfaces.length, 1);
+  const dual = { ...base, surfaces: ['lore', 'free'] };
+  await expectError(() => validateAgentRuntimeManifest(dual, 'lore-writer'), 'AGENT_COMPAT_MISMATCH');
 });
 
 test('prompt path resolution refuses escapes that bypass the schema', async () => {
@@ -253,41 +362,107 @@ test('startup refuses a broken root instead of silently switching persona', asyn
     await expectError(() => loadAgentProfiles(corrupt), 'AGENT_MANIFEST_UNREADABLE');
   } finally { await rm(corrupt, { recursive: true, force: true }); }
 
-  // 未知枚举、额外字段与不兼容组合：目录名与 id 对齐，用于确认拒绝原因来自清单本身。
-  const unknown = await temporaryRootWithMatchingId('reject/unknown-field');
-  try { await expectError(() => loadAgentProfiles(unknown), 'AGENT_MANIFEST_INVALID'); }
-  finally { await rm(unknown, { recursive: true, force: true }); }
-  const unknownEnum = await temporaryRootWithMatchingId('reject/unknown-enum');
-  try { await expectError(() => loadAgentProfiles(unknownEnum), 'AGENT_ENUM_UNKNOWN'); }
-  finally { await rm(unknownEnum, { recursive: true, force: true }); }
-  const incompatible = await temporaryRootWithMatchingId('reject/incompatible-combination');
-  try { await expectError(() => loadAgentProfiles(incompatible), 'AGENT_ENUM_UNKNOWN'); }
-  finally { await rm(incompatible, { recursive: true, force: true }); }
-  const absolutePath = await temporaryRootWithMatchingId('reject/absolute-path');
-  try { await expectError(() => loadAgentProfiles(absolutePath), 'AGENT_ENUM_UNKNOWN'); }
-  finally { await rm(absolutePath, { recursive: true, force: true }); }
-  const traversal = await temporaryRootWithMatchingId('reject/traversal');
-  try { await expectError(() => loadAgentProfiles(traversal), 'AGENT_ENUM_UNKNOWN'); }
-  finally { await rm(traversal, { recursive: true, force: true }); }
-  const emptyPrompt = await temporaryRootWithMatchingId('reject/empty-prompt');
-  try { await expectError(() => loadAgentProfiles(emptyPrompt), 'AGENT_MANIFEST_INVALID'); }
-  finally { await rm(emptyPrompt, { recursive: true, force: true }); }
-  const missingPrompt = await temporaryRootWithMatchingId('reject/missing-prompt');
-  try { await expectError(() => loadAgentProfiles(missingPrompt), 'AGENT_PROMPT_MISSING'); }
-  finally { await rm(missingPrompt, { recursive: true, force: true }); }
+  // 未知枚举、额外字段、非法路径与不兼容组合：放进完整根目录，确认拒绝原因来自清单本身。
+  const deviating = [
+    ['reject/unknown-field', 'AGENT_MANIFEST_INVALID'],
+    ['reject/unknown-enum', 'AGENT_ENUM_UNKNOWN'],
+    ['reject/incompatible-combination', 'AGENT_COMPAT_MISMATCH'],
+    ['reject/absolute-path', 'AGENT_MANIFEST_INVALID'],
+    ['reject/traversal', 'AGENT_MANIFEST_INVALID'],
+    ['reject/empty-prompt', 'AGENT_MANIFEST_INVALID'],
+    ['reject/missing-prompt', 'AGENT_PROMPT_MISSING'],
+    ['reject/oversized-prompt', 'AGENT_PROMPT_TOO_LARGE']
+  ];
+  for (const [relative, code] of deviating) {
+    const root = await completeRootWith(relative);
+    try { await expectError(() => loadAgentProfiles(root), code); }
+    finally { await rm(root, { recursive: true, force: true }); }
+  }
 
-  // 超大 prompt 真实文件。
-  const oversized = await temporaryRootWithMatchingId('reject/oversized-prompt');
-  try { await expectError(() => loadAgentProfiles(oversized), 'AGENT_PROMPT_TOO_LARGE'); }
-  finally { await rm(oversized, { recursive: true, force: true }); }
-
-  // 合法夹具仍然可以加载，证明上面的拒绝来自具体缺陷而不是环境。
-  const legal = await temporaryRootWithMatchingId('legal/fixture-card');
+  // 完整根目录必须成功，证明上面的拒绝来自具体缺陷而不是环境。
+  const complete = await completeRoot();
   try {
-    const registry = await loadAgentProfiles(legal);
-    assert.deepEqual(registry.profiles.map(profile => profile.id), ['fixture-card']);
-    assert.deepEqual(registry.defaults, { lore: null, free: null, card: 'fixture-card' });
-  } finally { await rm(legal, { recursive: true, force: true }); }
+    const registry = await loadAgentProfiles(complete);
+    assert.deepEqual(registry.profiles.map(profile => profile.id), ['fixture-card', 'fixture-free', 'fixture-lore']);
+    assert.deepEqual(registry.defaults, { lore: 'fixture-lore', free: 'fixture-free', card: 'fixture-card' });
+  } finally { await rm(complete, { recursive: true, force: true }); }
+});
+
+test('startup refuses when any entry point loses its preset', async () => {
+  // 直接对应验收阻断项：删除默认 preset 后服务必须拒绝启动，而不是把该入口降级为 null。
+  const surfaces = { 'fixture-lore': 'lore', 'fixture-free': 'free', 'fixture-card': 'card' };
+  for (const [missingId, surface] of Object.entries(surfaces)) {
+    const root = await mkdtemp(join(tmpdir(), 'worldforge-agent-incomplete-'));
+    try {
+      for (const relative of LEGAL_FIXTURES) {
+        const source = new URL(`${relative}/`, fixturesRoot);
+        const manifest = JSON.parse(await readFile(new URL(AGENT_RUNTIME_MANIFEST, source), 'utf8'));
+        if (manifest.id === missingId) continue;
+        await cp(source, join(root, manifest.id), { recursive: true });
+      }
+      const error = await expectError(() => loadAgentProfiles(root), 'AGENT_PROFILE_UNKNOWN');
+      assert.ok(error.message.includes(surface), `诊断应指出缺失的入口 ${surface}：${error.message}`);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  }
+
+  // 只加载部分入口的夹具同样必须被拒绝。
+  const partial = await temporaryRootWithMatchingId('legal/fixture-card');
+  try { await expectError(() => loadAgentProfiles(partial), 'AGENT_PROFILE_UNKNOWN'); }
+  finally { await rm(partial, { recursive: true, force: true }); }
+});
+
+test('preset directories, manifests and intermediate directories cannot be symlinks', async () => {
+  const outside = await mkdtemp(join(tmpdir(), 'worldforge-agent-outside-'));
+  const root = await completeRoot();
+  try {
+    // 1) manifest 文件是符号链接（指向根目录之外的真实文件）。
+    await writeFile(join(outside, 'manifest.json'), JSON.stringify({
+      schemaVersion: 1, id: 'fixture-lore', version: '9.9.9', displayName: '外部', description: '外部 manifest',
+      surfaces: ['lore'], mode: 'structured_lore', systemPrompt: 'runtime/system.md',
+      toolPolicy: 'none', outputContract: 'lore_blocks_v2', statusPolicy: 'proposed_only'
+    }), 'utf8');
+    const manifestTarget = join(root, 'fixture-lore', AGENT_RUNTIME_MANIFEST);
+    await rm(manifestTarget);
+    let linked = true;
+    try { await symlink(join(outside, 'manifest.json'), manifestTarget); }
+    catch (error) { if (error.code !== 'EPERM') throw error; linked = false; }
+    if (linked) await expectError(() => loadAgentProfiles(root), 'AGENT_PROMPT_PATH_UNSAFE');
+    else console.log('# 本机不允许创建符号链接（manifest 链接分支未验证）');
+    await rm(manifestTarget, { force: true });
+    await cp(new URL('legal/fixture-lore/worldforge.runtime.json', fixturesRoot), manifestTarget);
+
+    // 2) 中间目录是符号链接：runtime/ 指向根目录之外。
+    await mkdir(join(outside, 'runtime'), { recursive: true });
+    await cp(new URL('legal/fixture-lore/runtime/system.md', fixturesRoot), join(outside, 'runtime', 'system.md'));
+    const runtimeDirectory = join(root, 'fixture-lore', 'runtime');
+    await rm(runtimeDirectory, { recursive: true, force: true });
+    linked = true;
+    try { await symlink(join(outside, 'runtime'), runtimeDirectory, 'dir'); }
+    catch (error) { if (error.code !== 'EPERM') throw error; linked = false; }
+    if (linked) await expectError(() => loadAgentProfiles(root), 'AGENT_PROMPT_PATH_UNSAFE');
+    else console.log('# 本机不允许创建符号链接（中间目录链接分支未验证）');
+    await rm(runtimeDirectory, { recursive: true, force: true });
+    await cp(new URL('legal/fixture-lore/runtime/', fixturesRoot), runtimeDirectory, { recursive: true });
+
+    // 3) preset 目录本身是符号链接。
+    const realPreset = join(outside, 'fixture-lore');
+    await cp(join(root, 'fixture-lore'), realPreset, { recursive: true });
+    await rm(join(root, 'fixture-lore'), { recursive: true, force: true });
+    linked = true;
+    try { await symlink(realPreset, join(root, 'fixture-lore'), 'dir'); }
+    catch (error) { if (error.code !== 'EPERM') throw error; linked = false; }
+    if (linked) await expectError(() => loadAgentProfiles(root), 'AGENT_PROMPT_PATH_UNSAFE');
+    else console.log('# 本机不允许创建符号链接（preset 目录链接分支未验证）');
+
+    // 三种逃逸都恢复后，完整根目录必须重新可用。
+    await rm(join(root, 'fixture-lore'), { recursive: true, force: true });
+    await cp(new URL('legal/fixture-lore/', fixturesRoot), join(root, 'fixture-lore'), { recursive: true });
+    const registry = await loadAgentProfiles(root);
+    assert.deepEqual(registry.defaults, { lore: 'fixture-lore', free: 'fixture-free', card: 'fixture-card' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
 });
 
 test('the presets root is resolved without machine absolute paths', () => {
