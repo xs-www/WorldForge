@@ -1,5 +1,35 @@
 # HTML 产品静态文档
 
+## 2026-10-16 W97 实验卡牌对战与受控关键词归档
+
+本次新增一个可玩但非正式的卡牌对战纵切。W97 测试套牌、全部对战参数与四个关键词均为 `experimental / untested`；不修改 W01 正史，也不把现有自由文本卡牌草案当成可执行规则。
+
+### 纯规则引擎
+
+- 新增 `dist/battle.js`，以可在 Node 测试和浏览器中共用的纯数据状态实现。
+- `createGame(options)`：按固定 seed 确定性洗牌，创建双方 20 生命、3 张起手与玩家先手的内存对局。
+- `normalizeCard(card)` / `normalizeEffect(effect)`：只保留随从、法术、已注册关键词和 `deal_damage / heal / draw_card` 白名单效果；数值限制在有界范围，未知操作落为 `null`。
+- `playCard(state, playerId, handIndex)`：验证回合、手牌、资源和栏位；随从进场，法术经统一效果入口结算。
+- `canAttack(...)` / `legalAttackTargets(...)` / `attack(...)`：分离攻击权限、目标集和伤害执行；随从交战同时交换伤害，护持在目标列表阶段生效。
+- `endTurn(...)` / `runRuleOpponent(state)`：补满递增资源、抽牌并切换回合；规则对手按手牌与场面稳定顺序完成有界出牌和攻击。
+- `cleanupDeaths(state)`：移除死亡随从、按稳定玩家/场位顺序触发余响，单次链上限 32 步。
+
+### 关键词运行时
+
+- `KEY-001` 疾启是攻击权限修改器；`KEY-002` 护持是合法目标约束；`KEY-003` 隔绝是一次性伤害替换；`KEY-004` 余响是死亡后触发器。
+- `keywordUsages[].detail` 继续只服务卡面展示。运行时只读取关键词 ID 和经白名单校验的 `params`，不解析规则文本或执行自定义 JavaScript。
+
+### 对战界面
+
+- 新增 `dist/battle-ui.js`：`WorldforgeBattleUI.refresh()` 首次进入时创建对局；玩家可出牌、选中己方随从、在当前合法目标中攻击并结束回合。
+- 页面显示双方英雄、场面、玩家手牌、资源、牌库、四个关键词说明和最新在前的战斗日志。「重新开始」恢复相同的确定性初始局。
+- 对局不读取、修改或保存 SQLite 内容，不与 W98/W99 世界模拟共用状态。
+
+### 验证与未实现
+
+- `tests/card-battle.test.mjs` 覆盖同 seed 初态一致、出牌费用、登场限制、疾启、护持、隔绝、余响、规则对手回合和未知行为默认拒绝。
+- 暂未实现玩家组牌、作者卡牌导入、武器、手动法术目标、持续效果、对局存档/回放和正式平衡验证。
+
 ## 2026-10-15 AI 助手浮动化与素材解绑增量
 
 - AI 设定助手由资料工作区第三列改为浮动子窗口（`#aiPanel`），工作区回到两列。三态由 `setAiPanel(state)` / `applyAiPanel()` 管理：`open`、`min`（46px 竖条，点击任意处展开）、`closed`（隐藏，由右侧 `#openAiPanel` 竖按钮重开）；状态保存在本地键 `worldforge-ui-state-v1`，不进入导出与 SQLite。窄屏改为底部抽屉。

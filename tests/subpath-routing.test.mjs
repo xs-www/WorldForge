@@ -6,6 +6,7 @@ const appSource = await readFile(new URL('../dist/app.js', import.meta.url), 'ut
 const htmlSource = await readFile(new URL('../dist/index.html', import.meta.url), 'utf8');
 const styleSource = await readFile(new URL('../dist/styles.css', import.meta.url), 'utf8');
 const macroSource = await readFile(new URL('../dist/macro.js', import.meta.url), 'utf8');
+const battleSource = await readFile(new URL('../dist/battle.js', import.meta.url), 'utf8');
 const serverSource = await readFile(new URL('../server.mjs', import.meta.url), 'utf8');
 
 test('browser API requests follow the script mount path', () => {
@@ -14,9 +15,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=42/);
+  assert.match(htmlSource, /app\.js\?v=43/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=34/);
+  assert.match(htmlSource, /styles\.css\?v=35/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /world-scope\.js\?v=1/);
   assert.match(htmlSource, /relation-picker\.js\?v=1/);
@@ -44,6 +45,16 @@ test('simulation dashboard exposes state, actor knowledge, audits, and controlle
   assert.match(appSource, /X-Worldforge-Simulation/);
   assert.match(styleSource, /\.simulation-grid/);
   assert.match(styleSource, /\.simulation-knowledge/);
+});
+
+test('experimental card battle exposes controlled keywords and a local battle surface', () => {
+  assert.match(htmlSource, /data-module="battle"/);
+  assert.match(htmlSource, /id="battleModule"/);
+  assert.match(htmlSource, /id="battleEndTurn"/);
+  assert.match(htmlSource, /battle\.js\?v=1/);
+  assert.match(battleSource, /KEY-001/);
+  assert.match(battleSource, /maxResolutionSteps:32/);
+  assert.doesNotMatch(battleSource, /\beval\s*\(/);
 });
 
 test('AI candidates can be applied and invalid model output remains inspectable', () => {

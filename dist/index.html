@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=34">
+  <link rel="stylesheet" href="./styles.css?v=35">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -19,6 +19,7 @@
     <nav class="module-tabs" aria-label="功能模块">
       <button class="module-tab active" type="button" data-module="world"><span class="tab-icon" aria-hidden="true">◫</span>世界观架构</button>
       <button class="module-tab" type="button" data-module="cards"><span class="tab-icon" aria-hidden="true">▤</span>卡牌设计</button>
+      <button class="module-tab" type="button" data-module="battle"><span class="tab-icon" aria-hidden="true">⚔</span>测试对战</button>
       <button class="module-tab" type="button" data-module="free"><span class="tab-icon" aria-hidden="true">✦</span>自由创作</button>
       <button class="module-tab" type="button" data-module="simulation"><span class="tab-icon" aria-hidden="true">◉</span>世界模拟</button>
     </nav>
@@ -239,6 +240,30 @@
       <section class="panel card-artwork-gallery" data-card-panel="artwork" hidden><div class="panel-title"><div><h2>全量原画集</h2><small>素材库全部原画，含未使用素材</small></div><span id="artworkCount">0 幅</span></div><div class="artwork-toolbar"><label>分类<select id="artworkFilter"><option value="used">已使用原画</option><option value="unused">未使用原画</option><option value="all">全部原画</option></select></label><p class="field-help" id="artworkHelp">已使用 = 已被某张卡牌绑定，或仍绑定到存在的设定条目；未使用素材可查看并重新选用。</p></div><div class="artwork-grid" id="artworkGallery"></div><div class="saved-card-empty" id="artworkEmpty"><strong id="artworkEmptyTitle">暂无已使用原画</strong><p id="artworkEmptyText">在卡牌编辑器中选择原画后，这里会自动汇集。</p></div></section>
     </section>
 
+    <section class="module-page battle-page" id="battleModule" data-page="battle" aria-labelledby="battleTitle" hidden>
+      <div class="page-heading">
+        <div><p class="breadcrumb">卡牌 / 实验规则</p><h1 id="battleTitle">测试对战</h1><p>用确定性测试套牌验证回合、攻击、目标与关键词结算。</p></div>
+        <div class="heading-actions"><button class="button secondary" id="battleReset" type="button">重新开始</button><button class="button primary" id="battleEndTurn" type="button">结束回合</button></div>
+      </div>
+      <div class="simulation-banner battle-banner"><strong>experimental · untested</strong><span>此处使用内置测试牌，不会修改 W01 正史、卡牌草案或世界模拟状态。</span></div>
+      <div class="battle-status panel">
+        <div><span>当前回合</span><strong id="battleTurn">准备中</strong></div><div><span>我方资源</span><strong id="battleMana">0 / 0</strong></div><div><span>我方牌库</span><strong id="battleDeck">0</strong></div><div><span>对手牌库</span><strong id="battleEnemyDeck">0</strong></div>
+      </div>
+      <div class="battle-layout">
+        <section class="panel battle-table" aria-label="对战区域">
+          <div class="battle-hero-slot enemy" id="battleEnemyHero"></div><div class="battle-board" id="battleEnemyBoard"></div>
+          <div class="battle-divider"><span id="battleNotice">正在初始化……</span></div>
+          <div class="battle-board" id="battlePlayerBoard"></div><div class="battle-hero-slot" id="battlePlayerHero"></div>
+          <div class="battle-hand-wrap"><div class="battle-zone-title"><strong>手牌</strong><small>点击「打出」使用</small></div><div class="battle-hand" id="battleHand"></div></div>
+        </section>
+        <aside class="panel battle-side">
+          <div class="panel-title"><div><h2>实验关键词</h2><small>受控规则模块</small></div></div>
+          <dl class="battle-keywords"><div><dt>疾启</dt><dd>登场当回合可以攻击。</dd></div><div><dt>护持</dt><dd>敌方攻击必须优先选择护持随从。</dd></div><div><dt>隔绝</dt><dd>第一次受到伤害时将其改为 0，然后移除。</dd></div><div><dt>余响</dt><dd>被消灭后结算受限的结构化效果。</dd></div></dl>
+          <div class="panel-title"><div><h2>战斗日志</h2><small>最新在前</small></div></div><ol class="battle-log" id="battleLog"></ol>
+        </aside>
+      </div>
+    </section>
+
     <section class="module-page" id="freeModule" data-page="free" aria-labelledby="freeTitle" hidden>
       <div class="page-heading">
         <div><p class="breadcrumb">项目 / AI 创作</p><h1 id="freeTitle">自由创作 Agent</h1><p>不受资料模块和固定 JSON 格式限制，用对话完成构思、讨论、改写与分析。</p></div>
@@ -410,7 +435,9 @@
   <script src="./world-scope.js?v=1"></script>
   <script src="./relation-picker.js?v=1"></script>
   <script src="./cards.js?v=6"></script>
+  <script src="./battle.js?v=1"></script>
+  <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=42"></script>
+  <script src="./app.js?v=43"></script>
 </body>
 </html>

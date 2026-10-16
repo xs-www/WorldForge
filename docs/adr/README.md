@@ -27,5 +27,6 @@
 - [ADR-0025：正史约束从提示词移到监督点](ADR-0025-canon-constraint-placement.md) — canon（技术边界）
 - [ADR-0026：美术资产可以解除绑定](ADR-0026-art-asset-unbind.md) — canon（技术边界）
 - [ADR-0027：AI 设定助手浮动化，候选可覆盖当前条目，候选数可为 1](ADR-0027-ai-assistant-dock-and-overwrite.md) — canon（技术边界）
+- [ADR-0028：以 W97 合成套牌建立实验对战纵切](ADR-0028-experimental-card-battle.md) — canon（技术边界），对战规则与关键词仍为 experimental
 
-新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0028` 开始。
+新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0029` 开始。
