@@ -1,5 +1,27 @@
 # HTML 产品静态文档
 
+## 2026-10-17 设定写作与自由创作 DSH preset 归档
+
+本次把产品已有的两类创作提示契约抽离为独立、可版本化的 DSH Agent preset，不修改 `ai-harness.mjs`、自由聊天 API、数据库、canon 或任何产品运行时行为。
+
+### `lore-writer`
+
+- persona 对应结构化设定助手的 `SYSTEM_INSTRUCTIONS`：区分状态与事实层次，不静默补完 canon，使用原创表达，遵守成本、限制与因果，并直接输出可回填正文。
+- `worldforge-lore-writing` 技能固化读取顺序、内容块工作流、类型质量标准和交付检查。
+- `reference/content-blocks.md` 从 `ai-content-specs.mjs` 提炼 13 类条目的当前内容块与专项重点；实现文件仍是真值，字段变化时需要同步。
+
+### `free-creator`
+
+- persona 对应 `FREE_AGENT_INSTRUCTIONS` 与 `FREE_AGENT_TOOL_GUIDE`：允许讨论、构思、比较、续写、改写或分析，不强制 JSON，并要求读取具体条目后再引用细节。
+- `worldforge-free-creation` 技能记录按需检索、视觉判断和停止检索规则，保持默认只读，不宣称已写入资料库。
+- DSH 的 `tool-fs` 同时发布读取、写入和编辑工具；Agent preset 不能修改宿主 permission preset。因此行为层只读由 persona 约束，权限层强制只读必须搭配 DSH 的只读权限模式。
+- 产品内自由聊天读取请求携带的资料库/美术资产快照并可按资产 ID 附图；DSH preset 只能读取当前工作区可见文件，不会自动获得 SQLite 草稿、素材库索引、密钥或产品会话附件。
+
+### 验证边界
+
+- 三个 preset 都必须包含 `agent.cordis.yml`、`preset.yml` 和入口 `SKILL.md`，不得绑定机器绝对路径或引入 Shell、后台任务、子代理与工作流。
+- DSH `scanRoot` 用实际 Profile 解析基址检查全部 preset；项目测试另外检查 persona、技能挂载与各模式特有边界。
+
 ## 2026-10-17 DSH 卡牌设计 Agent preset 归档
 
 本次改动不修改 HTML 产品运行时、任何 canon、卡牌语义或模拟规则。它把 DSH 创造模式产出的 WorldForge 卡牌设计 persona 重构为仓库内可版本化、可审查、可迁移的 Agent preset。

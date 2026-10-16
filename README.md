@@ -2,7 +2,7 @@
 
 原创多世界神性宇宙与策略卡牌内容设计仓库。
 
-仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前 `card-designer` 以相对路径携带 persona、最小工具组合和卡牌设计技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。
+仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。
 
 从 `docs/PROJECT_DESIGN.md` 开始阅读；使用 Codex 前请阅读 `AGENTS.md`。所有未明确批准的世界设定与卡牌均为草案。
 

@@ -13,6 +13,10 @@
 当前提供：
 
 - `card-designer`：只面向 WorldForge 卡牌、关键词与机制草案的内容设计模式。
+- `lore-writer`：对应产品内结构化设定写作助手，按条目类型与内容块产出可回填候选。
+- `free-creator`：对应产品内自由创作聊天，以自然语言讨论并按需只读检索仓库。
+
+`free-creator` 的只读行为由 persona 约束；若需要权限层面的强制只读，请同时选择 DSH 的只读 permission preset。DSH preset 不会自动连接 WorldForge 产品运行时的 SQLite 资料库、美术资产索引或聊天附件。
 
 ## 在 DSH 中使用
 

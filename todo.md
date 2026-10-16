@@ -3,6 +3,7 @@
 ## 当前
 
 - [x] 将 WorldForge 卡牌设计智能体重构为仓库内可版本化的 DSH Agent preset，并补齐可移植技能与能力边界测试。
+- [x] 将现有结构化设定写作助手与自由创作聊天分别抽离为 `lore-writer`、`free-creator` DSH Agent preset。
 
 - [x] 完成 M0 仓库骨架与基础模板。
 - [x] 交付可直接使用的 HTML 世界设计工作台。
