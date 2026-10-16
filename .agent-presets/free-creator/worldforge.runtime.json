@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "free-creator",
+  "version": "1.0.0",
+  "displayName": "WorldForge 自由创作",
+  "description": "以自然语言讨论、构思、比较、续写、改写或分析原创设定，不强制 JSON 或模块模板。",
+  "surfaces": ["free"],
+  "mode": "free_chat",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "free_lore_readonly",
+  "outputContract": "free_chat_v1",
+  "statusPolicy": "proposed_only"
+}

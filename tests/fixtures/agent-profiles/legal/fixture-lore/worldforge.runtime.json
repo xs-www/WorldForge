@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "fixture-lore",
+  "version": "0.1.0",
+  "displayName": "夹具设定写作",
+  "description": "合法夹具：单个 lore surface 的最小投影。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}

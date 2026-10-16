@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "absolute-path",
+  "version": "0.1.0",
+  "displayName": "夹具绝对路径",
+  "description": "非法夹具：systemPrompt 使用机器绝对路径。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "C:\\worldforge\\secret\\system.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}

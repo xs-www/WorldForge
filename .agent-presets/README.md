@@ -5,9 +5,12 @@
 ```text
 .agent-presets/
 └─ <preset-id>/
-   ├─ agent.cordis.yml
-   ├─ preset.yml
-   └─ skills/
+   ├─ agent.cordis.yml          # DSH 组装；产品永不读取
+   ├─ preset.yml                # DSH 显示名；产品永不读取
+   ├─ worldforge.runtime.json   # WorldForge 产品投影清单（纯数据）
+   ├─ runtime/
+   │  └─ system.md              # WorldForge 产品投影系统提示
+   └─ skills/                   # DSH 技能；产品永不读取
 ```
 
 当前提供：
@@ -17,6 +20,15 @@
 - `free-creator`：对应产品内自由创作聊天，以自然语言讨论并按需只读检索仓库。
 
 `free-creator` 的只读行为由 persona 约束；若需要权限层面的强制只读，请同时选择 DSH 的只读 permission preset。DSH preset 不会自动连接 WorldForge 产品运行时的 SQLite 资料库、美术资产索引或聊天附件。
+
+## 产品投影（`worldforge.runtime.json`）
+
+WorldForge 产品服务不解析 `agent.cordis.yml`：它含 `!!js` 表达式与 DSH 插件组装结构，脱离 DSH Host 解析既没有可执行语义，又会把插件装载权限变成配置来源。产品只读同目录的两个纯数据文件：
+
+- `worldforge.runtime.json`：冻结契约见 `docs/schemas/agent-runtime.schema.json`；真值决策见 [ADR-0029](../docs/adr/ADR-0029-agent-profile-runtime-projection.md)。
+- `runtime/system.md`：只贡献提示词第 2 层（preset 层）。产品安全边界（第 1 层）与入口输出契约（第 3 层）由确定性代码拼装，preset 不能替换。
+
+因此修改产品侧 persona 时必须同时改 DSH 的 `agent.cordis.yml` 与产品投影；两者用途不同，但语义漂移会由 `tests/agent-profile-contract.test.mjs` 的兼容矩阵与提示词层次测试暴露。`agent.cordis.yml`、`preset.yml` 与 `skills/` 的产品侧副本不存在，也不需要复制。
 
 ## 在 DSH 中使用
 

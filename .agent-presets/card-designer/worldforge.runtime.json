@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "card-designer",
+  "version": "1.0.0",
+  "displayName": "WorldForge 卡牌设计",
+  "description": "只返回可审查的卡牌字段补丁与静态评审，不直接保存，不声明已经平衡。",
+  "surfaces": ["card"],
+  "mode": "structured_card",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "card_patch_v1",
+  "statusPolicy": "proposed_or_untested"
+}

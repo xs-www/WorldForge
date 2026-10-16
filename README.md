@@ -2,9 +2,9 @@
 
 原创多世界神性宇宙与策略卡牌内容设计仓库。
 
-仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。
+仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。每个 preset 额外携带 WorldForge 产品侧的只读投影：`worldforge.runtime.json`（契约见 [`docs/schemas/agent-runtime.schema.json`](docs/schemas/agent-runtime.schema.json)）与 `runtime/system.md`。产品只读这两个纯数据文件，永不解析或执行含 `!!js` 的 `agent.cordis.yml`，该边界由 [ADR-0029](docs/adr/ADR-0029-agent-profile-runtime-projection.md) 固定。
 
-将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。该文档当前为 `proposed`，不代表相关运行时选择器已经实现。
+将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。该文档当前为 `proposed`，不代表相关运行时选择器已经实现；Sprint 0（契约、兼容矩阵、提示词层次与夹具）已完成，Registry、API、设置 UI 与卡牌文字 Agent 仍属于后续 Sprint。
 
 从 `docs/PROJECT_DESIGN.md` 开始阅读；使用 Codex 前请阅读 `AGENTS.md`。所有未明确批准的世界设定与卡牌均为草案。
 

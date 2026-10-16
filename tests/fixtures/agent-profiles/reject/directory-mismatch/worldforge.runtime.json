@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "mismatch",
+  "version": "0.1.0",
+  "displayName": "夹具目录不符",
+  "description": "非法夹具：manifest id 与所在目录名不一致。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}

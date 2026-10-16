@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldforge.local/schemas/agent-runtime.schema.json",
+  "title": "WorldForge Agent Profile runtime projection",
+  "description": "产品侧只读投影清单。真值以本 Schema 为准；产品永不解析或执行 .agent-presets/<id>/agent.cordis.yml。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "displayName",
+    "description",
+    "surfaces",
+    "mode",
+    "systemPrompt",
+    "toolPolicy",
+    "outputContract",
+    "statusPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "description": "投影清单结构版本。结构发生不兼容变化时才递增。",
+      "const": 1
+    },
+    "id": {
+      "description": "Preset 稳定 ID，必须与所在目录名完全一致。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "version": {
+      "description": "投影内容版本，语义化版本。prompt 或契约变化时必须递增。",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+    },
+    "displayName": {
+      "description": "浏览器可见的名称，不含路径、插件名或内部实现细节。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "description": {
+      "description": "浏览器可见的单句说明。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "surfaces": {
+      "description": "该 preset 可用于哪些产品入口。每项都必须落在兼容矩阵内。",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["lore", "free", "card"]
+      }
+    },
+    "mode": {
+      "description": "产品侧交互模式。",
+      "enum": ["structured_lore", "free_chat", "structured_card"]
+    },
+    "systemPrompt": {
+      "description": "相对 preset 根的只读 prompt 路径。禁止绝对路径与路径穿越。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "not": {
+        "anyOf": [
+          { "pattern": "^/" },
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "^\\\\" },
+          {
+            "pattern": "(?:^|/)\\.\\.(?:/|$)"
+          }
+        ]
+      }
+    },
+    "toolPolicy": {
+      "description": "服务端白名单内的工具策略。preset 不能借此扩大硬上限。",
+      "enum": ["none", "free_lore_readonly", "card_context_readonly"]
+    },
+    "outputContract": {
+      "description": "已登记输出契约名称。不接受文件路径、模块名或任意字符串。",
+      "enum": ["lore_blocks_v2", "free_chat_v1", "card_patch_v1"]
+    },
+    "statusPolicy": {
+      "description": "该入口允许产出的内容状态。",
+      "enum": ["proposed_only", "proposed_or_untested"]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "surfaces": { "contains": { "const": "lore" } } }, "required": ["surfaces"] },
+      "then": {
+        "properties": {
+          "mode": { "const": "structured_lore" },
+          "outputContract": { "const": "lore_blocks_v2" },
+          "toolPolicy": { "const": "none" },
+          "statusPolicy": { "const": "proposed_only" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "surfaces": { "contains": { "const": "free" } } }, "required": ["surfaces"] },
+      "then": {
+        "properties": {
+          "mode": { "const": "free_chat" },
+          "outputContract": { "const": "free_chat_v1" },
+          "toolPolicy": { "const": "free_lore_readonly" },
+          "statusPolicy": { "const": "proposed_only" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "surfaces": { "contains": { "const": "card" } } }, "required": ["surfaces"] },
+      "then": {
+        "properties": {
+          "mode": { "const": "structured_card" },
+          "outputContract": { "const": "card_patch_v1" },
+          "toolPolicy": { "const": "none" },
+          "statusPolicy": { "const": "proposed_or_untested" }
+        }
+      }
+    }
+  ]
+}

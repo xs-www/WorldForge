@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "incompatible",
+  "version": "0.1.0",
+  "displayName": "夹具非法兼容组合",
+  "description": "非法夹具：free surface 声明了 lore 的 mode 与输出契约。",
+  "surfaces": ["free"],
+  "mode": "structured_lore",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}

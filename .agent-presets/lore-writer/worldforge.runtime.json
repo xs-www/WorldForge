@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "lore-writer",
+  "version": "1.0.0",
+  "displayName": "WorldForge 设定写作",
+  "description": "按条目类型与内容块产出可直接回填的 proposed 设定候选，并保留事实层次与开放问题。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}

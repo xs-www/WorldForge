@@ -1,5 +1,63 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Agent Profile 契约与 Sprint 0 归档
+
+本次实现 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0：固化产品侧 Agent Profile 的契约、兼容矩阵、提示词层次与测试夹具。**不修改任何产品运行时**：`server.mjs`、`ai-harness.mjs`、`ai-agent.mjs`、`ai-tools.mjs`、API 路由、SQLite、Dockerfile、前端与 canon 全部未改动，`server.mjs` 仍使用 `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS` 固定常量。Sprint 1–5 未开始。
+
+### `docs/adr/ADR-0029-agent-profile-runtime-projection.md`
+
+- 状态 `canon（技术边界）`，记录四个候选方案（内嵌 DSH / 直接解析 `agent.cordis.yml` / 同目录产品投影 / 保留固定常量）与代价，采用「同目录产品投影」。
+- 拒绝执行 DSH 组装的三个理由：`agent.cordis.yml` 依赖宿主 registry/sandbox/permission/session/tool 服务；三个 preset 都用 `!!js` 按 `baseUrl` 解析 `skills/`；它声明的是能力组合而非产品运行时权限。
+- §1：产品只读 `worldforge.runtime.json` 与 `runtime/system.md`，永不读取 `agent.cordis.yml`、`preset.yml`、`skills/`，不引入 DSH 生产依赖，镜像不复制设计仓库。
+- §2–§5：按 surface 独立保存服务端默认值并持久化到 `agent-settings.json`（Sprint 1/3 实施）；请求携带 `presetId` 快照、响应回显权威解析值；自由聊天切换 preset 即新对话并逐轮保存快照；本轮只允许仓库随附 preset；卡牌 Agent 只返回受验证补丁。
+- §6 兼容矩阵（冻结）：`lore/structured_lore/lore_blocks_v2/none`、`free/free_chat/free_chat_v1/free_lore_readonly`、`card/structured_card/card_patch_v1/none` 三行合法；`card_context_readonly` 保留给 Sprint 4，不得提前出现在 manifest 中。
+- §7 提示词六层顺序（冻结）：`product_boundary` 与 `entry_contract` 由代码拼装且 preset 不可替换，`preset_runtime` 是 preset 唯一可贡献的层，`author_prompts`、`task_request`、`untrusted_context` 依次降低；延续 ADR-0025，第 2 层只写能力陈述与输出纪律，不重复第 1、3 层已有禁令。
+- §9 冻结 11 个稳定错误码：`AGENT_ROOT_UNREADABLE`、`AGENT_MANIFEST_UNREADABLE`、`AGENT_MANIFEST_INVALID`、`AGENT_ENUM_UNKNOWN`、`AGENT_ID_MISMATCH`、`AGENT_COMPAT_MISMATCH`、`AGENT_PROMPT_MISSING`、`AGENT_PROMPT_PATH_UNSAFE`、`AGENT_PROMPT_TOO_LARGE`、`AGENT_PROFILE_UNKNOWN`、`AGENT_PROFILE_INCOMPATIBLE`。
+- §未解决问题：DSH persona 与产品投影的漂移（后续可考虑从单一来源生成）、`card_context_readonly` 的最终语义、提示词审查清单、五个裁定项待作者逐条确认。
+
+### `docs/schemas/agent-runtime.schema.json`
+
+- JSON Schema 2020-12，`additionalProperties: false`，11 个必填字段：`schemaVersion`(`const 1`)、`id`、`version`、`displayName`、`description`、`surfaces`、`mode`、`systemPrompt`、`toolPolicy`、`outputContract`、`statusPolicy`。
+- 枚举冻结：surface `lore|free|card`；mode `structured_lore|free_chat|structured_card`；toolPolicy `none|free_lore_readonly|card_context_readonly`；outputContract `lore_blocks_v2|free_chat_v1|card_patch_v1`；statusPolicy `proposed_only|proposed_or_untested`。
+- `id` 必须是 kebab-case 且与目录名一致；`version` 必须是语义化版本；`systemPrompt` 的 `not.anyOf` 拒绝根路径、Windows 与 UNC 绝对路径以及 `..` 穿越；`surfaces` 至少 1 项、最多 3 项且不重复。
+- `allOf` 三条 `if/then` 分支把 §6 兼容矩阵编码进 Schema：任何声明了 `lore`/`free`/`card` 的 manifest 都被强制到该行对应的 mode、outputContract、toolPolicy 与 statusPolicy。
+- 本文件是产品侧机器可读真值；Sprint 1 的 Registry 必须直接依据它校验，不得另立规则。
+
+### 三个 preset 的产品投影
+
+- `.agent-presets/lore-writer/worldforge.runtime.json`：`["lore"]` / `structured_lore` / `runtime/system.md` / `none` / `lore_blocks_v2` / `proposed_only`。
+- `.agent-presets/free-creator/worldforge.runtime.json`：`["free"]` / `free_chat` / `runtime/system.md` / `free_lore_readonly` / `free_chat_v1` / `proposed_only`。
+- `.agent-presets/card-designer/worldforge.runtime.json`：`["card"]` / `structured_card` / `runtime/system.md` / `none` / `card_patch_v1` / `proposed_or_untested`。
+- 三个 `runtime/system.md` 只承载第 2 层：`lore-writer` 保留事实层次、`proposed` 候选、原创性与「本候选」元话语禁令；`free-creator` 保留「不要强制 JSON」、`status`/`truthScope` 表述纪律与检索停止规则；`card-designer` 保留「作者拥有 canon 决定权」、`proposed`/`untested`、ID 白名单、字段互斥、目标/时机/顺序/持续/反制/边界六项与平衡措辞禁令。
+- 三份 prompt 均不含 `@deepseek-ai/`、`agent.cordis.yml`、`dsh-tool-`、机器绝对路径或代码围栏，因此产品投影不会泄露 DSH 内部实现。
+- `ai-harness.mjs` 的 `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS` 本次**未删除**；它们将在 Sprint 2 拆分为第 1 层与第 3 层常量，本轮先建立可对照的语义基线。
+
+### `tests/agent-profile-contract.test.mjs`
+
+- 内含只实现本 Schema 实际使用关键字的最小校验器（`type`/`const`/`enum`/`pattern`/`minLength`/`maxLength`/`minItems`/`maxItems`/`uniqueItems`/`items`/`required`/`properties`/`additionalProperties`/`allOf`/`if`-`then`/`contains`/`not`/`anyOf`），避免为 Sprint 0 引入 ajv 生产依赖。
+- 11 项测试：Schema 枚举与必填字段自检；三个随仓库投影通过校验且 `id` 与目录名一致；三个投影落在兼容矩阵对应行；9×3×3×3 组合全量枚举且恰好 3 行合法；未登记 surface 被拒绝；同一 preset 跨 surface 复用被拒绝；合法/拒绝夹具按预期原因失败；重复 ID 与超长 prompt 被拒绝；prompt 路径留在 preset 根目录内且为有效 UTF-8；六层顺序在 ADR 中按序出现；三份 prompt 不泄露 DSH 内部且不重复第 1、3 层禁令。
+- `PROMPT_LIMIT = 32768` 与 ADR §8 的长度上限一致；超长夹具用内存拼接而非提交 32 KB 以上的仓库文件。
+
+### `tests/fixtures/agent-profiles/`
+
+- `legal/fixture-lore`、`legal/fixture-card`：最小合法投影，用于验证路径解析、UTF-8 与 `proposed_or_untested` 状态策略。
+- `reject/` 8 个目录：`unknown-field`（额外 `plugins` 字段）、`unknown-enum`（`agentic_shell` / `full_access`）、`absolute-path`（`C:\...`）、`traversal`（`../../agent.cordis.yml`）、`directory-mismatch`（`id` 与目录名不符）、`incompatible-combination`（`free` surface 配 `structured_lore` 与 `lore_blocks_v2`）、`missing-prompt`（`runtime/absent.md`）、`empty-prompt`（空串触发 `minLength`）。
+
+### 文档与索引
+
+- `.agent-presets/README.md` 新增目录结构与「产品投影」小节，说明改产品侧 persona 时必须同时改 `agent.cordis.yml` 与产品投影，以及投影漂移由契约测试暴露。
+- `README.md` 说明 preset 携带只读投影与 ADR-0029 边界，并把计划标注为「Sprint 0 已完成、运行时选择器未实现」。
+- `docs/adr/README.md` 登记 ADR-0029，后续编号改为从 `ADR-0030` 开始。
+- `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 增加「执行进度」行与 §7.6 Sprint 0 执行记录表。
+- `todo.md` 标记 Sprint 0 完成，保留「实现 Sprint 1–5」与「作者逐条确认 ADR-0029 五个选项」两项未完成。
+
+### 验证与未验证
+
+- `npm run check` 全通过：156 项测试，其中本次新增 11 项；节点版本 v22.23.2。
+- 手工核对：三个投影与 `ai-harness.mjs` 现有两段系统提示的语义一致性；夹具拒绝原因逐目录核对。
+- **未验证**：Registry 加载与确定性哈希、`GET /api/ai/presets`、`agent-settings.json` 迁移、Docker 镜像与本机 preset 一致性、设置页选择器、`POST /api/ai/card`、真实模型端到端。这些属于 Sprint 1–5，本轮不得声称已验证。
+- 运行环境说明：Node 内置测试运行器需要为每个测试文件 spawn 子进程，在受限沙箱下会以 `spawn EPERM` 失败，因此 `npm run check` 需要完整文件访问权限。
+
 ## 2026-10-17 Agent preset 产品接入 Sprint 计划归档
 
 本次只新增 proposed 开发计划，不修改产品运行时、API、数据库、Docker 镜像或任何 canon。计划文件为 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`。

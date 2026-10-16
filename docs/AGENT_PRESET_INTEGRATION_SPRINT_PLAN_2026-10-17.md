@@ -5,6 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
+- 执行进度：Sprint 0 已完成（2026-10-17，见 §7.6）；Sprint 1–5 未开始，`server.mjs` 仍使用固定提示常量。
 
 ## 1. 执行摘要
 
@@ -318,6 +319,21 @@
 1. 是否接受产品只读取仓库随附 preset，不扫描用户 DSH 目录；
 2. 是否接受自由聊天切换 preset 即新建对话；
 3. 是否接受产品内 preset 选择按 surface 独立保存，而不是一个全局选择。
+
+### 7.6 Sprint 0 执行记录（2026-10-17）
+
+| 任务 | 产物 | 状态 |
+|---|---|---|
+| S0-01 | `docs/adr/ADR-0029-agent-profile-runtime-projection.md` | 完成：记录四个候选方案、拒绝执行 YAML/JS 的理由、兼容矩阵、提示词六层顺序、11 个稳定错误码与未来扩展点 |
+| S0-02 | `docs/schemas/agent-runtime.schema.json` | 完成：JSON Schema 2020-12，`additionalProperties: false`，未知 mode/surface/toolPolicy/outputContract/statusPolicy 与额外字段全部拒绝 |
+| S0-03 | ADR §6 + `tests/agent-profile-contract.test.mjs` | 完成：9 种 surface×mode×contract×toolPolicy 组合全量枚举，恰好 3 行合法；lore preset 用于 free/card 被拒绝 |
+| S0-04 | ADR §7 | 完成：六层顺序 `product_boundary` → `preset_runtime` → `entry_contract` → `author_prompts` → `task_request` → `untrusted_context`；preset 只能贡献第 2 层 |
+| S0-05 | 三个 preset 的 `worldforge.runtime.json` + `runtime/system.md` | 完成：语义与 `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS` 一致，未改动 `ai-harness.mjs`、`server.mjs` 或任何 API |
+| 夹具 | `tests/fixtures/agent-profiles/` | 完成：2 个合法夹具 + 8 个拒绝夹具（未知字段、未知枚举、绝对路径、路径穿越、目录不符、非法组合、缺失 prompt、空 prompt） |
+
+验证：`npm run check` 全通过（156 项测试，含新增 11 项契约测试）。尚未验证的部分属于 Sprint 1 及以后：Registry 加载、确定性哈希、`GET /api/ai/presets`、`agent-settings.json`、Docker 打包一致性、设置 UI 与卡牌 Agent。
+
+§7.4 的三个决策门与 §17 的五个裁定项：计划已声明「若作者没有另行裁定，计划默认采用以上推荐项」，作者指示实现 Sprint 0 即视为接受推荐项，已按此写入 ADR-0029 并在 `todo.md` 保留逐条确认项。若作者改判，需要同步修改 Schema、三个 manifest 与夹具。
 
 ## 8. Sprint 1：Registry、哈希与部署闭包
 

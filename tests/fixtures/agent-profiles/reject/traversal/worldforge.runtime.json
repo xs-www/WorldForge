@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "traversal",
+  "version": "0.1.0",
+  "displayName": "夹具路径穿越",
+  "description": "非法夹具：systemPrompt 试图逃出 preset 目录。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "../../agent.cordis.yml",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "unknown-enum",
+  "version": "0.1.0",
+  "displayName": "夹具未知枚举",
+  "description": "非法夹具：mode 与 toolPolicy 都不是已登记枚举值。",
+  "surfaces": ["free"],
+  "mode": "agentic_shell",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "full_access",
+  "outputContract": "free_chat_v1",
+  "statusPolicy": "proposed_only"
+}

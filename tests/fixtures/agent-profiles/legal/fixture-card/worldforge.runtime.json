@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "fixture-card",
+  "version": "0.1.0",
+  "displayName": "夹具卡牌设计",
+  "description": "合法夹具：单个 card surface 的投影，状态策略包含 untested。",
+  "surfaces": ["card"],
+  "mode": "structured_card",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "card_patch_v1",
+  "statusPolicy": "proposed_or_untested"
+}

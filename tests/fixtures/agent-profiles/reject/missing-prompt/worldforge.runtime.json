@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "missing-prompt",
+  "version": "0.1.0",
+  "displayName": "夹具缺少提示文件",
+  "description": "非法夹具：声明的 prompt 文件不存在，必须拒绝而不是回退到默认 persona。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "runtime/absent.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}
