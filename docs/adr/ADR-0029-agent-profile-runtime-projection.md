@@ -1,9 +1,12 @@
 # ADR-0029：产品内 Agent Profile 使用只读产品投影，不执行 DSH 组装
 
-- 状态：canon（技术边界）
+- 状态：`proposed`，等待作者对 §17 五项逐条签字后转为 `canon（技术边界）`
 - 日期：2026-10-17
-- 决策者：作者
-- 来源：`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`（Sprint 0 决策门）。该计划已列出推荐项并声明「若作者没有另行裁定，计划默认采用以上推荐项」，作者指示按其实现 Sprint 0，即视为接受以下推荐项。
+- 决策者：作者（待签字）
+- 来源：`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`（Sprint 0 决策门）
+- 决策范围：作者指示「实现 Sprint 0」只批准了实施动作，**不构成**对 §17 五项推荐项的裁定。在作者逐条回复前，本文件中的兼容矩阵、提示词层次与错误码是**未经批准的提议契约**，不得被引用为已批准 canon。
+
+> 治理说明：2026-10-17 只读验收指出本文件此前标记为 canon 并称作者已接受推荐项，与同文件「未解决问题」及 `todo.md` 的「作者尚未逐条确认」自相矛盾，违反作者主权约束（`AGENTS.md` §2.1）。本次修正把状态降回 `proposed` 并保留全部技术内容；签字后只改状态行与 §未解决问题，不改契约内容。
 
 ## 背景
 
@@ -153,13 +156,25 @@ Sprint 0 交付的是契约与夹具，不是实现。目前可验证的部分�
 
 - `docs/schemas/agent-runtime.schema.json` 能拒绝未知 mode / surface / toolPolicy / outputContract / statusPolicy 与额外字段。
 - 三个随仓库 preset 的 `worldforge.runtime.json` 与 `runtime/system.md` 通过该 Schema，并与现有产品提示语义一致（对照 `ai-harness.mjs` 的 `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS`）。
-- `tests/fixtures/agent-profiles/` 提供合法与非法夹具：重复 ID、目录不符、未知字段、未知枚举、绝对路径、路径穿越、非法兼容组合、空 systemPrompt。
-- 提示词层次顺序在测试中以具名层序列固定。
+- `tests/fixtures/agent-profiles/` 提供合法与非法夹具：重复 ID（两个真实目录声明同一 id）、目录不符、未知字段、未知枚举、绝对路径、路径穿越、非法兼容组合、缺失 prompt、空 prompt 与真实超长的 prompt 文件。
+- 提示词层次顺序由 `agent-profile-contract.mjs` 的 `AGENT_PROMPT_LAYERS` 与 `tests/snapshots/agent-prompt-layers.json` 快照共同固定；`agent-profile-contract.mjs` 的枚举、兼容矩阵与错误码同时与 Schema 和本 ADR 交叉校验。
 - 尚**未**实现：Registry 加载、哈希计算、API、设置持久化、Docker 打包、前端选择器、卡牌 Agent。因此「本机与容器列出相同 preset」「兼容性错误在模型调用前返回 400」等验收项属于 Sprint 1 及以后，当前不得声称已验证。
+
+## 作者签字门（§10）
+
+以下五项是计划 §17 的裁定项。作者逐条回复前，本 ADR 保持 `proposed`；签字方式为逐条「接受 / 改判」。
+
+| # | 裁定项 | 当前写入的提议值 | 若改判的技术后果 |
+|---|---|---|---|
+| 1 | 产品只读取仓库随附的只读投影，不扫描 DSH 用户目录 | 接受：`AGENT_PRESETS_DIRECTORY = '.agent-presets'`，不读 `~/.dsh` | 需要新增显式导入流程与来源校验；Schema 需增加来源字段 |
+| 2 | lore / free / card 三个入口独立保存 preset | 接受：按 surface 保存，`GET /api/settings` 暴露 `agentPresets` 映射 | 改为全局单一选择需删除矩阵的按 surface 维度，并重写 Sprint 3 交互 |
+| 3 | 自由聊天切换 preset 时开启新对话 | 接受：有历史即新建会话，逐轮保存快照 | 允许就地切换需定义历史语义迁移与审计方案 |
+| 4 | 本轮不支持导入自定义 preset | 接受：只允许仓库随附 preset | 需要额外的可信来源、签名或人工审查流程 |
+| 5 | 卡牌 Agent 使用独立浮动面板，只返回受验证字段补丁 | 接受：`card_patch_v1` + 服务端白名单复核，固定 `proposed` / `untested` | 改为可写入需重新引入作者确认点与回滚设计 |
 
 ## 未解决问题
 
+- **作者尚未对 §10 五项签字**；签字前本文件为 `proposed`，`docs/schemas/agent-runtime.schema.json` 与三个 manifest 是提议契约。若作者改判，需同步修改 Schema、三个 manifest、`agent-profile-contract.mjs`、快照与夹具。
 - DSH persona 与产品投影的漂移：本轮用「同目录版本化 + 哈希 + 语义测试」抑制。后续是否增加生成脚本，从单一 persona 源同时产生 DSH prefix 与产品 `runtime/system.md`，尚未决定。
 - `card_context_readonly` 的最终语义：卡牌上下文目前计划由请求体携带（作者选中的卡牌、允许引用的 ID），不一定需要模型工具。Sprint 4 若确认无需工具，该枚举值应从 Schema 中删除而不是长期闲置。
 - 第 2 层 `runtime/system.md` 与第 1、3 层的重复边界：`runtime/system.md` 已按 ADR-0025 原则只写能力陈述与输出纪律，但「哪些约束对应真实失效模式」的长期提示词审查清单仍未建立（`todo.md` 已记录）。
-- 作者尚未逐条确认本 ADR 的五个选项；若作者改判，需同步修改 `docs/schemas/agent-runtime.schema.json`、三个 manifest 与夹具。

@@ -1,5 +1,37 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 0 只读验收修正归档
+
+本次响应 Sprint 0 只读验收结论：工程实现通过，但存在 1 个治理阻断项与 2 个测试偏差。修正**不涉及任何运行时**（`server.mjs`、`ai-harness.mjs`、API、SQLite、Dockerfile、前端与 canon 均未改动）。
+
+### 治理修正：ADR-0029 降回 `proposed`
+
+- 原状态行写「canon（技术边界）／决策者：作者」并推论「作者指示实现 Sprint 0 即视为接受推荐项」，与同文件「未解决问题」及 `todo.md` 的「作者尚未逐条确认」自相矛盾，违反 `AGENTS.md` §2.1 作者主权。
+- 现在状态为 `proposed`，决策者为「作者（待签字）」，并新增决策范围声明：作者指示只批准实施动作，不构成对推荐项的裁定；签字前兼容矩阵、提示词层次与错误码是**提议契约**，不得引用为已批准 canon。
+- 新增 §10「作者签字门」：逐条列出计划 §17 的五项、当前写入的提议值与改判的技术后果（自定义 preset 导入需来源校验、取消按 surface 保存需重写 Sprint 3、允许就地切换需定义历史语义迁移、卡牌可写入需重新引入作者确认点、不扫描用户目录需新增显式导入流程）。
+- §未解决问题首条改为「作者尚未对 §10 五项签字」；签字后只改状态行，不改契约内容。
+- `docs/adr/README.md` 索引与 `README.md`、`todo.md`、Sprint 计划 §7.6/§7.7 同步标注「`proposed`、正式验收未通过」。
+
+### 测试偏差一：重复 ID 与超长 prompt 改为真实磁盘夹具
+
+- 新增 `tests/fixtures/agent-profiles/reject/duplicate-id/fixture-a/`、`fixture-b/`：两个真实 preset 目录声明同一个 `id: duplicate-id`，各自带 `runtime/system.md`。测试按 Registry 语义逐个加载，断言「单独加载任一目录成功、同一批加载第二个抛重复 ID」，从而区分「重复」与「其他原因失败」。
+- 新增 `tests/fixtures/agent-profiles/reject/oversized-prompt/`：`runtime/system.md` 是真实磁盘文件，895 行 / 34017 字符，文件头四行自述用途，明确要求「不要为了美观截短它」。测试读取真实文件并用契约常量 `AGENT_PROMPT_MAX_CHARS` 判定。
+- 拒绝夹具总数由 8 增至 10（原 8 个 + 重复 ID 批量 + 超长 prompt）。夹具目录既可以是单个 preset 目录，也可以是一批目录；`manifestDirectories()` 统一解析，`FIXTURE_DIRECTORY_COUNT` 固定每类目录数，避免新增夹具时静默漏检。
+- 测试内的超长字符串拼接与内存夹具逻辑已删除；真实 preset 的 prompt 长度仍被断言在限制内，防止修夹具时把上限调歪。
+
+### 测试偏差二：提示词顺序改为真正的 snapshot 回归保护
+
+- 新增 `agent-profile-contract.mjs`：代码侧契约真值模块，导出 `AGENT_RUNTIME_SCHEMA_VERSION`、`AGENT_RUNTIME_MANIFEST`、`AGENT_PRESETS_DIRECTORY`、`AGENT_PROMPT_MAX_CHARS`、`AGENT_SURFACES`、`AGENT_MODES`、`AGENT_TOOL_POLICIES`、`AGENT_OUTPUT_CONTRACTS`、`AGENT_STATUS_POLICIES`、`AGENT_SURFACE_COMPATIBILITY`、`AGENT_PROFILE_ERROR_CODES`、`AGENT_PROMPT_LAYERS`（含 `priority`、`source`、`replaceableByPreset`）与 `AGENT_PRESET_REPLACEABLE_LAYER`。全部冻结，无文件系统或网络访问，也不读取 `agent.cordis.yml`。Sprint 1 的 Registry 应直接 import 这些常量，而不是把枚举重写一遍。
+- 新增 `tests/snapshots/agent-prompt-layers.json`：六层顺序快照。测试对 `AGENT_PROMPT_LAYERS` 做 `deepEqual`，任何重排都会失败并提示同步 ADR-0029 §7 与快照；同时断言优先级恰为 1–6、只有 `preset_runtime` 的 `replaceableByPreset` 为 `true`、第 1 与第 3 层不可替换、ADR 按同序记录层名。
+- 新增「代码侧契约常量与 Schema、ADR 一致」测试：枚举逐项与 `docs/schemas/agent-runtime.schema.json` 比对；兼容矩阵每项必须落在 Schema 枚举内；错误码用 ADR 表格行的反引号标识符收敛比对，既保证行数一致也保证集合一致（此断言在不加限定时曾因正文提到 `AGENT_PRESETS_DIRECTORY` 等常量名而失败，故限定为表格行）。
+- `package.json` 的 `check` 加入 `node --check agent-profile-contract.mjs`。
+
+### 验证
+
+- `npm run check` 全通过：157 项测试（上次 156 项；契约测试由 11 项增至 12 项）。
+- 未验证项不变：Registry 加载与哈希、`GET /api/ai/presets`、`agent-settings.json`、Docker 打包一致性、设置 UI、`POST /api/ai/card`、真实模型端到端。
+- 仍未关闭：ADR-0029 §10 五项签字。这是 Sprint 0 正式验收的唯一剩余条件。
+
 ## 2026-10-17 Agent Profile 契约与 Sprint 0 归档
 
 本次实现 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0：固化产品侧 Agent Profile 的契约、兼容矩阵、提示词层次与测试夹具。**不修改任何产品运行时**：`server.mjs`、`ai-harness.mjs`、`ai-agent.mjs`、`ai-tools.mjs`、API 路由、SQLite、Dockerfile、前端与 canon 全部未改动，`server.mjs` 仍使用 `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS` 固定常量。Sprint 1–5 未开始。

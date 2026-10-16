@@ -1,28 +1,39 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { test } from 'node:test';
+import {
+  AGENT_MODES,
+  AGENT_OUTPUT_CONTRACTS,
+  AGENT_PRESET_REPLACEABLE_LAYER,
+  AGENT_PRESETS_DIRECTORY,
+  AGENT_PROFILE_ERROR_CODES,
+  AGENT_PROMPT_LAYERS,
+  AGENT_PROMPT_MAX_CHARS,
+  AGENT_RUNTIME_MANIFEST,
+  AGENT_RUNTIME_SCHEMA_VERSION,
+  AGENT_STATUS_POLICIES,
+  AGENT_SURFACES,
+  AGENT_SURFACE_COMPATIBILITY,
+  AGENT_TOOL_POLICIES
+} from '../agent-profile-contract.mjs';
 
-// Sprint 0 只固化契约：本文件校验 agent-runtime Schema、三个随仓库 preset 的
-// 产品投影、合法/非法夹具、提示词路径安全与提示词层次顺序。
+// Sprint 0 只固化契约：本文件校验 agent-runtime Schema、代码侧契约常量、三个随仓库
+// preset 的产品投影、合法/非法夹具、提示词路径安全与提示词层次顺序快照。
 // Registry 加载、哈希、API 与 Docker 打包属于 Sprint 1，不在这里假装已实现。
 
 const schemaUrl = new URL('../docs/schemas/agent-runtime.schema.json', import.meta.url);
 const adrUrl = new URL('../docs/adr/ADR-0029-agent-profile-runtime-projection.md', import.meta.url);
-const presetsRoot = new URL('../.agent-presets/', import.meta.url);
+const snapshotUrl = new URL('snapshots/agent-prompt-layers.json', import.meta.url);
+const presetsRoot = new URL(`../${AGENT_PRESETS_DIRECTORY}/`, import.meta.url);
 const fixtureRoot = new URL('fixtures/agent-profiles/', import.meta.url);
-const manifestName = 'worldforge.runtime.json';
+const manifestName = AGENT_RUNTIME_MANIFEST;
 
 const PRESET_IDS = ['card-designer', 'free-creator', 'lore-writer'];
-const PROMPT_LIMIT = 32768;
-const SURFACES = ['card', 'free', 'lore'];
-const MODES = ['free_chat', 'structured_card', 'structured_lore'];
-const CONTRACTS = ['card_patch_v1', 'free_chat_v1', 'lore_blocks_v2'];
-const TOOL_POLICIES = ['card_context_readonly', 'free_lore_readonly', 'none'];
-const COMPATIBILITY = Object.freeze({
-  lore: { mode: 'structured_lore', outputContract: 'lore_blocks_v2', toolPolicy: 'none', statusPolicy: 'proposed_only' },
-  free: { mode: 'free_chat', outputContract: 'free_chat_v1', toolPolicy: 'free_lore_readonly', statusPolicy: 'proposed_only' },
-  card: { mode: 'structured_card', outputContract: 'card_patch_v1', toolPolicy: 'none', statusPolicy: 'proposed_or_untested' }
-});
+const SURFACES = [...AGENT_SURFACES].sort();
+const MODES = [...AGENT_MODES].sort();
+const CONTRACTS = [...AGENT_OUTPUT_CONTRACTS].sort();
+const TOOL_POLICIES = [...AGENT_TOOL_POLICIES].sort();
+const COMPATIBILITY = AGENT_SURFACE_COMPATIBILITY;
 
 const schema = JSON.parse(await readFile(schemaUrl, 'utf8'));
 
@@ -164,6 +175,20 @@ test('a preset frozen for one surface cannot be reused for another', () => {
   assert.deepEqual(validate(schema, misused), [], '换掉整个投影后才合法，说明它必须是一个不同的 preset');
 });
 
+const SCHEMA_REJECTED_FIXTURES = new Set(['unknown-field', 'unknown-enum', 'incompatible-combination', 'absolute-path', 'traversal', 'empty-prompt']);
+/** 需要跨目录或跨文件判断、无法靠单个 manifest 结构性错误发现的夹具。 */
+const CROSS_CHECK_FIXTURES = new Set(['duplicate-id', 'oversized-prompt']);
+/** 单个目录内的夹具数量：其余都是一个目录一个夹具。 */
+const FIXTURE_DIRECTORY_COUNT = { 'duplicate-id': 2 };
+
+/** reject/<id> 既可以是单个 preset 目录，也可以是一批 preset 目录（重复 ID 需要两个）。 */
+async function manifestDirectories(entry) {
+  const directory = new URL(`reject/${entry}/`, fixtureRoot);
+  if (await stat(new URL(manifestName, directory)).catch(() => null)) return [{ label: `reject/${entry}`, directory }];
+  const children = await readdir(directory);
+  return children.map(child => ({ label: `reject/${entry}/${child}`, directory: new URL(`${child}/`, directory) }));
+}
+
 test('legal fixtures validate and reject fixtures fail for the intended reason', async () => {
   for (const id of ['fixture-lore', 'fixture-card']) {
     const manifest = await readManifest(new URL(`legal/${id}/${manifestName}`, fixtureRoot));
@@ -173,41 +198,74 @@ test('legal fixtures validate and reject fixtures fail for the intended reason',
   }
 
   const rejected = await readdir(new URL('reject/', fixtureRoot));
-  assert.ok(rejected.length >= 8, '至少覆盖未知字段、未知枚举、绝对路径、路径穿越、目录不符、非法组合、缺失与空 prompt');
-  for (const id of rejected) {
-    const directory = new URL(`reject/${id}/`, fixtureRoot);
-    const manifest = await readManifest(new URL(manifestName, directory));
-    const structural = validate(schema, manifest);
-    const directoryMismatch = manifest.id !== id;
-    const promptMissing = !(await stat(new URL(manifest.systemPrompt, directory)).catch(() => null))?.isFile();
-    assert.ok(structural.length > 0 || directoryMismatch || promptMissing, `reject/${id} should fail for a named reason`);
-    // 「未知字段」与「未知枚举」必须由 Schema 本身拦下，而不是靠目录名或缺失文件。
-    if (id === 'unknown-field' || id === 'unknown-enum' || id === 'incompatible-combination' || id === 'absolute-path' || id === 'traversal' || id === 'empty-prompt') {
-      assert.notDeepEqual(structural, [], `reject/${id} must be rejected by the schema`);
+  assert.ok(rejected.length >= 10, '至少覆盖未知字段、未知枚举、绝对路径、路径穿越、目录不符、非法组合、缺失/空/超长 prompt 与重复 ID');
+  let seen = 0;
+  for (const entry of rejected) {
+    const directories = await manifestDirectories(entry);
+    assert.equal(directories.length, FIXTURE_DIRECTORY_COUNT[entry] ?? 1, `reject/${entry} 的 preset 目录数不符合预期`);
+    for (const { label, directory } of directories) {
+      seen += 1;
+      const manifest = await readManifest(new URL(manifestName, directory));
+      const structural = validate(schema, manifest);
+      const promptPath = new URL(manifest.systemPrompt, directory);
+      const promptStat = await stat(promptPath).catch(() => null);
+      const directoryMismatch = manifest.id !== entry;
+      const promptMissing = !promptStat?.isFile();
+      const promptTooLarge = Boolean(promptStat?.isFile()) && (await readFile(promptPath, 'utf8')).length > AGENT_PROMPT_MAX_CHARS;
+      const failure = structural.length > 0 || directoryMismatch || promptMissing || promptTooLarge || CROSS_CHECK_FIXTURES.has(entry);
+      assert.ok(failure, `${label} should fail for a named reason`);
+      // 结构类夹具必须由 Schema 本身拦下，而不是靠目录名、缺失文件或长度。
+      if (structural.length === 0 && !promptMissing && SCHEMA_REJECTED_FIXTURES.has(entry)) {
+        assert.fail(`${label} must be rejected by the schema`);
+      }
     }
   }
+  assert.ok(seen >= 11, '夹具目录数应覆盖全部拒绝场景');
+  // 重复 ID 与超长 prompt 使用真实磁盘夹具，不再由测试临时构造。
+  assert.equal((await readdir(new URL('reject/duplicate-id/', fixtureRoot))).length, 2, '重复 ID 必须有两个真实 preset 目录');
+  assert.equal((await stat(new URL('reject/oversized-prompt/runtime/system.md', fixtureRoot))).isFile(), true, '超长 prompt 必须是真实磁盘文件');
 });
 
-test('duplicate manifest ids and an oversized prompt are rejected', async () => {
-  const first = realManifests.get('lore-writer');
-  const second = structuredClone(first);
-  second.surfaces = ['lore'];
-  // 同一个 id 出现在两个目录：Registry 已知的第一个保留，第二个必须失败。
-  const registry = new Map();
-  const errors = [];
-  for (const manifest of [first, second]) {
-    if (registry.has(manifest.id)) errors.push(`duplicate id ${manifest.id}`);
-    else registry.set(manifest.id, manifest);
+test('duplicate ids and an oversized prompt are rejected by fixtures on disk', async () => {
+  // Registry 的加载语义：同一 id 第二次出现必须失败，且不得静默覆盖或改名。
+  const loadRegistry = manifests => {
+    const registry = new Map();
+    for (const { directory, manifest } of manifests) {
+      if (registry.has(manifest.id)) throw new Error(`AGENT_ID_MISMATCH: duplicate id ${manifest.id}`);
+      if (validate(schema, manifest).length > 0) throw new Error(`AGENT_MANIFEST_INVALID: ${directory}`);
+      registry.set(manifest.id, manifest);
+    }
+    return registry;
+  };
+  const batch = [];
+  for (const child of await readdir(new URL('reject/duplicate-id/', fixtureRoot))) {
+    const directory = new URL(`reject/duplicate-id/${child}/`, fixtureRoot);
+    const manifest = await readManifest(new URL(manifestName, directory));
+    assert.deepEqual(validate(schema, manifest), [], `duplicate-id/${child} 单看是合法投影，只有重复 id 让这一批失败`);
+    batch.push({ directory, manifest });
   }
-  assert.deepEqual(errors, ['duplicate id lore-writer']);
+  assert.equal(batch.length, 2);
+  assert.equal(batch[0].manifest.id, batch[1].manifest.id, '两个目录必须声明同一个 id');
+  assert.notEqual(new URL('fixture-a/', fixtureRoot).href, new URL('fixture-b/', fixtureRoot).href);
+  assert.throws(() => loadRegistry(batch), /duplicate id duplicate-id/);
+  assert.equal(loadRegistry([batch[0]]).size, 1, '单独加载其中一个仍然成功，说明失败来自重复而不是其他原因');
 
-  const prompt = await readFile(new URL('lore-writer/runtime/system.md', presetsRoot), 'utf8');
-  assert.ok(prompt.length <= PROMPT_LIMIT, '随仓库 prompt 未超过长度上限');
-  assert.ok(prompt.trim().length > 0, '随仓库 prompt 不是空文件');
-  assert.equal(prompt.includes('\u0000'), false, '随仓库 prompt 不含 NUL，可按 UTF-8 文本使用');
-  const oversized = `${prompt}${'x'.repeat(PROMPT_LIMIT)}`;
-  assert.ok(oversized.length > PROMPT_LIMIT, '超长 prompt 夹具必须在长度检查上失败');
-  assert.throws(() => { if (oversized.length > PROMPT_LIMIT) throw new Error('AGENT_PROMPT_TOO_LARGE'); }, /AGENT_PROMPT_TOO_LARGE/);
+  // 超长 prompt：读取真实文件并用契约常量判定，而不是在内存里拼一个超长字符串。
+  const directory = new URL('reject/oversized-prompt/', fixtureRoot);
+  const manifest = await readManifest(new URL(manifestName, directory));
+  assert.deepEqual(validate(schema, manifest), [], '超长 prompt 的 manifest 结构本身合法，只有长度让加载失败');
+  const bytes = await readFile(new URL(manifest.systemPrompt, directory));
+  const prompt = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  assert.ok(prompt.length > AGENT_PROMPT_MAX_CHARS, `超长夹具必须真的超过 ${AGENT_PROMPT_MAX_CHARS} 字符（当前 ${prompt.length}）`);
+  const loadPrompt = value => { if (value.length > AGENT_PROMPT_MAX_CHARS) throw new Error('AGENT_PROMPT_TOO_LARGE'); return value; };
+  assert.throws(() => loadPrompt(prompt), /AGENT_PROMPT_TOO_LARGE/);
+
+  // 随仓库的真实 preset prompt 必须仍然在限制内，避免修夹具时把上限调歪。
+  for (const id of PRESET_IDS) {
+    const text = await readFile(new URL(`${id}/runtime/system.md`, presetsRoot), 'utf8');
+    assert.ok(text.length <= AGENT_PROMPT_MAX_CHARS, `${id} prompt should stay within the limit`);
+    assert.ok(text.trim().length > 0, `${id} prompt should not be empty`);
+  }
 });
 
 test('prompt paths stay inside their preset root', async () => {
@@ -227,19 +285,58 @@ test('prompt paths stay inside their preset root', async () => {
   }
 });
 
-test('the prompt assembly order is frozen to six named layers', async () => {
+test('the code-side contract constants agree with the schema and the ADR', async () => {  const adr = await readFile(adrUrl, 'utf8');
+  const properties = schema.properties;
+
+  // 枚举：Schema 是产品侧真值，模块是代码侧真值，两者必须逐项一致。
+  assert.equal(AGENT_RUNTIME_SCHEMA_VERSION, properties.schemaVersion.const);
+  assert.equal(AGENT_RUNTIME_MANIFEST, manifestName);
+  assert.deepEqual([...AGENT_SURFACES].sort(), [...properties.surfaces.items.enum].sort());
+  assert.deepEqual([...AGENT_MODES].sort(), [...properties.mode.enum].sort());
+  assert.deepEqual([...AGENT_OUTPUT_CONTRACTS].sort(), [...properties.outputContract.enum].sort());
+  assert.deepEqual([...AGENT_TOOL_POLICIES].sort(), [...properties.toolPolicy.enum].sort());
+  assert.deepEqual([...AGENT_STATUS_POLICIES].sort(), [...properties.statusPolicy.enum].sort());
+  assert.equal(AGENT_PROMPT_MAX_CHARS, 32768, 'prompt 长度上限必须与 ADR-0029 §8 一致');
+
+  // 兼容矩阵：每个 surface 的每一项都必须落在 Schema 枚举内，且状态策略必须与该行匹配。
+  assert.deepEqual(Object.keys(AGENT_SURFACE_COMPATIBILITY).sort(), [...AGENT_SURFACES].sort());
+  for (const [surface, row] of Object.entries(AGENT_SURFACE_COMPATIBILITY)) {
+    assert.ok(AGENT_MODES.includes(row.mode), `${surface} mode must be a known mode`);
+    assert.ok(AGENT_OUTPUT_CONTRACTS.includes(row.outputContract), `${surface} contract must be a known contract`);
+    assert.ok(AGENT_TOOL_POLICIES.includes(row.toolPolicy), `${surface} tool policy must be a known policy`);
+    assert.ok(AGENT_STATUS_POLICIES.includes(row.statusPolicy), `${surface} status policy must be a known policy`);
+  }
+
+  // 错误码：模块与 ADR §9 必须给出同一组。只取 ADR 表格行里的反引号标识符，
+  // 避免把正文中提到的其他常量名误当成错误码。
+  const adrCodes = [...adr.matchAll(/^\|\s*`(AGENT_[A-Z_]+)`\s*\|/gm)].map(match => match[1]);
+  assert.equal(adrCodes.length, AGENT_PROFILE_ERROR_CODES.length, 'ADR §9 的错误码行数应与模块一致');
+  assert.deepEqual([...new Set(adrCodes)].sort(), [...AGENT_PROFILE_ERROR_CODES].sort(), 'ADR 与模块之间的错误码集合必须完全一致');
+  for (const code of AGENT_PROFILE_ERROR_CODES) assert.ok(adrCodes.includes(code), `ADR must document ${code}`);
+});
+
+test('the prompt layer sequence matches the snapshot and the ADR', async () => {
+  // 真正的顺序回归保护：Sprint 1/2 的拼装函数必须按 AGENT_PROMPT_LAYERS 产出层序列，
+  // 任何重排都会先打断这里的 deepEqual，而不是悄悄改变提示词优先级。
+  const snapshot = JSON.parse(await readFile(snapshotUrl, 'utf8'));
+  assert.deepEqual(AGENT_PROMPT_LAYERS, snapshot.layers, '提示词层次顺序与 snapshot 不一致；若是有意修改，请同步 ADR-0029 §7 与 snapshot');
+  assert.equal(AGENT_PRESET_REPLACEABLE_LAYER, snapshot.replaceableByPreset);
+  assert.deepEqual(AGENT_PROMPT_LAYERS.map(layer => layer.priority), [1, 2, 3, 4, 5, 6]);
+  const replaceable = AGENT_PROMPT_LAYERS.filter(layer => layer.replaceableByPreset);
+  assert.deepEqual(replaceable.map(layer => layer.name), [AGENT_PRESET_REPLACEABLE_LAYER], 'preset 只能替换第 2 层');
+  assert.notEqual(AGENT_PROMPT_LAYERS[0].replaceableByPreset, true, '第 1 层产品边界不可被 preset 替换');
+  assert.notEqual(AGENT_PROMPT_LAYERS[2].replaceableByPreset, true, '第 3 层入口契约不可被 preset 替换');
+
+  // ADR 必须按同一顺序记录层名，避免代码与文档漂移。
   const adr = await readFile(adrUrl, 'utf8');
-  const layerNames = ['product_boundary', 'preset_runtime', 'entry_contract', 'author_prompts', 'task_request', 'untrusted_context'];
   let cursor = -1;
-  for (const layer of layerNames) {
-    const index = adr.indexOf(layer);
-    assert.ok(index > cursor, `ADR must name the layer ${layer} in order`);
+  for (const layer of AGENT_PROMPT_LAYERS) {
+    const index = adr.indexOf(layer.name);
+    assert.ok(index > cursor, `ADR must name the layer ${layer.name} in order`);
     cursor = index;
   }
-  assert.equal(adr.includes('preset 只能贡献第 2 层'), true, 'ADR must state that a preset may only replace the preset layer');
-  for (const manifest of realManifests.values()) {
-    assert.equal(manifest.systemPrompt, 'runtime/system.md');
-  }
+  assert.match(adr, /preset 只能贡献第 2 层/, 'ADR must state that a preset may only replace the preset layer');
+  for (const manifest of realManifests.values()) assert.equal(manifest.systemPrompt, 'runtime/system.md');
 });
 
 test('runtime prompts replace only the preset layer and do not restate the product boundary', async () => {

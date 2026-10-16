@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "duplicate-id",
+  "version": "0.2.0",
+  "displayName": "夹具重复 ID 乙",
+  "description": "非法夹具：id 与 fixture-a 相同但目录名不同，必须作为重复 ID 被拒绝。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}

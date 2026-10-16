@@ -4,8 +4,8 @@
 
 - [x] 将 WorldForge 卡牌设计智能体重构为仓库内可版本化的 DSH Agent preset，并补齐可移植技能与能力边界测试。
 - [x] 将现有结构化设定写作助手与自由创作聊天分别抽离为 `lore-writer`、`free-creator` DSH Agent preset。
-- [x] 完成 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0：ADR-0029 固定「产品只读投影、不执行 DSH 组装」、兼容矩阵、提示词六层顺序与稳定错误码；新增 `docs/schemas/agent-runtime.schema.json`；三个 preset 补齐 `worldforge.runtime.json` + `runtime/system.md`；新增合法/非法夹具与 11 项契约测试。
-- [ ] 作者逐条确认 ADR-0029 的五个集成选项（只读仓库随附投影、按 surface 独立保存、自由聊天切换即新对话、本轮不接受自定义 preset、卡牌 Agent 只返回补丁）；若改判需同步 Schema、三个 manifest 与夹具。
+- [x] 完成 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0 工程实现：兼容矩阵、提示词六层顺序与稳定错误码；新增 `docs/schemas/agent-runtime.schema.json`、`agent-profile-contract.mjs`（契约真值）与提示词层次 snapshot；三个 preset 补齐 `worldforge.runtime.json` + `runtime/system.md`；新增合法/非法夹具与 12 项契约测试。
+- [ ] **Sprint 0 正式验收阻断项**：作者逐条签署 ADR-0029 §10 五项（只读仓库随附投影、按 surface 独立保存、自由聊天切换即新对话、本轮不接受自定义 preset、卡牌 Agent 只返回补丁）。签字前 ADR-0029 保持 `proposed`，Schema 与三个 manifest 是提议契约；签字后只改状态行，改判则需同步 Schema、manifest、契约模块、快照与夹具。
 - [ ] 按同一计划实现 Sprint 1–5：产品内 Agent Profile Registry、分入口选择器与卡牌文字 Agent。当前尚未开始运行时接入，`server.mjs` 仍使用固定提示常量。
 
 - [x] 完成 M0 仓库骨架与基础模板。

@@ -5,7 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
-- 执行进度：Sprint 0 已完成（2026-10-17，见 §7.6）；Sprint 1–5 未开始，`server.mjs` 仍使用固定提示常量。
+- 执行进度：Sprint 0 工程实现已完成（2026-10-17，见 §7.6），只读验收的测试偏差已修正（见 §7.7）；**正式验收未通过**，ADR-0029 保持 `proposed`，等待作者对 §10 五项签字。Sprint 1–5 未开始，`server.mjs` 仍使用固定提示常量。
 
 ## 1. 执行摘要
 
@@ -324,16 +324,24 @@
 
 | 任务 | 产物 | 状态 |
 |---|---|---|
-| S0-01 | `docs/adr/ADR-0029-agent-profile-runtime-projection.md` | 完成：记录四个候选方案、拒绝执行 YAML/JS 的理由、兼容矩阵、提示词六层顺序、11 个稳定错误码与未来扩展点 |
+| S0-01 | `docs/adr/ADR-0029-agent-profile-runtime-projection.md` | 完成（状态 `proposed`）：记录四个候选方案、拒绝执行 YAML/JS 的理由、兼容矩阵、提示词六层顺序、11 个稳定错误码、§10 作者签字门与未来扩展点 |
 | S0-02 | `docs/schemas/agent-runtime.schema.json` | 完成：JSON Schema 2020-12，`additionalProperties: false`，未知 mode/surface/toolPolicy/outputContract/statusPolicy 与额外字段全部拒绝 |
-| S0-03 | ADR §6 + `tests/agent-profile-contract.test.mjs` | 完成：9 种 surface×mode×contract×toolPolicy 组合全量枚举，恰好 3 行合法；lore preset 用于 free/card 被拒绝 |
-| S0-04 | ADR §7 | 完成：六层顺序 `product_boundary` → `preset_runtime` → `entry_contract` → `author_prompts` → `task_request` → `untrusted_context`；preset 只能贡献第 2 层 |
+| S0-03 | ADR §6 + `agent-profile-contract.mjs` + `tests/agent-profile-contract.test.mjs` | 完成：9 种 surface×mode×contract×toolPolicy 组合全量枚举，恰好 3 行合法；lore preset 用于 free/card 被拒绝；代码侧矩阵与 Schema、ADR 三重交叉校验 |
+| S0-04 | ADR §7 + `tests/snapshots/agent-prompt-layers.json` | 完成：六层顺序 `product_boundary` → `preset_runtime` → `entry_contract` → `author_prompts` → `task_request` → `untrusted_context`；preset 只能贡献第 2 层；顺序由 snapshot 回归保护 |
 | S0-05 | 三个 preset 的 `worldforge.runtime.json` + `runtime/system.md` | 完成：语义与 `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS` 一致，未改动 `ai-harness.mjs`、`server.mjs` 或任何 API |
-| 夹具 | `tests/fixtures/agent-profiles/` | 完成：2 个合法夹具 + 8 个拒绝夹具（未知字段、未知枚举、绝对路径、路径穿越、目录不符、非法组合、缺失 prompt、空 prompt） |
+| 夹具 | `tests/fixtures/agent-profiles/` | 完成：2 个合法夹具 + 10 个拒绝夹具（未知字段、未知枚举、绝对路径、路径穿越、目录不符、非法组合、缺失 prompt、空 prompt、重复 ID 两目录、真实超长 prompt 文件） |
 
-验证：`npm run check` 全通过（156 项测试，含新增 11 项契约测试）。尚未验证的部分属于 Sprint 1 及以后：Registry 加载、确定性哈希、`GET /api/ai/presets`、`agent-settings.json`、Docker 打包一致性、设置 UI 与卡牌 Agent。
+验证：`npm run check` 全通过（157 项测试，含新增 12 项契约测试）。尚未验证的部分属于 Sprint 1 及以后：Registry 加载、确定性哈希、`GET /api/ai/presets`、`agent-settings.json`、Docker 打包一致性、设置 UI 与卡牌 Agent。
 
-§7.4 的三个决策门与 §17 的五个裁定项：计划已声明「若作者没有另行裁定，计划默认采用以上推荐项」，作者指示实现 Sprint 0 即视为接受推荐项，已按此写入 ADR-0029 并在 `todo.md` 保留逐条确认项。若作者改判，需要同步修改 Schema、三个 manifest 与夹具。
+§7.4 的三个决策门与 §17 的五个裁定项：**尚未关闭**。作者指示「实现 Sprint 0」只批准了实施动作，不构成对推荐项的裁定，因此 ADR-0029 保持 `proposed`，其契约内容属于提议值；`docs/adr/ADR-0029-agent-profile-runtime-projection.md` §10 逐条列出五项与改判后果，等待作者签署。Sprint 0 的退出条件「runtime manifest 与兼容矩阵经作者确认」在签字前不成立。
+
+### 7.7 Sprint 0 只读验收（2026-10-17）
+
+结论：工程实现通过，正式验收暂不通过。已修正的偏差：
+
+1. 治理措辞：ADR-0029 由「canon 且作者已接受推荐项」降回 `proposed`，新增 §10 签字门，删除「作者指示即视为接受」的推论。
+2. 重复 ID 与超长 prompt 改为真实磁盘夹具（`reject/duplicate-id/fixture-a|b`、`reject/oversized-prompt/runtime/system.md`，895 行 / 34017 字符），不再由测试临时构造。
+3. 提示词合并顺序由「搜索 ADR 中名称出现顺序」改为 `agent-profile-contract.mjs` 的 `AGENT_PROMPT_LAYERS` 加 `tests/snapshots/agent-prompt-layers.json` 快照，对 Sprint 1/2 的拼装函数形成真实回归保护；同时新增代码侧枚举/矩阵/错误码与 Schema、ADR 的交叉校验测试。
 
 ## 8. Sprint 1：Registry、哈希与部署闭包
 

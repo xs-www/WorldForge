@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Changed
+- 2026-10-17：修正 Sprint 0 只读验收提出的治理与测试问题，不改动运行时。ADR-0029 由误标的 `canon` 降回 `proposed` 并新增 §10 作者签字门（作者指示实现 Sprint 0 不等于接受五项推荐项，签字前 Schema 与三个 manifest 是提议契约）；重复 ID 与超长 prompt 改为真实磁盘夹具（`reject/duplicate-id/fixture-a|b`、`reject/oversized-prompt` 34017 字符），不再由测试临时构造；新增 `agent-profile-contract.mjs` 代码侧契约真值与 `tests/snapshots/agent-prompt-layers.json` 顺序快照，替换原先只搜索 ADR 文本的伪 snapshot，并新增代码常量与 Schema/ADR 的交叉校验测试。
 - 收敛「正史」相关约束：Agent 的五个工具全部只读，原本「不要擅自把候选晋升为 canon」禁止的是一件不可能发生的事，因此在提示词里删除，改写为一次输出纪律（按 `status`/`truthScope` 表述，不把草案写成定论、不补全资料没写的内容）。界面从四处重复收敛为一处，并改为说明作者该做什么。由 ADR-0025 固化。
 
 ### Added

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "oversized-prompt",
+  "version": "0.1.0",
+  "displayName": "夹具超长提示",
+  "description": "非法夹具：声明的 prompt 是真实的超长磁盘文件，必须触发 AGENT_PROMPT_TOO_LARGE。",
+  "surfaces": ["lore"],
+  "mode": "structured_lore",
+  "systemPrompt": "runtime/system.md",
+  "toolPolicy": "none",
+  "outputContract": "lore_blocks_v2",
+  "statusPolicy": "proposed_only"
+}
