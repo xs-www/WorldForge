@@ -8,6 +8,7 @@
 - 收敛「正史」相关约束：Agent 的五个工具全部只读，原本「不要擅自把候选晋升为 canon」禁止的是一件不可能发生的事，因此在提示词里删除，改写为一次输出纪律（按 `status`/`truthScope` 表述，不把草案写成定论、不补全资料没写的内容）。界面从四处重复收敛为一处，并改为说明作者该做什么。由 ADR-0025 固化。
 
 ### Added
+- 2026-10-17：新增 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`，详细规划仓库级 DSH preset 接入产品 AI 入口的 6 个 Sprint：运行时投影与 Registry、现有设定/自由入口接入、分入口选择 UI、卡牌文字 Agent，以及安全、Docker、迁移与真实验收。该计划为 `proposed`，本次未修改产品运行时。
 - 2026-10-17：把产品现有的结构化设定写作契约与自由创作聊天契约分别抽离为 `.agent-presets/lore-writer` 和 `.agent-presets/free-creator`。前者携带类型内容块与冲突检查技能；后者保持自然语言、按需检索和默认只读行为，并明确 DSH preset 不会自动获得产品 SQLite 资料库或素材库快照，权限强制只读需搭配 DSH permission preset。
 - 2026-10-17：新增仓库级 `.agent-presets/card-designer`。该 DSH preset 将 WorldForge 卡牌设计 persona、最小文件/检索能力和自包含设计技能一并版本化；移除技能对本机绝对路径的依赖，明确不授予 Shell、后台任务、子代理或工作流，并增加结构与能力边界测试。
 - 新增 W97 `experimental / untested` 卡牌对战纵切：20 生命、固定种子 10 张测试套牌、递增资源、5 随从栏位、随从交战、疲劳伤害、三种结构化法术和确定性规则对手。对战状态只在页面内存中存活，不读写 W01、作者卡牌库或世界模拟存档。由 ADR-0028 固化技术边界。

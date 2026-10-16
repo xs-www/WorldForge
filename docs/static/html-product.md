@@ -1,5 +1,13 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Agent preset 产品接入 Sprint 计划归档
+
+本次只新增 proposed 开发计划，不修改产品运行时、API、数据库、Docker 镜像或任何 canon。计划文件为 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`。
+
+计划以当前事实为基线：仓库级 `lore-writer`、`free-creator`、`card-designer` 可供 DSH 选择，但 WorldForge 产品内 AI 入口尚不能选择 preset。建议通过受限的 `worldforge.runtime.json + runtime/system.md` 产品投影接入，产品不得解析或执行包含 `!!js` 的 `agent.cordis.yml`。
+
+计划拆分为 6 个 Sprint、约 27 人日：契约/ADR、Registry 与 Docker 闭包、现有设定和自由入口接入、设置 UI 与会话快照、卡牌文字 Agent、安全加固与发布验收。每个 Sprint 都包含任务、测试、退出条件和作者决策门；运行时实现尚未开始，TODO 保持未完成。
+
 ## 2026-10-17 设定写作与自由创作 DSH preset 归档
 
 本次把产品已有的两类创作提示契约抽离为独立、可版本化的 DSH Agent preset，不修改 `ai-harness.mjs`、自由聊天 API、数据库、canon 或任何产品运行时行为。

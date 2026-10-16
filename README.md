@@ -4,6 +4,8 @@
 
 仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。
 
+将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。该文档当前为 `proposed`，不代表相关运行时选择器已经实现。
+
 从 `docs/PROJECT_DESIGN.md` 开始阅读；使用 Codex 前请阅读 `AGENTS.md`。所有未明确批准的世界设定与卡牌均为草案。
 
 当前聚焦：W01 魔导工业世界。作者提供的 V0.1 世界设定已按 `canon` / `proposed` / `unknown` 分层导入；此仓库不包含《武林戏》世界观及第三方 IP 内容。
