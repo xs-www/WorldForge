@@ -5,7 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
-- 执行进度：Sprint 0 已完成并正式签收（2026-10-17，见 §7.6–§7.8）；作者已逐条签署 ADR-0029 §10 五项，Sprint 0 退出条件关闭。Sprint 1–5 未开始，`server.mjs` 仍使用固定提示常量。
+- 执行进度：Sprint 0 已完成并正式签收；Sprint 1（Registry、确定性哈希、Docker 投影闭包、`GET /api/ai/presets` 与健康摘要）工程实现已完成，见 §8.5，等待验收。Sprint 2–5 未开始：设定助手与自由创作仍使用固定提示常量，产品入口尚不能选择 preset。
 
 ## 1. 执行摘要
 
@@ -387,6 +387,27 @@ Sprint 0 的退出条件是「runtime manifest 与兼容矩阵经作者确认」
 - Docker 容器列出的 ID、版本和哈希与本机一致。
 - 删除默认 preset、损坏 JSON 或修改为路径穿越时，服务拒绝启动并给出明确诊断。
 - 不执行 `agent.cordis.yml`，不引入 DSH 包作为生产依赖。
+
+### 8.5 Sprint 1 执行记录（2026-10-17）
+
+| ID | 产物 | 状态 |
+|---|---|---|
+| S1-01 | `agent-profile-registry.mjs` 的 `validateAgentRuntimeManifest` | 完成：内建最小 Schema 校验器（只实现 `agent-runtime.schema.json` 实际使用的关键字，遇到不支持的关键字直接失败），区分 `AGENT_MANIFEST_INVALID` 与 `AGENT_ENUM_UNKNOWN`，并核对 `id` 与目录名、`schemaVersion` |
+| S1-02 | 同文件 `resolveAgentPromptPath` | 完成：拒绝根路径/Windows/UNC 绝对路径、`..` 穿越、目录组件与符号链接逃逸（`lstat` + `realpath` 双重检查）、非普通文件、无效 UTF-8、NUL 字节与超长 prompt |
+| S1-03 | 同文件 `stableStringify` / `profileFingerprint` | 完成：对象键排序的稳定序列化 + SHA-256；返回 `manifestHash`、`systemPromptHash`、合成 `hash`。同内容同哈希，manifest 或 prompt 任一改动必变 |
+| S1-04 | `server.mjs` 启动段 | 完成：启动时一次性加载并冻结 Registry，请求期间不再读盘；任何缺陷都会打印稳定错误码并拒绝启动，不静默换 persona |
+| S1-05 | `GET /api/ai/presets` | 完成：只返回脱敏元数据与 `defaults`，不含 prompt 正文、路径、`toolPolicy` 或 DSH 明细 |
+| S1-06 | `Dockerfile` | 完成：根目录 COPY 增加 `agent-runtime.schema.json`、`agent-profile-contract.mjs`、`agent-profile-registry.mjs`；另加 6 条逐文件 COPY，只把三个 preset 的 `worldforge.runtime.json` 与 `runtime/system.md` 放进镜像。`.dockerignore` 无需改动（现有规则不匹配 `.json` 或 `system.md`），由测试断言不会被排除 |
+| S1-07 | `/api/health` 的 `agentProfiles` | 完成：数量、按 surface 数量、ID 列表与诊断码，不含提示正文 |
+
+额外决策与偏差：
+
+- **Schema 部署副本**：镜像不含 `docs/`，Registry 因此读取仓库根的 `agent-runtime.schema.json`；测试断言该副本与 `docs/schemas/agent-runtime.schema.json` 逐字节一致，改动 Schema 时两份必须同步。
+- **接口与计划建议的差异**：计划 §8.3 建议 `resolveAgentProfile(id, surface)`，实现为 Registry 快照上的 `registry.resolve(id, surface)`；`loadAgentProfiles(root)`、`validateAgentRuntimeManifest(value, directoryId)`、`profileFingerprint(manifest, systemPrompt)`、`publicAgentProfile(profile)` 与建议一致。
+- **多 surface 组合**：Schema 的三条 `if/then` 只约束单行组合，多行组合由 `assertSurfaceCompatibility` 按 `AGENT_SURFACE_COMPATIBILITY` 逐行复核，避免"Schema 通过但矩阵不符"。
+- **符号链接夹具**：Windows 未开启开发者模式时无法创建符号链接，测试在该环境下跳过符号链接断言并明确记录为未验证，其余路径拒绝断言仍然执行。
+
+验证：`npm run check` 全通过（173 项测试；新增 `agent-profile-registry.test.mjs` 12 项与 `agent-profile-api.test.mjs` 4 项）。**未验证**：Docker 镜像实际的 ID/版本/哈希与本机一致性（需要真实 `docker build` 与容器运行）、浏览器侧选择器（Sprint 3）、请求快照与卡牌 Agent（Sprint 2/4）。因此本机与容器一致的验收项目前只有打包闭包的静态证据，尚无容器运行证据。
 
 ## 9. Sprint 2：设定助手与自由创作接入
 

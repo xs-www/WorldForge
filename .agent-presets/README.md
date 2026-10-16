@@ -30,6 +30,15 @@ WorldForge 产品服务不解析 `agent.cordis.yml`：它含 `!!js` 表达式与
 
 因此修改产品侧 persona 时必须同时改 DSH 的 `agent.cordis.yml` 与产品投影；两者用途不同，但语义漂移会由 `tests/agent-profile-contract.test.mjs` 的兼容矩阵与提示词层次测试暴露。`agent.cordis.yml`、`preset.yml` 与 `skills/` 的产品侧副本不存在，也不需要复制。
 
+## 产品如何加载
+
+`agent-profile-registry.mjs` 在服务启动时扫描 `WORLDFORGE_AGENT_PRESETS_DIR`（缺省为本目录），逐个校验投影、解析 `runtime/system.md` 并计算 SHA-256 指纹，然后把结果冻结成只读快照；请求期间不再读取磁盘。校验规则由仓库根的 `agent-runtime.schema.json` 决定，该文件是 `docs/schemas/agent-runtime.schema.json` 的部署副本（镜像不含 `docs/`），两份由测试断言完全一致。
+
+- `GET /api/ai/presets`：返回 `id`、`version`、`displayName`、`description`、`surfaces`、`mode`、`outputContract`、`statusPolicy`、`hash` 与三个入口的默认映射。不返回系统提示正文、文件路径或工具策略。
+- `GET /api/health`：`agentProfiles` 给出数量、按 surface 的数量、ID 列表与诊断码。
+- 任何无效、损坏、重复或不兼容的投影都会让服务**拒绝启动**并打印稳定错误码（如 `AGENT_ENUM_UNKNOWN`、`AGENT_ID_MISMATCH`、`AGENT_PROMPT_TOO_LARGE`）；不会跳过该 preset，也不会自动改用其他 persona。
+- Docker 镜像只复制 6 个投影文件（每个 preset 的 `worldforge.runtime.json` 与 `runtime/system.md`），不包含本 README、`agent.cordis.yml`、`preset.yml` 或 `skills/`。
+
 ## 在 DSH 中使用
 
 DSH 默认扫描用户目录下的 `<dshHome>/.agent-presets`。若要直接使用仓库中的版本，应把本目录配置为受信任的 preset root；也可以从 DSH 的 Agent preset 设置中复制该 preset 到用户目录。不要维护两个互相漂移的手工副本。

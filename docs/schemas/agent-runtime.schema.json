@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://worldforge.local/schemas/agent-runtime.schema.json",
   "title": "WorldForge Agent Profile runtime projection",
-  "description": "产品侧只读投影清单。真值以本 Schema 为准；产品永不解析或执行 .agent-presets/<id>/agent.cordis.yml。",
+  "description": "产品侧只读投影清单。本文件是 docs/schemas/agent-runtime.schema.json 的部署副本：产品镜像不含 docs/，Registry 从部署副本读取并校验；测试断言两份内容完全一致。产品永不解析或执行 .agent-presets/<id>/agent.cordis.yml。",
   "type": "object",
   "additionalProperties": false,
   "required": [

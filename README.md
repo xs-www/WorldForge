@@ -4,7 +4,9 @@
 
 仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。每个 preset 额外携带 WorldForge 产品侧的只读投影：`worldforge.runtime.json`（契约见 [`docs/schemas/agent-runtime.schema.json`](docs/schemas/agent-runtime.schema.json)）与 `runtime/system.md`。产品只读这两个纯数据文件，永不解析或执行含 `!!js` 的 `agent.cordis.yml`，该边界由 [ADR-0029](docs/adr/ADR-0029-agent-profile-runtime-projection.md) 固定。
 
-将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。该文档当前为 `proposed`，不代表相关运行时选择器已经实现；Sprint 0（契约、兼容矩阵、提示词层次与夹具）已完成并经作者逐条签字，其决策文件 [ADR-0029](docs/adr/ADR-0029-agent-profile-runtime-projection.md) 已转为 canon（技术边界），Registry、API、设置 UI 与卡牌文字 Agent 属于后续 Sprint。
+将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。该文档当前为 `proposed`，不代表相关运行时选择器已经实现。
+
+Sprint 0 与 Sprint 1 已完成：产品侧 `agent-profile-registry.mjs` 在启动时扫描固定根目录 `.agent-presets/`，用 [`agent-runtime.schema.json`](agent-runtime.schema.json)（`docs/schemas/` 的部署副本，两份由测试断言一致）严格校验每份投影，拒绝未知枚举、额外字段、目录名不符、重复 ID、绝对路径、路径穿越、符号链接逃逸与超长 prompt，并为每个 preset 计算确定性 SHA-256 指纹。`GET /api/ai/presets` 返回脱敏元数据与三个入口的默认映射，`GET /api/health` 增加 `agentProfiles` 摘要；投影损坏时服务拒绝启动并打印稳定错误码，不会静默改用其他 persona。当前**尚未**实现入口选择、请求快照与卡牌文字 Agent（Sprint 2–4），因此设定助手与自由创作仍使用固定的系统提示常量，选择的 `presetId` 也还不会影响生成结果。Docker 镜像只复制 Registry 需要读取的 6 个投影文件，不含 `agent.cordis.yml`、`skills/` 或设计目录。
 
 从 `docs/PROJECT_DESIGN.md` 开始阅读；使用 Codex 前请阅读 `AGENTS.md`。所有未明确批准的世界设定与卡牌均为草案。
 

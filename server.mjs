@@ -12,6 +12,7 @@ import { composeImagePrompt } from './image-context.mjs';
 import { generateSeedreamImage, seedreamConfig, validateImageRequest, validateSeedreamSettings } from './seedream.mjs';
 import { normalizeReferenceAssetIds, parseReferenceUpload, toReferenceDataUrl } from './reference-assets.mjs';
 import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, DEFAULT_VISUAL_STYLE_PROMPT, normalizePromptSettings, validatePromptSettings } from './prompt-settings.mjs';
+import { asAgentProfileError, loadAgentProfiles, publicRegistryView, registryHealthSummary } from './agent-profile-registry.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
 import { buildMacroProposalPrompt, MACRO_PROPOSAL_SCHEMA } from './simulation/llm/macro-proposal.mjs';
@@ -44,6 +45,22 @@ const simulationDatabasePath = process.env.WORLDFORGE_SIM_DB_PATH || join(dirnam
 const simulationDashboard = createSimulationDashboardService(simulationDatabasePath);
 const macroSimulation = createMacroSimulationService(simulationDatabasePath);
 await mkdir(assetsPath, { recursive: true });
+
+// Agent Profile Registry：启动时一次性加载并冻结，请求期间不再读取磁盘，
+// 因此不会读到半写入文件。任何无效、损坏或不兼容的 preset 都会拒绝启动并打印
+// 稳定错误码，而不是跳过或静默换用其他 persona（ADR-0029 §9、计划 §12.1）。
+let agentProfiles;
+try {
+  agentProfiles = await loadAgentProfiles();
+  const summary = registryHealthSummary(agentProfiles);
+  console.log(`[agent-profiles] loaded ${summary.count} preset(s): ${summary.ids.join(', ')}`);
+} catch (error) {
+  const failure = asAgentProfileError(error);
+  console.error(`[agent-profiles] ${failure.code}: ${failure.message}`);
+  for (const detail of failure.details) console.error(`[agent-profiles]   - ${detail}`);
+  console.error('[agent-profiles] 拒绝启动：请修复或移除损坏的 preset 投影后重试。产品不会自动改用其他 persona。');
+  throw failure;
+}
 
 async function saveLocalEnv(values) {
   let source = '';
@@ -409,7 +426,7 @@ async function serveStatic(req, res) {
 createServer(async (req, res) => {
   try {
     const requestUrl = new URL(req.url, 'http://localhost'), pathname = requestUrl.pathname;
-    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health() });
+    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health(), agentProfiles: registryHealthSummary(agentProfiles) });
     if (req.method === 'GET' && req.url === '/api/macro') return json(res, 200, macroSimulation.view());
     if (req.method === 'POST' && req.url === '/api/macro/step') {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
@@ -483,6 +500,8 @@ createServer(async (req, res) => {
       return json(res, 200, await optimizeImagePrompt(await readBody(req)));
     }
     if (req.method === 'GET' && req.url === '/api/ai/status') { const c = aiConfig(); return json(res, 200, { configured: Boolean(c.key), model: c.model, style: c.style }); }
+    // 只返回脱敏元数据与默认映射：不含系统提示正文、文件路径或 DSH 插件明细。
+    if (req.method === 'GET' && req.url === '/api/ai/presets') return json(res, 200, publicRegistryView(agentProfiles));
     if (req.method === 'GET' && req.url === '/api/settings') { const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), workflow = await loadComfyWorkflow(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiBaseUrl: comfyUi.baseUrl, comfyUiConfigured: Boolean(workflow), comfyUiWorkflow: workflow ? JSON.stringify(workflow, null, 2) : '', promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT }); }
     if (req.method === 'POST' && req.url === '/api/settings') {
       if (req.headers['x-worldforge-settings'] !== '1') return json(res, 403, { error: '缺少本机设置请求标记' });

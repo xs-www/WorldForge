@@ -1,5 +1,70 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 1：Agent Profile Registry、列表端点与 Docker 投影闭包归档
+
+本次交付 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 1：产品侧**发现能力**。设定助手与自由创作的生成行为**未改变**，仍使用 `ai-harness.mjs` 的固定提示常量；请求里的 `presetId` 目前不会影响生成结果（接入属于 Sprint 2）。测试从 157 项增至 173 项，全部通过。
+
+### `agent-profile-registry.mjs`（新增，产品侧唯一 Registry）
+
+边界：只读 `worldforge.runtime.json` 与其声明的 `runtime/system.md`；永不读取、解析或执行 `agent.cordis.yml`、`preset.yml`、`skills/`、`!!js` 或任何 DSH 插件；不扫描 `~/.dsh`；无第三方依赖。
+
+常量与类型：
+
+- `AGENT_RUNTIME_SCHEMA_PATH`：部署副本路径，由 `import.meta.url` 解析，仓库移动或容器挂载都不需改写。
+- `AGENT_PRESETS_ROOT`：默认根目录 `.agent-presets`，同样相对本模块解析。
+- `AGENT_PRESETS_ROOT_ENV = 'WORLDFORGE_AGENT_PRESETS_DIR'`：测试与运维可覆盖根目录。
+- `AgentProfileError`：`code` 取自 `agent-profile-contract.mjs` 的 `AGENT_PROFILE_ERROR_CODES`，`details` 携带逐条字段错误。
+- `MANIFEST_MAX_CHARS = 8192`：清单文本上限，防止超大 JSON 拖垮启动。
+
+内建最小 JSON Schema 校验器：`createSchemaValidator(schema)` 遍历 Schema 收集关键字，遇到未支持的关键字**直接失败**（避免"看起来校验通过"的静默降级）；`validateNode(spec, value, path, errors)` 实现 `type`、`const`、`enum`、`pattern`、`minLength`、`maxLength`、`minItems`、`maxItems`、`uniqueItems`、`items`、`required`、`properties`、`additionalProperties`、`allOf`、`if/then`、`contains`、`not`、`anyOf`；`loadRuntimeSchema()` 读取并缓存 Schema，读取失败报 `AGENT_MANIFEST_INVALID`。
+
+| 函数 | 签名摘要 | 出参 | 功能 | 边缘条件 |
+|---|---|---|---|---|
+| `stableStringify` | `(value) => string` | 规范化 JSON 文本 | 对象键按字典序排序、数组保序 | 非对象直接 `JSON.stringify`；`undefined` 在对象值位置会得到 `undefined` 文本，调用方只传已校验清单 |
+| `profileFingerprint` | `(manifest, systemPrompt) => { manifestHash, systemPromptHash, hash }` | 三个 `sha256:` 字符串 | manifest 与 prompt 分别哈希后合成指纹 | 同内容同哈希；任一改动即变；不读取文件 |
+| `validateAgentRuntimeManifest` | `async (value, directoryId?) => manifest` | 规范化清单 | Schema 校验 + `schemaVersion` + `id` 与目录名一致 | 额外字段/类型错误报 `AGENT_MANIFEST_INVALID`；未知枚举与兼容冲突报 `AGENT_ENUM_UNKNOWN`；`id` 不符报 `AGENT_ID_MISMATCH` |
+| `assertSurfaceCompatibility` | `(manifest) => manifest` | 原清单 | 按 `AGENT_SURFACE_COMPATIBILITY` 逐行核对多 surface 组合 | 未登记 surface 报 `AGENT_ENUM_UNKNOWN`；行列不符报 `AGENT_COMPAT_MISMATCH` |
+| `resolveAgentPromptPath` | `async (presetDirectory, systemPrompt) => { path, relativePath, text }` | 解析结果与正文 | 安全解析并读取 prompt | 根路径/Windows/UNC 绝对路径、`..`、非普通文件、符号链接均报 `AGENT_PROMPT_PATH_UNSAFE`；缺失或无效 UTF-8/NUL 报 `AGENT_PROMPT_MISSING`；超长报 `AGENT_PROMPT_TOO_LARGE` |
+| `publicAgentProfile` | `(profile) => object` | 脱敏元数据 | 生成浏览器安全投影 | 只含 `id`/`version`/`displayName`/`description`/`surfaces`/`mode`/`outputContract`/`statusPolicy`/`hash` |
+| `agentPresetsRoot` | `(override?) => string` | 绝对路径 | 显式参数 > 环境变量 > 仓库内默认值 | 不做存在性检查，由 `listPresetDirectories` 报 `AGENT_ROOT_UNREADABLE` |
+| `loadAgentProfiles` | `async (rootOverride?) => Registry` | 冻结 Registry | 扫描固定根目录并加载全部投影 | 根目录缺失/为空报 `AGENT_ROOT_UNREADABLE`；重复 `id` 报 `AGENT_ID_MISMATCH`；**fail-fast**：任何缺陷都抛出，不跳过、不静默换 persona |
+| `publicRegistryView` | `(registry) => { schemaVersion, presets, defaults }` | 列表端点响应体 | 脱敏列表 + 默认映射 | 不含 prompt 正文、路径或 `toolPolicy` |
+| `registryHealthSummary` | `(registry) => { schemaVersion, count, countBySurface, ids, diagnostics }` | 健康摘要 | 供 `/api/health` 使用 | 只含数量与诊断码 |
+| `asAgentProfileError` | `(error) => AgentProfileError` | 规范化错误 | 保证诊断总是带稳定错误码 | 已是 `AgentProfileError` 时原样返回 |
+
+Registry 快照形态（全部 `Object.freeze`）：`schemaVersion`、`profiles`（按 `id` 排序）、`summary`、`defaults`（surface → 首个支持的 preset id，无则 `null`）、`get(id)`、`profilesForSurface(surface)`、`resolve(id, surface)`。`resolve` 对未知 id 报 `AGENT_PROFILE_UNKNOWN`，对存在但 surface 不符报 `AGENT_PROFILE_INCOMPATIBLE`。
+
+安全要点：prompt 路径先做显式检查（绝对路径、`..` 段），再用 `realpath(presetDirectory)` 固定根，`lstat` 拒绝符号链接，`realpath(target)` 复核未逃出根；读取后再验 UTF-8 与字符长度。
+
+### `agent-runtime.schema.json`（新增，仓库根）
+
+`docs/schemas/agent-runtime.schema.json` 的部署副本：镜像 `.dockerignore` 排除 `docs/`，Registry 因此读取根副本；测试断言两份**逐字节一致**。两份的 `description` 同步说明这一关系。
+
+### `server.mjs`
+
+- 新增导入 `asAgentProfileError`、`loadAgentProfiles`、`publicRegistryView`、`registryHealthSummary`。
+- 启动段在创建资源目录后一次性 `await loadAgentProfiles()` 并记录 `[agent-profiles] loaded N preset(s): ...`；失败时打印 `[agent-profiles] <CODE>: <message>`、逐条 `details` 与「拒绝启动」说明后 `throw`，进程以非零码退出。请求期间不再读取磁盘。
+- 新增 `GET /api/ai/presets` → `publicRegistryView(agentProfiles)`；其他方法落到既有 405 分支。
+- `GET /api/health` 增加 `agentProfiles: registryHealthSummary(agentProfiles)`。
+
+### `Dockerfile`
+
+根目录 COPY 追加 `agent-runtime.schema.json`、`agent-profile-contract.mjs`、`agent-profile-registry.mjs`；新增 6 条逐文件 COPY，把三个 preset 的 `worldforge.runtime.json` 与 `runtime/system.md` 放到镜像内对应子目录。不整体 COPY `.agent-presets`，不复制 `agent.cordis.yml`、`preset.yml`、`skills/` 或 `.agent-presets/README.md`。`.dockerignore` 未改动：现有规则（`docs`、`tests`、`*.md` 等）都不匹配 `.json` 或 `system.md`，测试断言投影文件不会被排除。
+
+### 测试
+
+`tests/agent-profile-registry.test.mjs`（12 项）：部署副本与文档真值逐字节一致；随仓库三个 preset 的 id/默认映射/哈希形态；快照冻结与不可变；哈希确定性与"改内容必变"；`resolve` 的入口兼容矩阵（6 种误用全部拒绝）；浏览器投影与健康摘要不泄露 prompt 正文、路径、`toolPolicy` 或机器绝对路径；错误码覆盖 ADR-0029 §9 全表；清单校验的 12 种拒绝；`resolveAgentPromptPath` 的穿越、绝对路径、缺失、目录、符号链接、超长、二进制与 NUL 分支；启动失败的 10 种根目录缺陷（含重复 ID、目录名不符、损坏与缺失 JSON、未知枚举、额外字段、不兼容组合、超长 prompt）与合法夹具对照；根目录解析优先级；随仓库文件可直接复算哈希。
+
+`tests/agent-profile-api.test.mjs`（4 项）：真实 `server.mjs` 子进程 + 临时数据库路径，验证 `GET /api/ai/presets` 的字段白名单、`defaults`、无泄露与 `POST` 405；`/api/health` 的 `agentProfiles` 摘要；8 种损坏投影与重复 ID、缺失根目录导致**启动失败并打印对应错误码**；Dockerfile 只逐文件复制 6 个投影、根目录白名单含三个新模块、`.dockerignore` 不排除投影、Registry 可执行代码不含 `docs/schemas`、`agent.cordis.yml`、`yaml`、`eval(` 或 `new Function`。
+
+### 验证与未验证
+
+- `npm run check` 全通过：173 项测试（Sprint 0 后为 157 项）。
+- 手工核对：本机 `loadAgentProfiles()` 输出的三个 `hash` 与从随仓库文件复算一致；`/api/ai/presets` 实测响应不含 `systemPrompt`、路径或 `toolPolicy`。
+- `package.json` 的 `check` 加入 `agent-profile-registry.mjs`；未加入 `agent-runtime.schema.json`，因为 `node --check` 只接受 JS/ESM，Schema 的 JSON 有效性由测试解析覆盖。
+- **未验证**：真实 `docker build` 与容器内 `GET /api/ai/presets` 的哈希一致性（本机无容器运行证据）、符号链接逃逸（Windows 未开启开发者模式时测试跳过并记录）、设置页选择器（Sprint 3）、请求快照与卡牌 Agent（Sprint 2/4）、真实模型端到端。
+- 发现并修正的实现缺陷：兼容多个 surface 的清单只有单行组合受 Schema 约束，已由 `assertSurfaceCompatibility` 逐行复核；`lstat` 误用动态 `import()` 已改为顶层导入。
+
 ## 2026-10-17 Sprint 0 作者签字与正式签收归档
 
 作者逐条回复 ADR-0029 §10 五项，**五项全部接受、无改判**，Sprint 0 退出条件「runtime manifest 与兼容矩阵经作者确认」据此关闭。本次为纯治理与文档变更：**未改动任何契约内容**——`docs/schemas/agent-runtime.schema.json`、三个 `worldforge.runtime.json`、三份 `runtime/system.md`、`agent-profile-contract.mjs`、快照与夹具均与 `6ec9887` 一致，运行时同样未动。

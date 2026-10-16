@@ -181,5 +181,3 @@ Sprint 0 交付的是契约与夹具，不是实现。目前可验证的部分�
 - DSH persona 与产品投影的漂移：本轮用「同目录版本化 + 哈希 + 语义测试」抑制。后续是否增加生成脚本，从单一 persona 源同时产生 DSH prefix 与产品 `runtime/system.md`，尚未决定。
 - `card_context_readonly` 的最终语义：卡牌上下文目前计划由请求体携带（作者选中的卡牌、允许引用的 ID），不一定需要模型工具。Sprint 4 若确认无需工具，该枚举值应从 Schema 中删除而不是长期闲置。
 - 第 2 层 `runtime/system.md` 与第 1、3 层的重复边界：`runtime/system.md` 已按 ADR-0025 原则只写能力陈述与输出纪律，但「哪些约束对应真实失效模式」的长期提示词审查清单仍未建立（`todo.md` 已记录）。
-- `card_context_readonly` 的最终语义：卡牌上下文目前计划由请求体携带（作者选中的卡牌、允许引用的 ID），不一定需要模型工具。Sprint 4 若确认无需工具，该枚举值应从 Schema 中删除而不是长期闲置。
-- 第 2 层 `runtime/system.md` 与第 1、3 层的重复边界：`runtime/system.md` 已按 ADR-0025 原则只写能力陈述与输出纪律，但「哪些约束对应真实失效模式」的长期提示词审查清单仍未建立（`todo.md` 已记录）。
