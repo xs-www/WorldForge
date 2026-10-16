@@ -1,5 +1,21 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 0 作者签字与正式签收归档
+
+作者逐条回复 ADR-0029 §10 五项，**五项全部接受、无改判**，Sprint 0 退出条件「runtime manifest 与兼容矩阵经作者确认」据此关闭。本次为纯治理与文档变更：**未改动任何契约内容**——`docs/schemas/agent-runtime.schema.json`、三个 `worldforge.runtime.json`、三份 `runtime/system.md`、`agent-profile-contract.mjs`、快照与夹具均与 `6ec9887` 一致，运行时同样未动。
+
+- `docs/adr/ADR-0029-agent-profile-runtime-projection.md`：状态由 `proposed` 改为 `canon（技术边界）`，决策者恢复为「作者」，新增签字日期与决策范围说明；§10 改名「作者签字记录」，表格新增「作者裁定」列（五项均为「接受」），并记录第 5 项「独立实例」的理解——复用设定助手的浮动/可收起范式，但在卡牌编辑器中是独立面板实例，不共用面板状态或会话。治理记录保留「曾误标 canon」的经过，作为可追溯事实。
+- §未解决问题：删除「作者尚未签字」条目，改为「已签字；若未来改判需同步 Schema、三个 manifest、契约模块、快照与夹具并记录新签字」。
+- `docs/adr/README.md`：ADR-0029 索引标注改回 canon（技术边界）并注明 §10 已签字。
+- `README.md`：ADR-0029 表述改为已转为 canon（技术边界）。
+- `todo.md`：Sprint 0 正式验收条目勾选完成。
+- `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`：「执行进度」改为 Sprint 0 已完成并正式签收；新增 §7.8 作者签字记录，逐条列出五项裁定与「据此 ADR 转为 canon、可进入 Sprint 1」。
+- `CHANGELOG.md`：新增签收条目。
+
+验证：`npm run check` 全通过（157 项测试；契约测试 12 项未变，其中「ADR 与模块错误码集合一致」与「提示词层次顺序」仍通过，证明签字只改状态与文档而未动契约）。
+
+下一步：Sprint 1（Registry、确定性哈希、Docker 投影打包闭包、`GET /api/ai/presets`）尚未开始，等待作者指示。
+
 ## 2026-10-17 Sprint 0 只读验收修正归档
 
 本次响应 Sprint 0 只读验收结论：工程实现通过，但存在 1 个治理阻断项与 2 个测试偏差。修正**不涉及任何运行时**（`server.mjs`、`ai-harness.mjs`、API、SQLite、Dockerfile、前端与 canon 均未改动）。

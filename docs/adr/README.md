@@ -28,6 +28,6 @@
 - [ADR-0026：美术资产可以解除绑定](ADR-0026-art-asset-unbind.md) — canon（技术边界）
 - [ADR-0027：AI 设定助手浮动化，候选可覆盖当前条目，候选数可为 1](ADR-0027-ai-assistant-dock-and-overwrite.md) — canon（技术边界）
 - [ADR-0028：以 W97 合成套牌建立实验对战纵切](ADR-0028-experimental-card-battle.md) — canon（技术边界），对战规则与关键词仍为 experimental
-- [ADR-0029：产品内 Agent Profile 使用只读产品投影，不执行 DSH 组装](ADR-0029-agent-profile-runtime-projection.md) — `proposed`：技术契约已实现并有测试，§10 五项待作者逐条签字后转为 canon
+- [ADR-0029：产品内 Agent Profile 使用只读产品投影，不执行 DSH 组装](ADR-0029-agent-profile-runtime-projection.md) — canon（技术边界），§10 五项已由作者逐条签字接受
 
 新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0030` 开始。

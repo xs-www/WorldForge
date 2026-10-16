@@ -5,7 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
-- 执行进度：Sprint 0 工程实现已完成（2026-10-17，见 §7.6），只读验收的测试偏差已修正（见 §7.7）；**正式验收未通过**，ADR-0029 保持 `proposed`，等待作者对 §10 五项签字。Sprint 1–5 未开始，`server.mjs` 仍使用固定提示常量。
+- 执行进度：Sprint 0 已完成并正式签收（2026-10-17，见 §7.6–§7.8）；作者已逐条签署 ADR-0029 §10 五项，Sprint 0 退出条件关闭。Sprint 1–5 未开始，`server.mjs` 仍使用固定提示常量。
 
 ## 1. 执行摘要
 
@@ -342,6 +342,18 @@
 1. 治理措辞：ADR-0029 由「canon 且作者已接受推荐项」降回 `proposed`，新增 §10 签字门，删除「作者指示即视为接受」的推论。
 2. 重复 ID 与超长 prompt 改为真实磁盘夹具（`reject/duplicate-id/fixture-a|b`、`reject/oversized-prompt/runtime/system.md`，895 行 / 34017 字符），不再由测试临时构造。
 3. 提示词合并顺序由「搜索 ADR 中名称出现顺序」改为 `agent-profile-contract.mjs` 的 `AGENT_PROMPT_LAYERS` 加 `tests/snapshots/agent-prompt-layers.json` 快照，对 Sprint 1/2 的拼装函数形成真实回归保护；同时新增代码侧枚举/矩阵/错误码与 Schema、ADR 的交叉校验测试。
+
+### 7.8 作者签字（2026-10-17）
+
+Sprint 0 的退出条件是「runtime manifest 与兼容矩阵经作者确认」。作者已逐条回复 §7.4 与 §17 的裁定项，**五项全部接受、无改判**：
+
+1. 产品只读取仓库随附的只读投影，不扫描 DSH 用户目录；
+2. lore / free / card 三个入口独立保存 preset；
+3. 自由聊天切换 preset 时开启新对话；
+4. 本轮不支持导入自定义 preset；
+5. 卡牌 Agent 使用独立浮动面板，只复用设定助手的交互范式，只返回受验证字段补丁。
+
+据此 ADR-0029 由 `proposed` 转为 `canon（技术边界）`，签字记录见该文件 §10；Schema、三个 manifest、契约模块、快照与夹具的内容未因签字改动。Sprint 0 据此正式签收，可进入 Sprint 1。
 
 ## 8. Sprint 1：Registry、哈希与部署闭包
 
