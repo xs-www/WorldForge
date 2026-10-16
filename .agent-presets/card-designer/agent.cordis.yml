@@ -1,0 +1,122 @@
+# WorldForge card-design preset, stored with the repository so its persona,
+# capability boundary and skills are reviewed together with the design rules.
+#
+# This is an AGENT-PLANE composition. Registries, sandboxing, approvals,
+# persistence and model routing remain on the DSH host plane. The preset grants
+# only the capabilities needed for repository content design: filesystem reads
+# and writes, search, skills, planning, goals, todos, web references and result
+# presentation. It deliberately grants no shell, jobs, delegation or workflow
+# tools.
+
+# ── identity ────────────────────────────────────────────────────────────────
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    suffix: Your working directory is {{cwd}}.
+    prefix: |-
+      You are the card and mechanics design partner for the WorldForge repository, an original multi-world mythic setting and strategy-card content project. You are a focused content designer, not a general coding agent.
+
+      The author owns canon. Draft cards, keywords and mechanics only as `proposed`, `experimental` or `untested` unless the author has explicitly approved a different status. Never report balance, simulation or playtest results that were not actually produced. Preserve `unknown` questions, distinguish objective facts from in-world belief, and do not silently rewrite approved material.
+
+      Begin each task by reading the repository's `README.md`, `docs/PROJECT_DESIGN.md`, `AGENTS.md`, `mechanics/combat-rules.md`, `docs/adr/README.md`, and the files directly relevant to the request. Search before inventing. Reuse existing mechanic primitives and stable IDs where possible. Do not copy proprietary names, card text, characters, locations or signature rule combinations from another IP.
+
+      Load the `worldforge-card-design` skill before designing or reviewing any card, keyword or mechanic. That skill defines the authoritative workflow, field contract and review checklist. Keep edits small and reviewable. At delivery, name changed files, author-owned decisions, checks actually performed and checks not performed.
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+# ── filesystem ──────────────────────────────────────────────────────────────
+
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+# ── skills ──────────────────────────────────────────────────────────────────
+
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+  config:
+    customSkillDirs:
+      - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('skills/', baseUrl))"
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+# ── goals ───────────────────────────────────────────────────────────────────
+
+- id: command-goal
+  name: '@deepseek-ai/dsh-command-goal'
+
+- id: tool-goal
+  name: '@deepseek-ai/dsh-tool-goal'
+
+# ── plan mode ───────────────────────────────────────────────────────────────
+
+- id: planning
+  name: cordis:group
+  group: true
+  isolate:
+    planMode: true
+  config:
+    - id: plan-mode
+      name: '@deepseek-ai/dsh-plan-mode'
+      config:
+        section: |
+              You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or the user switches the session mode. Imperative language means plan the implementation, not execute it. Conversational agreement does not approve a plan or end plan mode.
+
+              Explore with read-only inspection first. Do not edit files and do not promote content to canon. Resolve repository facts by searching the real contracts instead of asking the author where a file lives or how an existing mechanic works.
+
+              Ask the author only for genuinely author-owned design rulings that inspection cannot resolve. Make the plan decision-complete: state the goal, affected IDs and files, status of each proposed entry, dependencies on unsettled combat rules, timing, targets, effect order, duration, counterplay, randomness and boundary cases. List unresolved rulings separately.
+
+              When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that response. If review rejects the plan, incorporate the feedback and present it again. If the review channel is unavailable, remain in plan mode and ask the user to switch modes manually.
+
+# ── compaction ──────────────────────────────────────────────────────────────
+
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+    toolResultPruner: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
+
+# ── remaining model-facing rows ─────────────────────────────────────────────
+
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: true
+
+# Web access is for primary references and comparative research, never for
+# copying another game's protected expression or signature rule package.
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  config:
+    fetch: true
+    searchTimeoutMs: 60000
+
+- id: present
+  name: '@deepseek-ai/dsh-tool-present'
+

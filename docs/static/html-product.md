@@ -1,5 +1,29 @@
 # HTML 产品静态文档
 
+## 2026-10-17 DSH 卡牌设计 Agent preset 归档
+
+本次改动不修改 HTML 产品运行时、任何 canon、卡牌语义或模拟规则。它把 DSH 创造模式产出的 WorldForge 卡牌设计 persona 重构为仓库内可版本化、可审查、可迁移的 Agent preset。
+
+### 文件与职责
+
+- `.agent-presets/card-designer/agent.cordis.yml`：定义卡牌设计 persona 与最小能力组合；提供文件读写、搜索、技能、计划、目标、待办、Web 参考和结果展示，不提供 Shell、后台任务、子代理或工作流。
+- `.agent-presets/card-designer/preset.yml`：提供 DSH 选择器显示名与单句说明，不承载运行时权限。
+- `.agent-presets/card-designer/skills/worldforge-card-design/SKILL.md`：集中卡牌/关键词/机制的读取顺序、作者主权、状态分层、字段检查、边界案例与交付要求。
+- `reference/card-fields.md` 与 `reference/keyword-fields.md`：提供便于审查的字段速查；真实写入仍以仓库当前 Schema 和模板为准。
+- `.agent-presets/README.md`：说明仓库内 preset root 的使用方式、相对路径约定和 DSH 代际更新限制。
+
+### 可移植性与边界
+
+- persona 的工作目录通过 DSH `{{cwd}}` 注入；技能不再绑定 `D:\\桌面\\sisi_apps\\WorldForge` 等机器绝对路径。
+- preset 的专属技能目录以 `baseUrl` 相对解析，整个 preset 目录可以整体复制或配置为 DSH preset root。
+- Agent 只能产出或编辑候选设计；未获作者明确批准时保持 `proposed / experimental / untested`，不把 W97/W98/W99 实验参数当成正式规则或 W01 正史。
+- 本 preset 面向内容设计，不取代仓库中的运行时自由创作 Agent，也不改变其模型提示、工具协议或数据库行为。
+
+### 验证
+
+- `tests/agent-presets.test.mjs` 检查完整目录结构、persona 与相对技能挂载，并拒绝意外加入 Shell、Job、子代理、工作流或机器绝对路径。
+- 项目 `npm run check` 会自动执行该测试；本机 DSH 的 `scanRoot` 已以 headless Profile 的解析基址确认该 preset 可发现且无 `broken` 原因。尚未新建真实会话人工核对最终工具列表；运行中的旧会话不会热切换到新 preset 代际。
+
 ## 2026-10-16 W97 实验卡牌对战与受控关键词归档
 
 本次新增一个可玩但非正式的卡牌对战纵切。W97 测试套牌、全部对战参数与四个关键词均为 `experimental / untested`；不修改 W01 正史，也不把现有自由文本卡牌草案当成可执行规则。
