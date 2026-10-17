@@ -8,15 +8,15 @@
 
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `loadLocalEnv()` / `saveLocalEnv(values)` | 读/写 `.env.local`；写盘用临时文件 + `rename`、`mode 0600`，只重写托管键并保留其余行 | `L30` / `L67` |
+| `loadLocalEnv()` / `saveLocalEnv(values)` | 读/写 `.env.local`；写盘用临时文件 + `rename`、`mode 0600`，只重写托管键并保留其余行 | `L30` / `L81` |
 | `readBody(req, maxLength = 2000000)` | 累积请求体并 `JSON.parse`；超限抛「请求内容过长」，空体解析为 `{}` | `L105` |
 | `buildCardContext(payload)` | 卡牌受限上下文：草案、引用 lore 内容（与 `draft.loreRefs` 交集）、关键词定义（按 `draft.keywordIds` ∪ `allowedKeywordIds` 过滤）、W97 `experimental` 规则摘要 | `L450` |
 | `callCardAgent(payload)` | 卡牌入口：`structured_card` + `toolPolicy=none`，返回补丁与静态评审、`agent` 快照与 `diagnostics`；补生成沿用同一 system | `L494` |
 | `validateSettings(payload)` | 校验 baseUrl/model/apiKey，并合并 Seedream、ComfyUI、提示词设置 | `L115` |
-| `createReferenceAsset` / `createArtAsset` / `serveArtAsset` | 参考图上传、生图落盘、资产文件读取 | `L155` / `L177` / `L230` |
+| `createReferenceAsset` / `createArtAsset` / `serveArtAsset` | 参考图上传、生图落盘、资产文件读取 | `L155` / `L191` / `L244` |
 | `resolveAgentImages(value, maximum)` | Agent 取图；单张失败只记入 `missing`，不影响其余图片 | `L171` |
 | `resolveSurfaceProfile(surface, presetId)` / `toolsForPolicy` | 按「请求快照 > `agent-settings.json` 保存值 > Registry 默认」解析 preset；把 `toolPolicy` 映射为服务端工具白名单 | `L291` / `L310` |
-| `callAi` / `callFreeAgent` / `callNameGenerator` / `callMacroProposal` | 四个 AI 入口，均先做 preset 解析或规则降级 | `L319` / `L340` / `L422` / `L434` |
+| `callAi` / `callFreeAgent` / `callNameGenerator` / `callMacroProposal` | 四个 AI 入口，均先做 preset 解析或规则降级 | `L319` / `L364` / `L538` / `L550` |
 | `serveStatic` | 服务 `dist/`；文件不存在时回退 `index.html` | `L570` |
 
 ## 路由表
@@ -55,31 +55,31 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 | POST | `/api/ai/tools/names` | `L684` | 名称生成 | 200 |
 | POST | `/api/ai` | `L685` | 结构化设定补全 | 200 |
 | 非 GET/HEAD | 未匹配任何分支 | `L561` | 405「不支持的请求方法」 | 405 |
-| GET/HEAD | 未匹配任何分支 | `L562` | `serveStatic`，文件缺失回退 `index.html` | 200（无 404 兜底） |
+| GET/HEAD | 未匹配任何分支 | `L570` | `serveStatic`，文件缺失回退 `index.html` | 200（无 404 兜底） |
 
 ## 重点逻辑
 
-### 启动序列（`L40`–`L65`）
+### 启动序列（`L44`–`L68`）
 - 顶层 `await loadLocalEnv()` 先于所有 `WORLDFORGE_*` 路径解析，因此 `.env.local` 可覆盖 DB／资产／模拟库路径；`.env.local`、ComfyUI workflow、提示词设置三个文件默认同目录（`dirname(envPath)`）。
-- `createContentStore`（`L43`）打开 SQLite 并跑迁移；随后创建两个模拟服务（`L45`–`L46`）并 `mkdir(assetsPath)`（`L47`）。
-- `loadAgentProfiles()` 在这之后执行（`L54`）；失败时打印 `code: message` 与逐条 details，再 `process.exit(1)`（`L64`）——注释说明仅 `throw` 会让已打开的事件循环与 SQLite 锁继续存活。
-- 随后加载 `agent-settings.json`（`L72`，路径由 `WORLDFORGE_AGENT_SETTINGS_PATH` 或配置同目录决定）；`reason` 为 `missing`/`corrupt` 时回落默认值并 `console.warn`，不阻止启动。
+- `createContentStore`（`L47`）打开 SQLite 并跑迁移；随后创建两个模拟服务（`L49`–`L50`）并 `mkdir(assetsPath)`（`L47`）。
+- `loadAgentProfiles()` 在这之后执行（`L58`）；失败时打印 `code: message` 与逐条 details，再 `process.exit(1)`（`L64`）——注释说明仅 `throw` 会让已打开的事件循环与 SQLite 锁继续存活。
+- 随后加载 `agent-settings.json`（`L73`，路径由 `WORLDFORGE_AGENT_SETTINGS_PATH` 或配置同目录决定）；`reason` 为 `missing`/`corrupt` 时回落默认值并 `console.warn`，不阻止启动。
 
-### `callAi(payload)`（`L302`）与 `callFreeAgent(payload)`（`L340`）：preset 解析与提示词分层
-- preset 在模型调用之前解析（`L319`/`L364`）；`resolveSurfaceProfile` 把 `AgentProfileError` 统一改写为 `status = 400`（`L291`），因此未知或不兼容 preset 不产生外部调用。请求未带 `presetId` 时取 `agentSettings.selections[surface]`，再回落 `agentProfiles.defaults`（`L292`–`L294`）。
-- 回显的 `agent` 快照只含 `presetId / presetVersion / presetHash / mode`（`L289`）。
-- `promptPayload` 一次性注入第 4 层（分类提示与个性化提示，`L313`），初次请求用 `buildPrompt(promptPayload)`（`L314`）；补生成用 `{ ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`（`L330`–`L334`），因此第 4 层与初次逐字一致、数量口径自洽。早年版本传原始 `payload` 会导致第 4 层丢失并出现「严格返回 2 份」与「只补 1 份」并存。
-- 结构化输出失败（HTTP 400/404/422）时降级为非结构化重试；三条降级分支（初次 `L329`、初次已降级后的补生成、补生成结构化失败）都用 `requireJson: true` 让 JSON 要求进入第 5 层，不再拼接 `${prompt}\n…`，因此降级请求仍是 4→5→6。`callFreeAgent` 另有工具不可用时的单轮降级，把前 120 条资料索引放进用户侧 `<library_context>`（`L412`–`L416`）。
+### `callAi(payload)`（`L319`）与 `callFreeAgent(payload)`（`L364`）：preset 解析与提示词分层
+- preset 在模型调用之前解析（`L406`/`L439`）；`resolveSurfaceProfile` 把 `AgentProfileError` 统一改写为 `status = 400`（`L291`），因此未知或不兼容 preset 不产生外部调用。请求未带 `presetId` 时取 `agentSettings.selections[surface]`，再回落 `agentProfiles.defaults`（`L291`–`L291`）。
+- 回显的 `agent` 快照只含 `presetId / presetVersion / presetHash / mode`（`L324`）。
+- `promptPayload` 一次性注入第 4 层（分类提示与个性化提示，`L330`），初次请求用 `buildPrompt(promptPayload)`（`L333`）；补生成用 `{ ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`（`L640`–`L640`），因此第 4 层与初次逐字一致、数量口径自洽。早年版本传原始 `payload` 会导致第 4 层丢失并出现「严格返回 2 份」与「只补 1 份」并存。
+- 结构化输出失败（HTTP 400/404/422）时降级为非结构化重试；三条降级分支（初次 `L364`、初次已降级后的补生成、补生成结构化失败）都用 `requireJson: true` 让 JSON 要求进入第 5 层，不再拼接 `${prompt}\n…`，因此降级请求仍是 4→5→6。`callFreeAgent` 另有工具不可用时的单轮降级，把前 120 条资料索引放进用户侧 `<library_context>`（`L364`–`L364`）。
 - 第 1–3 层只由 `composeAgentSystemPrompt` 拼装；作者笔记、资料库正文只用 `attachUntrustedContext` 附到用户侧消息（`L382`/`L416`）。
 - 工具策略：`free_lore_readonly` → `FREE_AGENT_TOOLS`，`none` → `[]`，其它值抛 `AGENT_PROFILE_INCOMPATIBLE`（`status 400`，`L314`）；工具仅在「有资料或资产」且策略非空时启用（`L389`）。
 
-### 生图与资产落盘（`createArtAsset` `L177`、`serveArtAsset` `L230`）
-- `clientRequestId` 先按 `^[A-Za-z0-9-]{8,80}$` 校验，再用 `listArtAssets()` 全表扫描找同 ID 资产，命中直接返回旧资产（`L180`–`L183`）。
-- 参考图经 `resolveReferenceImages` 校验 ID、确认资产存在、按 `assetsPath` 前缀校验并读盘；ComfyUI 通道在不支持参考图时直接抛错（`L190`）。
+### 生图与资产落盘（`createArtAsset` `L191`、`serveArtAsset` `L244`）
+- `clientRequestId` 先按 `^[A-Za-z0-9-]{8,80}$` 校验，再用 `listArtAssets()` 全表扫描找同 ID 资产，命中直接返回旧资产（`L192`–`L192`）。
+- 参考图经 `resolveReferenceImages` 校验 ID、确认资产存在、按 `assetsPath` 前缀校验并读盘；ComfyUI 通道在不支持参考图时直接抛错（`L164`）。
 - 文件先写 `*.tmp`（`mode 0600`）再 `rename`（`L203`–`L204`）；DB 插入失败会 `unlink` 已写文件（`L226`–`L227`）。
 - `serveArtAsset` 以 `file.startsWith(assetsPath)` 做前缀校验（失败 403），`ENOENT` 返回 404，成功响应带 `immutable` 一年缓存与安全响应头。
 
-### 设置读写与安全边界（`validateSettings` `L101`、`saveLocalEnv` `L67`）
+### 设置读写与安全边界（`validateSettings` `L115`、`saveLocalEnv` `L81`）
 - API Key 三态：`clearApiKey` → 写空串；字段缺失（`undefined`）→ 不写入，已存密钥保留；否则按字符串校验（≤500 字符、禁 CRLF）。
 - baseUrl 必须匹配 `^https?://\S+$` 且 ≤500 字符；model ≤120 字符且不含 CRLF；写入前统一去掉尾部 `/`。
 - workflow 为 `null` 时 `unlink` 并吞掉 `ENOENT`；提示词设置为 `undefined` 时不做任何写入。
