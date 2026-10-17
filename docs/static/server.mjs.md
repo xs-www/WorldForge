@@ -10,6 +10,8 @@
 | --- | --- | --- |
 | `loadLocalEnv()` / `saveLocalEnv(values)` | 读/写 `.env.local`；写盘用临时文件 + `rename`、`mode 0600`，只重写托管键并保留其余行 | `L26` / `L67` |
 | `readBody(req, maxLength = 2000000)` | 累积请求体并 `JSON.parse`；超限抛「请求内容过长」，空体解析为 `{}` | `L91` |
+| `buildCardContext(payload)` | 卡牌受限上下文：草案、引用 lore 内容（与 `draft.loreRefs` 交集）、关键词定义（按 `draft.keywordIds` ∪ `allowedKeywordIds` 过滤）、W97 `experimental` 规则摘要 | `L450` |
+| `callCardAgent(payload)` | 卡牌入口：`structured_card` + `toolPolicy=none`，返回补丁与静态评审、`agent` 快照与 `diagnostics`；补生成沿用同一 system | `L478` |
 | `validateSettings(payload)` | 校验 baseUrl/model/apiKey，并合并 Seedream、ComfyUI、提示词设置 | `L101` |
 | `createReferenceAsset` / `createArtAsset` / `serveArtAsset` | 参考图上传、生图落盘、资产文件读取 | `L141` / `L177` / `L230` |
 | `resolveAgentImages(value, maximum)` | Agent 取图；单张失败只记入 `missing`，不影响其余图片 | `L157` |
@@ -48,6 +50,7 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 | GET | `/api/ai/presets` | `L545` | `publicRegistryView` 脱敏预设视图 | 200 |
 | GET | `/api/settings` | `L569` | 设置 + 提示词默认值 + workflow 文本 + `agentPresets` / `agentPresetDefaults` / `agentSettingsSource` | 200 |
 | POST | `/api/settings` 🔒`x-worldforge-settings` | `L570` | 写 `.env.local`、workflow、提示词设置；`agentPresets` 部分更新 `agent-settings.json` | 400 / 403 |
+| POST | `/api/ai/card` | `L667` | 卡牌文字 Agent：只返回字段补丁与静态评审，不保存、不生成图片、不改 canon | 400 / 500 |
 | POST | `/api/ai/free` | `L558` | 自由创作 Agent（可选工具循环） | 200 |
 | POST | `/api/ai/tools/names` | `L559` | 名称生成 | 200 |
 | POST | `/api/ai` | `L560` | 结构化设定补全 | 200 |

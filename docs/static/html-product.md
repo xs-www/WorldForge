@@ -4,7 +4,8 @@
 
 - 新增 `card-agent.mjs`：字段白名单、三类型互斥、关键词/设定 ID 白名单、效果操作白名单与脚本拒绝、评审六项完整性、禁平衡声明、数值自动 untested 标记、差额补生成与诊断。
 - `ai-harness.mjs` 新增 `CARD_ENTRY_CONTRACT`（第 3 层）与 `buildCardPrompt`（第 4–6 层）；`card-designer` 投影裁到 `1.1.0`，只留 persona。
-- `server.mjs` 新增 `POST /api/ai/card` 与 `buildCardContext`：只发送当前草案、允许引用的 ID 与 W97 `experimental` 规则摘要；不保存、不生成图片、不改 canon。按 ADR §6 使用 `toolPolicy=none`（卡牌上下文走请求体，未启用 `card_context_readonly`）。
+- `server.mjs` 新增 `POST /api/ai/card`、`buildCardContext` 与 `callCardAgent`：卡牌上下文只包含当前草案、**当前卡牌引用的 lore 内容**（摘要、约束、状态、事实层次）、**关键词定义正文**与 W97 `experimental` 规则摘要。`loreEntries` 与 `draft.loreRefs` 求交集、关键词按 `draft.keywordIds` 与 `allowedKeywordIds` 过滤，因此请求体无法注入未被当前卡牌引用的条目。第 6 层相应包含 `<card_draft>`、`<allowed_references>`、`<card_lore>` 与 `<rules_context>`。不保存、不生成图片、不改 canon；按 ADR §6 使用 `toolPolicy=none`（卡牌上下文走请求体，未启用 `card_context_readonly`）。
+- 卡牌补丁回填判断抽到 `dist/card-agent-apply.js`：`formAssignments(patch, currentType)` 先算 `targetType = patch.type || currentType`，再决定 health/durability 写入哪个输入；浏览器与测试共用这一实现，测试用 `node:vm` 真实执行。
 - 卡牌编辑器新增可收起「卡牌 Agent」面板：五种操作、字段勾选、候选补丁与评审、诊断展开、应用到表单（不保存）、保存为独立草案（固定 `proposed` / `untested`）。
 - 测试：`tests/card-agent.test.mjs` 9 项 + UI 静态断言；`npm run check` 223 项通过。
 - 未验证：真实付费模型端到端、浏览器点击流程、卡牌 Agent 与 W97 参数的实际联动。
