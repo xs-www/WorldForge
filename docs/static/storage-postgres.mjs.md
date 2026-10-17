@@ -1,6 +1,6 @@
 # `storage-postgres.mjs`
 
-> 作用：作者资料库的 PostgreSQL 驱动。与 `storage.mjs`（SQLite）暴露**同一套** store API，但每个方法都是 async，表 / 列 / 索引名与 SQLite 版本逐个相同，`payload_json` 一律存 TEXT 以保证 JSON 逐字节往返。写操作按 `BEGIN` + 事务级 advisory lock 复刻 SQLite `BEGIN IMMEDIATE` 的写序列化。
+> 作用：作者资料库的 PostgreSQL 驱动。与 `storage.mjs`（SQLite）暴露**同一套** store API，但每个方法都是 async，表 / 列 / 索引名与 SQLite 版本逐个相同，`payload_json` 一律存 TEXT 以保证 JSON 逐字节往返。写操作按 `BEGIN` + 事务级 advisory lock 复刻 SQLite `BEGIN IMMEDIATE` 的写序列化。`pg` 是**可选依赖**：只在 `createPostgresContentStore` 真正建池时按需加载，SQLite 部署与不装第三方包的单元测试不受影响。
 
 > 篇幅说明：事务、迁移与脱敏三处都是外部边界，故略超常规长度预算。
 
@@ -8,6 +8,7 @@
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
 | `describePostgresTarget(connectionString)` | 脱敏连接目标，只保留 `host:port/database`；口令、用户名与查询参数一律不出现 | `L123` |
+| `loadPg()`（内部） | 按需 `await import('pg')`：未安装时抛 `PG_PACKAGE_MISSING`，因此本模块与「无第三方依赖」的测试可在没有 `pg` 的机器上加载 | `L16` |
 | `POSTGRES_MIGRATIONS` | 有序迁移：v1 `content-core`、v2 `art-assets`、v3 `lore-groups`，与 SQLite 版本号一致 | `L27` |
 | `applyPostgresMigrations(client)` | 逐版本事务执行，返回 `{startingVersion,currentVersion,applied}` | `L161` |
 | `createPostgresContentStore({connectionString})` | 建池 → 迁移 → 返回 `{driver,read,replace,health,createArtAsset,listArtAssets,getArtAsset,setArtAssetTarget,close}` | `L207` |

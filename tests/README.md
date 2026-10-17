@@ -19,6 +19,7 @@
 - `cards.test.mjs`：验证旧卡牌类型迁移、稀有度与多来源规范化、随从/法术/武器属性语义、关键词描述编译顺序、有限粗体/斜体标记与未知 HTML 纯文本保留，以及设定条目到卡牌三分类的默认映射。
 - `app-load.test.mjs`：用最小 DOM 替身加载真实脚本，验证世界视图与资料组行为、世界内导入、逐条/批量归组，以及「卡牌必须归属世界、卡牌库与原画集按世界筛选」（ADR-0034）。
 - `data-transfer-api.test.mjs`：真实 `server.mjs` 验证整库导出/导入的请求标记、预检不写库、合并/替换落库，以及原画 `worldId` 由服务端按绑定目标现算、解除绑定后清空。
+- `storage-postgres.test.mjs`：验证缺连接串即失败、连接目标脱敏、迁移版本与 SQLite 对齐；`pg` 按需加载，未安装时纯函数断言照常跑、真库往返用例 `skip`（设 `WORLDFORGE_TEST_PG_URL` 才连库）。
 - `prompt-settings.test.mjs`：验证 13 类默认提示词、个性化提示、分类微调及非法分类/长度拒绝。
 - `seedream.test.mjs`：验证火山方舟请求边界、固定参数与临时 URL 图片下载，不发起真实付费调用。
 - `comfyui.test.mjs`：验证 API Format 工作流占位符、任务入队、历史轮询与结果下载。

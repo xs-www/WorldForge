@@ -4,11 +4,18 @@
 //   2) 返回对象多一个 `driver = 'postgres'`，`health()` 报告脱敏后的连接目标而不是文件路径；
 //   3) 迁移游标存在 `metadata.schema_version`（SQLite 用 `PRAGMA user_version`）。
 // 内容校验、冲突错误、schema 版本号与“过高版本”错误一律从既有模块导入，本文件不复制这些规则。
-import pg from 'pg';
 import { ContentConflictError, validateContentSnapshot } from './storage.mjs';
 import { CONTENT_SCHEMA_VERSION, UnsupportedContentSchemaError } from './storage-migrations.mjs';
 
 const DRIVER = 'postgres';
+
+// pg 是可选依赖：只有真正连接 PostgreSQL 时才加载。
+// 这样 SQLite 部署、语法检查与「无第三方依赖」的单元测试都能在未安装 pg 的机器上加载本模块，
+// 而错误只会在真的要用 PG 驱动时才出现，且带稳定错误码。
+async function loadPg() {
+  try { return (await import('pg')).default; }
+  catch (error) { throw Object.assign(new Error('未安装 pg 依赖：使用 PostgreSQL 驱动前请先执行 npm install'), { code: 'PG_PACKAGE_MISSING', cause: error }); }
+}
 
 // metadata 表里的 schema 版本键。它与业务键（initialized / revision / updated_at / last_saved_by）同居一张表，
 // 读取时只按白名单取业务键，因此不会污染 read() 的返回值。
@@ -210,7 +217,7 @@ export async function createPostgresContentStore(options = {}) {
   if (!connectionString) throw new Error('createPostgresContentStore 需要 { connectionString }：缺少 PostgreSQL 连接串');
 
   const target = describePostgresTarget(connectionString);
-  const pool = new pg.Pool({ connectionString });
+  const pool = new (await loadPg()).Pool({ connectionString });
   // 空闲连接被服务端断开时 pool 会 emit('error')；没有监听器会直接终止进程。
   // 这里只吞掉该事件，真实可用性一律由 health() 的 SELECT 1 表示。
   pool.on('error', () => {});

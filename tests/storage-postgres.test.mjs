@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import pg from 'pg';
 import { ContentConflictError } from '../storage.mjs';
 import { CONTENT_SCHEMA_VERSION } from '../storage-migrations.mjs';
 import { createPostgresContentStore, describePostgresTarget, POSTGRES_MIGRATIONS } from '../storage-postgres.mjs';
+
+// pg 是可选依赖：CI 不安装第三方包，SQLite 开发机也可能没有。
+// 因此这里按需加载；纯函数断言照常跑，真实连库的用例本来就需要显式 WORLDFORGE_TEST_PG_URL，缺 pg 时跳过。
+const pg = await import('pg').then(module => module.default).catch(() => null);
 
 // 这个文件必须能在“机器上没有任何 PostgreSQL”的情况下通过：
 // 只有显式设置 WORLDFORGE_TEST_PG_URL 时才会真的连库，其余断言全是纯函数。
@@ -52,6 +55,7 @@ test('POSTGRES_MIGRATIONS is ordered, unique and mirrors the SQLite migration se
 
 test('PostgreSQL content store round-trips against a live server', async t => {
   const connectionString = process.env.WORLDFORGE_TEST_PG_URL;
+  if (!pg) return t.skip('未安装 pg 依赖（npm install），跳过真实 PostgreSQL 往返测试');
   if (!connectionString) return t.skip('未设置 WORLDFORGE_TEST_PG_URL，跳过真实 PostgreSQL 往返测试');
   if (!/^postgres(ql)?:\/\//i.test(connectionString)) return t.skip('WORLDFORGE_TEST_PG_URL 必须是 URL 形式，才能隔离到临时 schema');
 

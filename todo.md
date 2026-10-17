@@ -4,6 +4,7 @@
 
 - [x] **卡牌与原画按世界归属（ADR-0034，0.3.2）**：编辑器「所属世界」改为必选下拉（`#cardWorldId`，没选世界拒绝保存），卡牌库 `#cardLibraryWorld` 与原画集 `#artworkWorld` 可按世界筛选，卡面/原画卡片显示世界徽标；原画不存独立世界字段，`GET /api/art-assets` 与导出按绑定目标（卡牌 / 设定条目）现算 `worldId`，解除绑定清空；卡牌 Agent 草案补发 `worldId`。新增 3 项 interface 测试 + 1 项端到端测试。
 - [x] **测试对战 / 世界模拟标注 Beta**：导航里的两个标签加 `.beta-tag`（含暗色主题样式与 `title` 说明），版本号升到 **0.3.2**（`package.json`、`index.html` meta、导出包 `productVersion`）。
+- [x] **CI 修复：`pg` 改为按需加载**：GitHub Actions 的 check 任务不安装第三方依赖，而 `storage-postgres.mjs` 顶层 `import pg` 会让 `tests/storage-postgres.test.mjs` 在 import 阶段整文件失败（本地装有 `pg` 所以看不出来）。改为只在 `createPostgresContentStore` 建池时 `await import('pg')`（缺包抛 `PG_PACKAGE_MISSING`），测试同样按需加载、缺包时真库用例 `skip`；容器镜像仍 `npm install --omit=dev`。
 - [ ] 世界视觉规范是否显式存储并按世界拼进生图提示；卡牌类型是否也按世界可配置；「未归属」卡牌是否需要批量指派入口（ADR-0034 未决问题）。
 - [x] 设定导入支持文件上传（ADR-0033 §9）：新增 `lore-import-files.mjs` 与 `POST /api/lore-import/extract`，零依赖解析 `.md`/`.txt`（UTF-8/UTF-16/GBK）、`.docx`、`.xlsx`、`.zip`（逐条校验内部格式）、`.rtf`，旧版 `.doc`/`.xls` 尽力抽取并告警；`.rar`/`.pdf` 明确拒绝。解压只在内存、按实际输出量限流，预算与告警全部回传对话框；21→32 项导入相关测试。
 - [ ] 设定导入的文件能力待实测：WPS/Word 真实导出的旧版 `.doc`、含扫描图片的文档、加密或分卷 ZIP 的实际提示是否符合预期；`.rar` 是否值得引入依赖、PDF 是否需要单独通道，待裁定。

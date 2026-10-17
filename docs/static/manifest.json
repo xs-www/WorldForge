@@ -588,7 +588,7 @@
       "source": "storage-postgres.mjs",
       "doc": "docs/static/storage-postgres.mjs.md",
       "status": "documented",
-      "sha256": "fcc1c76839dbe809b6d424573c73843d3595383e64a4ad1f439af8a71079a5ed"
+      "sha256": "a85ace78b562bd479a8dc9f231857c199b47210ca5b74edd2fe409911e8067e3"
     },
     {
       "source": "storage.mjs",
@@ -918,7 +918,7 @@
       "source": "tests/README.md",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "6adf5fd8d04f73200d6d363f34ee450a695c2fd119d2d15d614a68e04ce91395"
+      "sha256": "9c4f7001dd1fe50fa4b4ad4deac1bf0e3816681d05fe1de2d6338e7021d49378"
     },
     {
       "source": "tests/reference-assets.test.mjs",
@@ -966,7 +966,7 @@
       "source": "tests/storage-postgres.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "2019b559139bc35deb6bf20d4cd9495fa80f63e5360e6123c39b085ee1128809"
+      "sha256": "fff9dff170ea9d6e51017d7da9f458741e7ecb6ec35dc07a75b8fd66bc59de42"
     },
     {
       "source": "tests/storage.test.mjs",
