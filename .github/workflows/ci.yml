@@ -1,0 +1,144 @@
+name: CI
+
+# 三道关，顺序固定：
+#   1. check        —— 全部源码语法检查 + 177 项单元测试（无第三方依赖，秒级完成）；
+#   2. image-smoke  —— 真实构建镜像，用生产同款参数启动容器，再跑 scripts/ci/smoke-container.mjs；
+#   3. publish      —— 多架构（amd64 + arm64）构建并推送 GHCR，NAS 只拉不建。
+#
+# 发布必须等前两关通过：镜像能构建成功不代表容器能启动（Dockerfile 是显式白名单
+# COPY，漏登记模块或 preset 投影会让容器启动即退出），因此不把坏镜像推给 NAS。
+# 发布只发生在 main 分支推送与 v* 标签上；PR 只跑前两关。
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同一 ref 的新推送取消上一轮未完成的运行，避免排队堆积。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: 静态检查与单元测试
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+      - name: 安装 Node（与 engines 下限及开发机一致）
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+      - name: 记录运行时版本
+        run: |
+          node -v
+          npm -v
+      - name: 语法检查与全部单元测试
+        run: npm run check
+
+  image-smoke:
+    name: 镜像构建与容器冒烟
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+      - name: 准备 Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: 构建镜像（仅本地加载，不推送）
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: worldforge:ci
+          cache-from: type=gha,scope=worldforge
+          cache-to: type=gha,mode=max,scope=worldforge
+      - name: 用 compose 同款生产参数启动容器
+        run: |
+          set -euo pipefail
+          data_dir="$RUNNER_TEMP/worldforge-data"
+          mkdir -p "$data_dir"
+          docker run --detach --name worldforge-ci \
+            --read-only --tmpfs /tmp \
+            --security-opt no-new-privileges:true \
+            --env WORLDFORGE_CONFIG_PATH=/data/.env.local \
+            --env WORLDFORGE_DB_PATH=/data/worldforge.sqlite \
+            --env WORLDFORGE_ASSETS_PATH=/data/assets/cards \
+            --env WORLDFORGE_COMFY_WORKFLOW_PATH=/data/comfyui-workflow.json \
+            --env WORLDFORGE_PROMPT_SETTINGS_PATH=/data/prompt-settings.json \
+            --env COMFYUI_BASE_URL=http://host.docker.internal:8188 \
+            --volume "$data_dir:/data" \
+            --publish 127.0.0.1:4173:8080 \
+            worldforge:ci
+      - name: 断言健康端点、preset 投影与静态资源
+        run: node scripts/ci/smoke-container.mjs http://127.0.0.1:4173
+      - name: 失败时导出容器日志
+        if: failure()
+        run: docker logs worldforge-ci
+      - name: 清理容器
+        if: always()
+        run: docker rm --force worldforge-ci || true
+
+  publish:
+    name: 发布多架构镜像到 GHCR
+    needs: [check, image-smoke]
+    # PR 不推送；只有 main 分支与 v* 标签会产出可部署镜像。
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+      - name: 准备 QEMU（arm64 层）
+        uses: docker/setup-qemu-action@v3
+      - name: 准备 Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: 生成镜像标签
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha,format=short,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - name: 构建并推送 amd64 + arm64
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=worldforge
+          cache-to: type=gha,mode=max,scope=worldforge
+      - name: 写入运行摘要
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo '## 镜像已发布'
+            echo
+            echo '```'
+            echo "$IMAGE_TAGS"
+            echo '```'
+            echo
+            echo 'NAS 更新：`docker compose -f compose.nas.yaml pull && docker compose -f compose.nas.yaml up -d`'
+          } >> "$GITHUB_STEP_SUMMARY"

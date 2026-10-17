@@ -8,6 +8,8 @@
 - [x] **Sprint 0 正式验收**：作者逐条签署 ADR-0029 §10 五项（只读仓库随附投影、按 surface 独立保存、自由聊天切换即新对话、本轮不接受自定义 preset、卡牌 Agent 独立浮动面板且只返回补丁），五项全部接受、无改判；ADR-0029 据此转为 canon，Sprint 0 退出条件「runtime manifest 与兼容矩阵经作者确认」关闭。
 - [x] 完成 Sprint 1 并修正只读验收问题：新增 `agent-profile-registry.mjs`（Schema 校验、安全路径、确定性 SHA-256 指纹、深度冻结只读快照、三入口完整性门）与仓库根 Schema 部署副本；`server.mjs` 启动时加载并在任何投影损坏或入口缺失时拒绝启动并退出；新增 `GET /api/ai/presets` 与 `/api/health` 的 `agentProfiles` 摘要；`Dockerfile` 只打包 6 个投影文件；已真实 `docker build` 比对本机与容器的 ID、版本与哈希一致。
 - [ ] 按同一计划实现 Sprint 2–5：设定助手与自由创作接入 Registry、分入口选择器与请求快照、卡牌文字 Agent、安全加固与发布验收。当前 `server.mjs` 的 AI 入口仍使用固定提示常量，`GET /api/ai/presets` 只是发现接口，选择的 `presetId` 尚不影响生成结果。
+- [x] 新增 GitHub Actions 流水线：`check`（语法检查 + 177 项单元测试）、`image-smoke`（真实构建镜像 + 容器内 HTTP 断言）、`publish`（前两关通过后构建 amd64/arm64 并推送 GHCR）；新增 `scripts/ci/smoke-container.mjs` 与只拉不建的 `compose.nas.yaml`，NAS 不再需要源码或在本地编译。
+- [ ] 上机验证交付链路：在 GitHub 上真实跑一次 Actions，用 `docker buildx imagetools inspect` 确认 GHCR 标签与双架构，并在 NAS 上跑通 `docker compose -f compose.nas.yaml up -d`（绑定挂载权限、端口占用、GHCR 登录态、ARM 拉取均未实机验证）。
 
 - [x] 完成 M0 仓库骨架与基础模板。
 - [x] 交付可直接使用的 HTML 世界设计工作台。

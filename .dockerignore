@@ -1,5 +1,6 @@
 .git
 .gitignore
+.github
 .env.local
 .openai
 docs
@@ -16,3 +17,4 @@ tests
 *.tar.gz
 todo.md
 compose.yaml
+compose.nas.yaml

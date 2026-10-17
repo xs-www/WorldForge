@@ -68,6 +68,39 @@ Docker 会运行同一个零依赖 Node 服务；模型设置、ComfyUI 工作�
 
 SQLite 使用 Node 22 内置驱动，本机运行需要 Node.js 22.5 或更高版本。数据库不会自动同步到仓库；需要长期归档时仍应使用完整 JSON 导出或后续的数据库备份功能。
 
+### GitHub Actions 构建镜像，NAS 只拉取运行
+
+`.github/workflows/ci.yml` 把「构建」和「运行」分开：镜像由 GitHub 的 runner 构建并推送到 GHCR，NAS 不需要源码，也不需要在那里编译。
+
+流水线分三道关，顺序固定：
+
+| 任务 | 触发条件 | 内容 |
+| --- | --- | --- |
+| `check` | 所有 push 与 PR | `npm run check`：全部源码语法检查 + 177 项单元测试 |
+| `image-smoke` | 所有 push 与 PR | 真实构建镜像，用 compose 同款参数（`--read-only` + `/data` 挂载）启动容器，再由 `scripts/ci/smoke-container.mjs` 断言健康端点、三个 preset 投影、静态界面、SQLite 与模拟存档 |
+| `publish` | 仅 `main` 推送与 `v*` 标签，且前两关已通过 | 构建 `linux/amd64` + `linux/arm64`，推送 `ghcr.io/xs-www/worldforge` |
+
+`image-smoke` 存在的理由：`Dockerfile` 用显式白名单 `COPY` 服务端模块，漏登记时镜像仍能构建成功，但容器启动即 `ERR_MODULE_NOT_FOUND`；Preset 投影漏拷则会被 Registry 的完整性门拒绝启动。只检查「构建成功」会把这两类问题留到 NAS 上才暴露。
+
+标签策略：`main` 分支产出 `latest`、`main` 和 `sha-<短哈希>`；`v1.2.3` 标签额外产出 `1.2.3` 与 `1.2`。PR 不推送镜像。
+
+启用步骤：
+
+1. 仓库推到 GitHub（`origin`）后，在 Settings → Actions → General 允许 Actions 运行；Workflow permissions 保持默认的 `GITHUB_TOKEN` 即可，`publish` 用 job 级 `packages: write` 推送镜像。
+2. 首次发布后 Packages 里会出现 `worldforge`。要免登录拉取就在包设置中改为 public；保持私有则在 NAS 上先 `docker login ghcr.io`（PAT 勾选 `read:packages`）。
+3. NAS 上使用只含 `image:` 的 `compose.nas.yaml`：
+
+```powershell
+docker compose -f compose.nas.yaml pull
+docker compose -f compose.nas.yaml up -d
+```
+
+群晖 Container Manager / QNAP Container Station 新建「项目」时，把 `compose.nas.yaml` 的内容粘贴进 YAML 编辑框即可，拉取与重启语义相同。数据目录通过 `WORLDFORGE_DATA_DIR` 指向 NAS 本地磁盘卷上的目录；不要用 SMB/NFS 共享或 CloudSync 之类的同步目录，SQLite 依赖 POSIX 文件锁。
+
+`compose.nas.yaml` 与 `compose.yaml` 的差异只在部署形态：前者拉取 GHCR 镜像并绑定全部网卡，后者从本地源码构建并绑定 `127.0.0.1`。两者共用同一套环境变量契约。ComfyUI 通道保留，`COMFYUI_BASE_URL` 与 `extra_hosts: host.docker.internal:host-gateway` 都在，真要在这台机器上出图时改成能访问到 ComfyUI 主机的地址即可。注意 `compose.nas.yaml` 绑定全部网卡是为了局域网与 tailnet 访问；本应用没有登录与权限控制，设置页可直接改写 API Key，不要把它映射到公网。
+
+升级：CI 推完新的 `latest` 后在 NAS 上重跑上面两条命令，或用 NAS 自带的任务计划定时执行。镜像内已带 `HEALTHCHECK`，健康端点异常时 `docker ps` 会显示 `unhealthy`。
+
 ### Tailscale 访问
 
 当前开发机已将 Docker 服务以 tailnet-only HTTPS 路由发布到：
