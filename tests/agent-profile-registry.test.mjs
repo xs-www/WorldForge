@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { AGENT_PROFILE_ERROR_CODES, AGENT_RUNTIME_MANIFEST } from '../agent-profile-contract.mjs';
 import {
@@ -489,9 +489,12 @@ test('the presets root is resolved without machine absolute paths', () => {
     if (previous === undefined) delete process.env.WORLDFORGE_AGENT_PRESETS_DIR;
     else process.env.WORLDFORGE_AGENT_PRESETS_DIR = previous;
   }
-  // 仓库内不得出现指向本机目录的绝对路径。
-  assert.equal(/[A-Za-z]:\\/.test(AGENT_RUNTIME_SCHEMA_PATH), true, 'schema 路径在本机是绝对路径（运行时解析，不写死）');
-  assert.ok(!JSON.stringify(publicRegistryView({ schemaVersion: 1, profiles: [], defaults: {} })).includes(':\\'));
+  // 仓库内不得出现指向本机目录的绝对路径：路径必须由运行时解析出来，而不是写死的相对/字面值。
+  // 这里只能断言「在本机解析为绝对路径」，不能断言盘符风格——否则该用例只在 Windows 成立，
+  // Linux/macOS 上必然失败（POSIX 绝对路径没有盘符）。
+  assert.equal(isAbsolute(AGENT_RUNTIME_SCHEMA_PATH), true, 'schema 路径由运行时解析为绝对路径（不写死）');
+  const emptyView = JSON.stringify(publicRegistryView({ schemaVersion: 1, profiles: [], defaults: {} }));
+  assert.ok(!emptyView.includes(':\\') && !emptyView.includes('/.agent-presets'), '浏览器投影不应包含 Windows 或 POSIX 绝对路径');
 });
 
 test('shipped projections carry the same hashes the registry reports', async () => {
