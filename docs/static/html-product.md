@@ -1,5 +1,48 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 3：按入口选择 Agent preset 归档
+
+本次交付 Sprint 3：设置页选择器、`agent-settings.json` 持久化、请求快照与错误区分。测试从 200 项增至 210 项，全部通过。
+
+### `agent-settings.mjs`（新增）
+
+- `AGENT_SETTINGS_SCHEMA_VERSION = 1`、`AGENT_SETTINGS_FILENAME = 'agent-settings.json'`、`AGENT_SETTINGS_ENV = 'WORLDFORGE_AGENT_SETTINGS_PATH'`。
+- `defaultAgentSelections(registry)`：三个入口的默认映射。
+- `normalizeAgentSettings(value, { defaults })`：只保留 `selections` 中已登记 surface；空值、超长值与缺失项回落默认；合法 id 即使对应 preset 已消失也原样保留。
+- `validateAgentSelectionPatch(payload, { registry })`：`undefined` 返回 `{}`（兼容旧客户端）；未知 surface → `AGENT_SETTINGS_INVALID`；未知 id → `AGENT_PROFILE_UNKNOWN`；跨入口误用 → `AGENT_PROFILE_INCOMPATIBLE`；三者都带 `status = 400` 且只返回本次要写入的键。
+- `loadAgentSettings(path, { defaults })`：`source` 为 `file`/`defaults`，`reason` 为 `missing`/`corrupt`/`null`，任何情况都不抛错、不改写磁盘。
+- `saveAgentSettings(path, settings)`：临时文件 + `rename` 原子写入，权限 `0o600`。
+
+### `server.mjs`
+
+- 新增 `agentSettingsPath`（环境变量或配置同目录）并在 Registry 之后加载；`missing`/`corrupt` 只 `console.warn`，不阻止启动。
+- `resolveSurfaceProfile` 改为「请求 `presetId` > `agentSettings.selections[surface]` > `agentProfiles.defaults`」。
+- `GET /api/settings` 增加 `agentPresets`、`agentPresetDefaults`、`agentSettingsSource`。
+- `POST /api/settings` 先做通用设置校验，再 `validateAgentSelectionPatch`；只有提交的入口被合并写入，并在日志记录实际变更。
+
+### 前端
+
+- 设置页新增「Agent 模式」标签与面板：三个 `select`（`settingPresetLore/Free/Card`）各自带说明与 `aria-describedby`，错误区 `role="alert"`，状态区 `role="status"` 显示「文件缺失/损坏回落」或当前三项选择。
+- 自由对话新增 preset 选择器与「本轮 Agent」chip；切换时若有历史先 `confirm`，取消则回滚，确认后清空对话。chip 用文字表达状态，不依赖颜色。
+- 两个入口都发送 `presetId` 快照；`agentErrorIsPreset` 把 `AGENT_PROFILE_*`/`AGENT_SETTINGS_INVALID` 渲染为「Agent preset 不可用：…」，与模型服务错误区分。
+- 缓存版本升到 `app.js?v=45`、`styles.css?v=37`。
+
+### 配置与部署
+
+- `.dockerignore` 无需改动；`Dockerfile` 根目录 COPY 增加 `agent-settings.mjs`——这条遗漏由既有 `tests/docker-packaging.test.mjs` 的闭包检查自动捕获。
+- `agent-settings.json` 与 `prompt-settings.json`、`.env.local`、SQLite 互不影响；删除该文件即回到三个随仓库默认值。
+
+### 测试
+
+- `tests/agent-settings-api.test.mjs`（5 项）：规范化与校验（未知 surface/id、跨入口、空值）、文件原子写入与损坏回落、GET/POST 往返与「被拒绝请求不改写文件」、保存值驱动请求 + 请求快照覆盖 + 伪造版本/哈希不被采信 + 重启后仍生效、已保存 preset 消失时报错不静默改选。
+- `tests/agent-settings-ui.test.mjs`（5 项）：三个选择器与无障碍属性、`agentPresets` 随设置提交、只列兼容 preset、自由对话快照与切换确认、preset 错误与模型错误区分、样式类存在。
+
+### 验证与未验证
+
+- `npm run check` 全通过：210 项测试。
+- **未验证**：真实浏览器的点击流程（本轮是静态 UI 断言 + 真实服务端 API 断言，没有做 DOM 演练）、真实付费模型端到端、Sprint 4 卡牌 Agent。
+- 已知限制：卡牌设计的选择器当前只保存选择，尚未影响任何生成结果（Sprint 4 接入）。
+
 ## 2026-10-17 Sprint 2 复审第五轮修正（JSON 降级指令的层位）
 
 复审指出三条降级分支仍把「严格只返回 JSON 对象」追加到以第 6 层结尾的 prompt 之后，重新形成 4→5→6→5：

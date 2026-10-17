@@ -10,7 +10,9 @@ Sprint 0–2 已完成：产品侧 `agent-profile-registry.mjs` 在启动时扫�
 
 Sprint 2 起，设定助手与自由创作**真正使用** Registry 中的 preset：提示词按 ADR-0029 §7 拼成三层——产品固定的安全边界、preset 的 `runtime/system.md`、入口自身的输出契约（作者分类提示词、本次任务要求与不可信上下文随后附上）。preset 只能替换中间那一层，无法覆盖安全边界或输出契约；`runtime/system.md` 若伪造产品分隔标记会被拒绝加载。请求可选带 `presetId`，未知或不兼容的 preset 在调用模型前就返回 400；三个响应都会回显 `agent: { presetId, presetVersion, presetHash, mode }`，自由对话每轮与设定助手候选区都会显示本轮实际使用的 preset，客户端无法伪造版本或哈希。工具仍只由服务端白名单映射（`free_lore_readonly` → 现有五个只读工具），轮次、工具调用与单轮附图硬上限不受 preset 影响。Docker 镜像只复制 Registry 需要读取的 6 个投影文件，不含 `agent.cordis.yml`、`skills/` 或设计目录。
 
-尚未实现：分入口的 preset 选择器、`agent-settings.json` 持久化与会话切换语义（Sprint 3），以及卡牌文字 Agent（Sprint 4）；因此当前所有请求都使用服务端默认的 `lore-writer` / `free-creator`，界面还不能改选。
+Sprint 3 起可以按入口选择 preset：设置页「Agent 模式」为设定助手、自由创作、卡牌设计各提供一个选择器，只列出与该入口兼容的 preset，选择保存在服务端的 `agent-settings.json`（与 `.env.local`、`prompt-settings.json` 分离，原子写入）。解析优先级是「请求快照 > 保存的默认值 > 随仓库默认值」；自由对话顶部可选择本次对话使用的 preset，有历史时会先确认并开启新对话，气泡会显示该轮实际使用的 Agent。preset 错误（未知、跨入口误用、设置文件不可用）与模型服务错误在界面上分开提示；已保存的 preset 若被删除，服务端保留该选择并返回明确错误，不会静默改选另一个 persona。
+
+尚未实现：卡牌文字 Agent（Sprint 4）与发布前加固（Sprint 5）。卡牌设计的选择器当前只保存选择，尚未影响任何生成结果。
 
 从 `docs/PROJECT_DESIGN.md` 开始阅读；使用 Codex 前请阅读 `AGENTS.md`。所有未明确批准的世界设定与卡牌均为草案。
 

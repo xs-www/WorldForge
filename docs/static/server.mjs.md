@@ -13,7 +13,7 @@
 | `validateSettings(payload)` | 校验 baseUrl/model/apiKey，并合并 Seedream、ComfyUI、提示词设置 | `L101` |
 | `createReferenceAsset` / `createArtAsset` / `serveArtAsset` | 参考图上传、生图落盘、资产文件读取 | `L141` / `L177` / `L230` |
 | `resolveAgentImages(value, maximum)` | Agent 取图；单张失败只记入 `missing`，不影响其余图片 | `L157` |
-| `resolveSurfaceProfile` / `toolsForPolicy` | 解析 preset；把 `toolPolicy` 映射为服务端工具白名单 | `L277` / `L293` |
+| `resolveSurfaceProfile(surface, presetId)` / `toolsForPolicy` | 按「请求快照 > `agent-settings.json` 保存值 > Registry 默认」解析 preset；把 `toolPolicy` 映射为服务端工具白名单 | `L290` / `L306` |
 | `callAi` / `callFreeAgent` / `callNameGenerator` / `callMacroProposal` | 四个 AI 入口，均先做 preset 解析或规则降级 | `L302` / `L340` / `L422` / `L434` |
 | `serveStatic` | 服务 `dist/`；文件不存在时回退 `index.html` | `L454` |
 
@@ -46,8 +46,8 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 | POST | `/api/images/optimize-prompt` 🔒 | `L539` | 用 LLM 改写提示词 | 403 / 500 |
 | GET | `/api/ai/status` | `L543` | LLM 配置状态（不含 key） | 200 |
 | GET | `/api/ai/presets` | `L545` | `publicRegistryView` 脱敏预设视图 | 200 |
-| GET | `/api/settings` | `L546` | 设置 + 提示词默认值 + workflow 文本 | 200 |
-| POST | `/api/settings` 🔒`x-worldforge-settings` | `L547` | 写 `.env.local`、workflow、提示词设置 | 403 |
+| GET | `/api/settings` | `L569` | 设置 + 提示词默认值 + workflow 文本 + `agentPresets` / `agentPresetDefaults` / `agentSettingsSource` | 200 |
+| POST | `/api/settings` 🔒`x-worldforge-settings` | `L570` | 写 `.env.local`、workflow、提示词设置；`agentPresets` 部分更新 `agent-settings.json` | 400 / 403 |
 | POST | `/api/ai/free` | `L558` | 自由创作 Agent（可选工具循环） | 200 |
 | POST | `/api/ai/tools/names` | `L559` | 名称生成 | 200 |
 | POST | `/api/ai` | `L560` | 结构化设定补全 | 200 |
@@ -60,9 +60,10 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 - 顶层 `await loadLocalEnv()` 先于所有 `WORLDFORGE_*` 路径解析，因此 `.env.local` 可覆盖 DB／资产／模拟库路径；`.env.local`、ComfyUI workflow、提示词设置三个文件默认同目录（`dirname(envPath)`）。
 - `createContentStore`（`L43`）打开 SQLite 并跑迁移；随后创建两个模拟服务（`L45`–`L46`）并 `mkdir(assetsPath)`（`L47`）。
 - `loadAgentProfiles()` 在这之后执行（`L54`）；失败时打印 `code: message` 与逐条 details，再 `process.exit(1)`（`L64`）——注释说明仅 `throw` 会让已打开的事件循环与 SQLite 锁继续存活。
+- 随后加载 `agent-settings.json`（`L72`，路径由 `WORLDFORGE_AGENT_SETTINGS_PATH` 或配置同目录决定）；`reason` 为 `missing`/`corrupt` 时回落默认值并 `console.warn`，不阻止启动。
 
 ### `callAi(payload)`（`L302`）与 `callFreeAgent(payload)`（`L340`）：preset 解析与提示词分层
-- preset 在模型调用之前解析（`L306`/`L343`）；`resolveSurfaceProfile` 把 `AgentProfileError` 统一改写为 `status = 400`（`L283`），因此未知或不兼容 preset 不产生外部调用。
+- preset 在模型调用之前解析（`L306`/`L343`）；`resolveSurfaceProfile` 把 `AgentProfileError` 统一改写为 `status = 400`（`L296`），因此未知或不兼容 preset 不产生外部调用。请求未带 `presetId` 时取 `agentSettings.selections[surface]`，再回落 `agentProfiles.defaults`（`L292`–`L294`）。
 - 回显的 `agent` 快照只含 `presetId / presetVersion / presetHash / mode`（`L289`）。
 - `promptPayload` 一次性注入第 4 层（分类提示与个性化提示，`L313`），初次请求用 `buildPrompt(promptPayload)`（`L314`）；补生成用 `{ ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`（`L330`–`L334`），因此第 4 层与初次逐字一致、数量口径自洽。早年版本传原始 `payload` 会导致第 4 层丢失并出现「严格返回 2 份」与「只补 1 份」并存。
 - 结构化输出失败（HTTP 400/404/422）时降级为非结构化重试；三条降级分支（初次 `L329`、初次已降级后的补生成、补生成结构化失败）都用 `requireJson: true` 让 JSON 要求进入第 5 层，不再拼接 `${prompt}\n…`，因此降级请求仍是 4→5→6。`callFreeAgent` 另有工具不可用时的单轮降级，把前 120 条资料索引放进用户侧 `<library_context>`（`L412`–`L416`）。

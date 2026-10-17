@@ -8,9 +8,9 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17",
   "counts": {
-    "sources": 128,
-    "documented": 54,
-    "aggregated": 74
+    "sources": 131,
+    "documented": 55,
+    "aggregated": 76
   },
   "files": [
     {
@@ -158,6 +158,12 @@
       "sha256": "a7717d456e63c7b8df3bc139e278e1f10085f4bef802568956615c2954fc2dcf"
     },
     {
+      "source": "agent-settings.mjs",
+      "doc": "docs/static/agent-settings.mjs.md",
+      "status": "documented",
+      "sha256": "1a09f1367199db9064b1d7ccb5e91f3381067614e713ab81e8157abdb8f1b4a2"
+    },
+    {
       "source": "agent-profile-registry.mjs",
       "doc": "docs/static/agent-profile-registry.mjs.md",
       "status": "documented",
@@ -221,7 +227,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "abd29782a2f3d8a2a150fe3cdb0d82e21bb3f9bfcc20e4c22e19fba8e834c1b9"
+      "sha256": "6c6c277505f1a65ffe734a581c63ff59a178e3a448b7a603ff28df25fd8d83ab"
     },
     {
       "source": "dist/battle.js",
@@ -257,7 +263,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "b70dfab6506c8e16feca35ac7ab4f019fd1026e7b4b3374f3ae3d6b7a884dc82"
+      "sha256": "b88e42b3d1e7ee6ade6785e21ec824306860e65b2c5c25e69809c2d4be7ff7a1"
     },
     {
       "source": "dist/macro.js",
@@ -275,7 +281,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "7c1f43034fa0714e16168a62a79d599ffaa8158cc76c9030fa741b6a8ba30cc3"
+      "sha256": "0b34ef8c7e718924bd5106e74ef9fd6e725cf2d68e78a865c01c331123c40f17"
     },
     {
       "source": "dist/world-scope.js",
@@ -293,7 +299,7 @@
       "source": "Dockerfile",
       "doc": "docs/static/Dockerfile.md",
       "status": "documented",
-      "sha256": "dbf5b4d9031b7dfddff7855571f05b394ed595b36ad3fb62e902e7c6a8cb1c9a"
+      "sha256": "950fdeece999a83a5cd3285746778b54562e06500d3d34914759b5394f5194fc"
     },
     {
       "source": "image-context.mjs",
@@ -341,7 +347,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "140e7635f0a439cc3ce1d83bb5ec66f6706d7c1345c9c14c288d4ad0cc384897"
+      "sha256": "571a28a8e2137dbbf4f0fa8584f26715c6a1a87b5d80322ea5875bea227ae5b7"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -522,6 +528,18 @@
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
       "sha256": "6d18b27395ceff3294967566ea3f7777e2e7c339d73d0fdb080cd90bc0a66d90"
+    },
+    {
+      "source": "tests/agent-settings-ui.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "7112b77469dd8c5844c85e137e30d3bad85acd591618639a3045797e7b5be798"
+    },
+    {
+      "source": "tests/agent-settings-api.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "84ea8d32cf2d898b999002ef6e8233cd8bcef956777428d61c52a77e23124f61"
     },
     {
       "source": "tests/agent-surface-integration.test.mjs",
@@ -767,7 +785,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "ee6fb1a91ab9f10f2ad44d1b2f87456cd78a88c23634995423891178dd704380"
+      "sha256": "2ba22acf21ff8e5b97f2ae9f88ad48fa27ac1da9545893c8a25a07cc8cfa5804"
     },
     {
       "source": "tests/world-package.test.mjs",

@@ -5,7 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
-- 执行进度：Sprint 0、Sprint 1 已签收；Sprint 2（两个现有入口真正使用选定 preset + 提示词分层）工程实现已完成，见 §9.5，等待验收。Sprint 3–5 未开始：产品入口仍只能使用服务端默认 preset，尚无选择器与 `agent-settings.json`。
+- 执行进度：Sprint 0–2 已签收；Sprint 3（设置页选择器、`agent-settings.json`、请求快照与错误区分）工程实现已完成，见 §10.5，等待验收。Sprint 4–5 未开始：卡牌文字 Agent 尚无产品入口。
 
 ## 1. 执行摘要
 
@@ -532,6 +532,26 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 - preset chip 不只用颜色表达状态。
 - API 请求继续通过脚本挂载路径计算，兼容 `/worldforge` 子路径。
 - 缓存版本升级并增加静态 UI 测试。
+
+### 10.5 Sprint 3 执行记录（2026-10-17）
+
+| ID | 产物 | 状态 |
+|---|---|---|
+| S3-01 | 设置页新增「Agent 模式」面板（`data-settings-tab="agent"`） | 完成：三个选择器 + 说明 + 状态行 + `role="alert"` 错误区 |
+| S3-02 | `fillPresetSelect(select, surface, selectedId)` | 完成：只列 `surfaces` 包含该入口的 preset；没有兼容项时禁用并显示「没有兼容的 preset」 |
+| S3-03 | `agent-settings.mjs` + `GET/POST /api/settings` | 完成：默认映射、部分更新、原子写入 `agent-settings.json`；旧安装 `source=missing`、损坏文件 `reason=corrupt` 都回落默认值并把原因回传界面 |
+| S3-04 | 入口 chip | 完成：自由对话顶部选择器 + 「本轮 Agent：名称 v版本」，悬停显示描述；设定助手候选区显示 `Agent <id> v<version> · <mode>`；chip 用文字而非颜色表达状态 |
+| S3-05 | 请求携带快照 | 完成：两个入口都发送 `presetId`；服务端按「请求 > 保存的默认值 > Registry 默认」解析，并只回显服务端结果；测试用伪造的 `presetVersion`/`presetHash` 断言不被采信 |
+| S3-06 | 自由聊天切换确认 | 完成：有历史时 `confirm('切换 Agent preset 会开启新对话…')`，取消则回滚选择；确认后清空对话并提示新对话已开始 |
+| S3-07 | 错误区分 | 完成：`agentErrorIsPreset` 识别 `AGENT_PROFILE_*`/`AGENT_SETTINGS_INVALID`，界面显示「Agent preset 不可用：…」而不是「请求失败」；设置页保存错误显示在专门的 `role="alert"` 区域 |
+
+补充决策：
+
+- **保存的 preset 消失时不自动改选**：`loadAgentSettings` 保留原 id，解析层报 `AGENT_PROFILE_UNKNOWN`（400），界面显示为 preset 问题。这符合计划 §12.1 S5-07「不静默换 persona」。
+- **会话内切换不等于改默认值**：自由聊天里的选择器只改本次对话的 `presetId` 快照；服务端默认值仍由设置页维护。因此多标签页不会互相改选。
+- **`agentPresets` 允许部分提交**：只提交的入口会被写入，其余保持不变，兼容「只保存模型设置」的旧客户端。
+
+验证：`npm run check` 全通过（210 项测试；新增 `agent-settings-api.test.mjs` 5 项与 `agent-settings-ui.test.mjs` 5 项）。Docker 白名单测试自动捕获了遗漏的 `agent-settings.mjs` 并已加入镜像。**未验证**：真实浏览器点击流程（本轮为静态 UI 断言 + 真实服务端 API 断言，未做浏览器 DOM 演练）、真实付费模型端到端、Sprint 4 卡牌 Agent。
 
 ## 11. Sprint 4：卡牌文字 Agent 纵切
 

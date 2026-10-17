@@ -13,6 +13,7 @@ import { generateSeedreamImage, seedreamConfig, validateImageRequest, validateSe
 import { normalizeReferenceAssetIds, parseReferenceUpload, toReferenceDataUrl } from './reference-assets.mjs';
 import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, DEFAULT_VISUAL_STYLE_PROMPT, normalizePromptSettings, validatePromptSettings } from './prompt-settings.mjs';
 import { asAgentProfileError, loadAgentProfiles, publicRegistryView, registryHealthSummary } from './agent-profile-registry.mjs';
+import { AGENT_SETTINGS_ENV, AGENT_SETTINGS_FILENAME, loadAgentSettings, publicAgentSelections, saveAgentSettings, validateAgentSelectionPatch } from './agent-settings.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
 import { buildMacroProposalPrompt, MACRO_PROPOSAL_SCHEMA } from './simulation/llm/macro-proposal.mjs';
@@ -22,6 +23,8 @@ const dist = join(root, 'dist');
 const envPath = process.env.WORLDFORGE_CONFIG_PATH || join(root, '.env.local');
 const comfyWorkflowPath = process.env.WORLDFORGE_COMFY_WORKFLOW_PATH || join(dirname(envPath), 'comfyui-workflow.json');
 const promptSettingsPath = process.env.WORLDFORGE_PROMPT_SETTINGS_PATH || join(dirname(envPath), 'prompt-settings.json');
+// Agent 选择单独一份文件：不写 .env.local，也不与作者可编辑的分类提示词混在一起。
+const agentSettingsPath = process.env[AGENT_SETTINGS_ENV] || join(dirname(envPath), AGENT_SETTINGS_FILENAME);
 
 async function loadLocalEnv() {
   try {
@@ -62,6 +65,16 @@ try {
   // 必须显式退出：数据库与模拟服务在启动阶段已经打开，仅 throw 会让事件循环保持存活，
   // 容器会表现为"启动失败但不退出"，本机也会留下锁定的 SQLite 文件。
   process.exit(1);
+}
+
+// 按 surface 保存的服务端默认选择（Sprint 3）。旧安装没有该文件时使用 Registry 默认值；
+// 文件损坏时同样回落默认值并记录原因，但绝不因为某个 preset 消失就自动改选其他 persona。
+let agentSettings = await loadAgentSettings(agentSettingsPath, { defaults: agentProfiles.defaults });
+if (agentSettings.reason) console.warn(`[agent-settings] using defaults (${agentSettings.reason}) at ${agentSettingsPath}`);
+else console.log(`[agent-settings] ${AGENT_SURFACES_FOR_LOG(agentSettings)}`);
+
+function AGENT_SURFACES_FOR_LOG(settings) {
+  return Object.entries(settings.selections).map(([surface, id]) => `${surface}=${id}`).join(' ');
 }
 
 async function saveLocalEnv(values) {
@@ -275,7 +288,10 @@ async function optimizeImagePrompt(payload) {
 // 并把 AgentProfileError 统一映射为 400（不产生外部 token 与费用）。
 
 function resolveSurfaceProfile(surface, presetId) {
-  const requested = presetId === undefined || presetId === null || presetId === '' ? agentProfiles.defaults[surface] : String(presetId);
+  // 解析优先级：请求快照 > 服务端按 surface 保存的默认值 > Registry 默认值。
+  // 请求自带值时以请求为准，但版本与哈希永远由服务端解析结果回显（S3-05）。
+  const explicit = presetId !== undefined && presetId !== null && presetId !== '';
+  const requested = explicit ? String(presetId) : (agentSettings.selections[surface] || agentProfiles.defaults[surface]);
   try {
     return agentProfiles.resolve(requested, surface);
   } catch (error) {
@@ -550,17 +566,24 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/ai/status') { const c = aiConfig(); return json(res, 200, { configured: Boolean(c.key), model: c.model, style: c.style }); }
     // 只返回脱敏元数据与默认映射：不含系统提示正文、文件路径或 DSH 插件明细。
     if (req.method === 'GET' && req.url === '/api/ai/presets') return json(res, 200, publicRegistryView(agentProfiles));
-    if (req.method === 'GET' && req.url === '/api/settings') { const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), workflow = await loadComfyWorkflow(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiBaseUrl: comfyUi.baseUrl, comfyUiConfigured: Boolean(workflow), comfyUiWorkflow: workflow ? JSON.stringify(workflow, null, 2) : '', promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT }); }
+    if (req.method === 'GET' && req.url === '/api/settings') { const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), workflow = await loadComfyWorkflow(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiBaseUrl: comfyUi.baseUrl, comfyUiConfigured: Boolean(workflow), comfyUiWorkflow: workflow ? JSON.stringify(workflow, null, 2) : '', promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, agentPresets: publicAgentSelections(agentSettings), agentPresetDefaults: agentProfiles.defaults, agentSettingsSource: agentSettings.reason || 'file' }); }
     if (req.method === 'POST' && req.url === '/api/settings') {
       if (req.headers['x-worldforge-settings'] !== '1') return json(res, 403, { error: '缺少本机设置请求标记' });
-      const settings = validateSettings(await readBody(req));
+      const payload = await readBody(req);
+      const settings = validateSettings(payload);
+      // Agent 选择需要 Registry 校验，因此在通用设置之外单独处理；只提交部分入口时其余保持不变。
+      const selectionPatch = validateAgentSelectionPatch(payload.agentPresets, { registry: agentProfiles });
       const values = { LLM_BASE_URL: settings.baseUrl, LLM_MODEL: settings.model, LLM_API_STYLE: settings.style, SEEDREAM_BASE_URL: settings.seedream.baseUrl, SEEDREAM_MODEL: settings.seedream.model, COMFYUI_BASE_URL: settings.comfyUi.baseUrl };
       if (settings.apiKey !== undefined) values.LLM_API_KEY = settings.apiKey;
       if (settings.seedream.apiKey !== undefined) values.SEEDREAM_API_KEY = settings.seedream.apiKey;
       await saveLocalEnv(values);
       await saveComfyWorkflow(settings.comfyUi.workflow);
       await savePromptSettings(settings.prompts);
-      const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT });
+      if (Object.keys(selectionPatch).length) {
+        agentSettings = await saveAgentSettings(agentSettingsPath, { selections: { ...agentSettings.selections, ...selectionPatch } });
+        console.log(`[agent-settings] updated ${Object.entries(selectionPatch).map(([surface, id]) => `${surface}=${id}`).join(' ')}`);
+      }
+      const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, agentPresets: publicAgentSelections(agentSettings), agentPresetDefaults: agentProfiles.defaults });
     }
     if (req.method === 'POST' && req.url === '/api/ai/free') return json(res, 200, await callFreeAgent(await readBody(req)));
     if (req.method === 'POST' && req.url === '/api/ai/tools/names') return json(res, 200, await callNameGenerator(await readBody(req)));
