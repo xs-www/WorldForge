@@ -486,6 +486,8 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | S2-08 | 硬上限不变 | 完成：仍用 `runAgentLoop` 默认 6 轮 / 12 次与 `AGENT_LIMITS.maxImages = 4`；实测模型无限请求工具时被截断在 12 次并标记 `tool_budget` |
 | S2-09 | 工具不可用的单轮降级 | 完成：降级请求仍带同一 preset 正文与 `<library_context>`，响应 `agent` 与成功路径完全一致 |
 | S2-10 | 三个响应增加 `agent` 快照；前端显示 | 完成：`/api/ai`、`/api/ai/free` 返回 `{ presetId, presetVersion, presetHash, mode }`；自由对话每轮显示 `Agent <id> v<version>`，设定助手候选区顶部显示同名 chip |
+| S2-11 | 复审 P1：不可信内容被提升到 system | 完成：`composeAgentSystemPrompt` 移除 `authorNotes` 参数，新增 `assertInstructionLayerClean`（命中不可信标记抛 `AGENT_UNTRUSTED_LEAK`，错误码 `AGENT_UNTRUSTED_LEAK` 只用于内部断言，不外露给浏览器）；新增 `attachUntrustedContext` 把作者笔记与降级索引附到最后一条用户消息。集成测试断言 system 不含 `author_notes`/`library_context` 与其正文，用户侧含 `<untrusted_context>` |
+| S2-12 | 复审 P2：第 4、5 层顺序反转 | 完成：`buildPrompt` 重排为 `author_type_prompt` → `author_personalized_style` → 任务要求 → `worldforge_examples` → `worldforge_context`。新增测试分别断言 system 内 1→2→3 与 user prompt 内 4→5→6，并断言两条通道互不串层；另有完整六层顺序断言 |
 
 分层重构的取舍：
 
@@ -494,7 +496,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 - `card-designer`（`1.0.0`）本轮未接入产品入口（Sprint 4），因此暂不按新分工裁剪；契约测试对它保持原有断言。
 - 新增安全加固：preset 的 `runtime/system.md` 若包含产品保留标记（`<product_boundary>`、`<agent_preset>`、`<entry_contract>`）会被 Registry 以 `AGENT_MANIFEST_INVALID` 拒绝，防止投影伪造更高优先级的层。
 
-验证：`npm run check` 全通过（192 项测试；新增 `agent-prompt-layers.test.mjs` 7 项与 `agent-surface-integration.test.mjs` 8 项）。集成测试用本地假模型 + 真实 `server.mjs` 子进程，断言服务端实际发出的提示层次、工具白名单、硬上限与响应快照。**未验证**：真实模型端到端（本轮没有也无需调用付费接口）、设置页选择器与请求携带快照的 UI（Sprint 3）、卡牌 Agent（Sprint 4）。
+验证：`npm run check` 全通过（195 项测试；新增 `agent-prompt-layers.test.mjs` 10 项与 `agent-surface-integration.test.mjs` 8 项）。集成测试用本地假模型 + 真实 `server.mjs` 子进程，断言服务端实际发出的提示层次、工具白名单、硬上限与响应快照。**未验证**：真实模型端到端（本轮没有也无需调用付费接口）、设置页选择器与请求携带快照的 UI（Sprint 3）、卡牌 Agent（Sprint 4）。
 
 ## 10. Sprint 3：设置 UI、选择语义与可观测性
 

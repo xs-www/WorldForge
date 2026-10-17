@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import {
+  attachUntrustedContext,
+  buildContextBundle,
+  buildPrompt,
   composeAgentSystemPrompt,
   FREE_AGENT_INSTRUCTIONS,
   FREE_AGENT_TOOL_GUIDE,
@@ -50,14 +53,86 @@ test('a preset cannot forge the product layers', () => {
   assert.doesNotThrow(() => composeAgentSystemPrompt({ presetPrompt: '普通 preset 文本', entryContract: LORE_ENTRY_CONTRACT }));
 });
 
-test('author notes are appended as the untrusted layer, last', () => {
-  const composed = composeAgentSystemPrompt({ presetPrompt: 'p', entryContract: LORE_ENTRY_CONTRACT, authorNotes: '作者补充' });
-  assert.ok(composed.indexOf('<author_notes>') > composed.indexOf('<entry_contract>'), '作者笔记必须在入口契约之后');
-  assert.ok(composed.includes('作者补充'));
-  // 工具协议属于入口契约层的一部分，不单独成层。
-  const withTools = composeAgentSystemPrompt({ presetPrompt: 'p', entryContract: FREE_ENTRY_CONTRACT, extraContracts: [FREE_AGENT_TOOL_GUIDE] });
-  assert.ok(withTools.indexOf(FREE_AGENT_TOOL_GUIDE) > withTools.indexOf(FREE_ENTRY_CONTRACT), '工具协议跟在输出契约之后');
-  assert.ok(withTools.indexOf('</entry_contract>') > withTools.indexOf(FREE_AGENT_TOOL_GUIDE), '工具协议仍在入口契约层内');
+test('author notes and library text cannot enter the instruction layer', () => {
+  // P1 回归：不可信内容只能作为用户侧上下文，拼进 system 必须直接失败。
+  for (const block of ['<author_notes>\n作者补充\n</author_notes>', '<library_context>\n{}\n</library_context>', '<worldforge_context>\n{}\n</worldforge_context>', '<untrusted_context>\n原文\n</untrusted_context>']) {
+    const error = (() => {
+      try { composeAgentSystemPrompt({ presetPrompt: 'p', entryContract: FREE_ENTRY_CONTRACT, extraContracts: [block] }); return null; }
+      catch (thrown) { return thrown; }
+    })();
+    assert.ok(error, `指令层不应接受 ${block}`);
+    assert.equal(error.code, 'AGENT_UNTRUSTED_LEAK');
+  }
+  // preset 层同样不允许夹带。
+  assert.throws(() => composeAgentSystemPrompt({ presetPrompt: '<author_notes>x</author_notes>', entryContract: LORE_ENTRY_CONTRACT }), /不可信内容标记/);
+  // 正常的内容不被误伤。
+  const clean = composeAgentSystemPrompt({ presetPrompt: '正常 persona', entryContract: FREE_ENTRY_CONTRACT, extraContracts: ['本次可用范围：可检索资料 1 条。'] });
+  assert.ok(!clean.includes('<author_notes>') && !clean.includes('<library_context>'));
+});
+
+test('untrusted context is attached to the last user message only', () => {
+  const messages = [{ role: 'user', content: '第一句' }, { role: 'assistant', content: '答' }, { role: 'user', content: '最后一句' }];
+  const out = attachUntrustedContext(messages, ['<author_notes>\n补充\n</author_notes>']);
+  assert.equal(out[0].content, '第一句', '早期消息不得被改写');
+  assert.ok(out[2].content.startsWith('最后一句'), '最后一条用户消息保留原文');
+  assert.ok(out[2].content.includes('<untrusted_context>'), '最后一条用户消息附带不可信层');
+  assert.ok(out[2].content.includes('<author_notes>'));
+  assert.equal(messages[2].content, '最后一句', '不得改动调用方数据');
+  assert.deepEqual(attachUntrustedContext(messages, []), messages, '没有内容时不产生新消息');
+});
+
+test('the lore request puts layers 4 → 5 → 6 in the frozen order', () => {
+  const payload = {
+    action: 'brainstorm',
+    variantCount: 2,
+    prompt: '作者的补充要求',
+    typePrompt: '分类提示',
+    personalizedPrompt: '个性化风格',
+    draft: { type: 'magic', name: '测试', worldId: 'W01', tags: [] },
+    selectedBlocks: ['name', 'summary']
+  };
+  const prompt = buildPrompt(payload, buildContextBundle(payload));
+  const authorIndex = prompt.indexOf('<author_type_prompt>');
+  const styleIndex = prompt.indexOf('<author_personalized_style>');
+  const taskIndex = prompt.indexOf('目标模块：');
+  const examplesIndex = prompt.indexOf('<worldforge_examples>');
+  const contextIndex = prompt.indexOf('<worldforge_context>');
+  assert.ok(authorIndex >= 0 && styleIndex > authorIndex, '第 4 层作者提示必须最先出现');
+  assert.ok(taskIndex > styleIndex, '第 5 层任务要求必须排在作者提示之后');
+  assert.ok(examplesIndex > taskIndex && contextIndex > examplesIndex, '第 6 层不可信上下文必须最后');
+  assert.ok(prompt.includes('作者的补充要求'), '作者补充要求属于第 5 层');
+});
+
+test('the composed system plus prompt covers all six layers in order', () => {
+  const payload = { action: 'polish', variantCount: 1, typePrompt: '分类提示', personalizedPrompt: '风格提示', draft: { type: 'character', name: '甲', worldId: 'W01', tags: [] }, selectedBlocks: ['name'] };
+  const system = composeAgentSystemPrompt({ presetPrompt: 'preset persona', entryContract: LORE_ENTRY_CONTRACT });
+  const prompt = buildPrompt(payload, buildContextBundle(payload));
+
+  // system 与 user prompt 是两条独立通道，各自内部有序；跨通道不比较下标。
+  const systemLayers = [
+    ['第 1 层 product_boundary', system.indexOf('<product_boundary>')],
+    ['第 2 层 preset_runtime', system.indexOf('<agent_preset>')],
+    ['第 3 层 entry_contract', system.indexOf('<entry_contract>')]
+  ];
+  let previous = -1;
+  for (const [label, index] of systemLayers) {
+    assert.ok(index > previous, `${label} 在 system 内的位置必须递增`);
+    previous = index;
+  }
+  const promptLayers = [
+    ['第 4 层 author_prompts', prompt.indexOf('<author_type_prompt>')],
+    ['第 5 层 task_request', prompt.indexOf('目标模块：')],
+    ['第 6 层 untrusted_context', prompt.indexOf('<worldforge_context>')]
+  ];
+  previous = -1;
+  for (const [label, index] of promptLayers) {
+    assert.ok(index > previous, `${label} 在 user prompt 内的位置必须递增`);
+    previous = index;
+  }
+
+  // 第 4–6 层不得出现在 system，第 1–3 层不得出现在 user prompt。
+  for (const tag of ['<author_type_prompt>', '<author_personalized_style>', '<worldforge_examples>', '<worldforge_context>', '<untrusted_context>']) assert.ok(!system.includes(tag), `system 不得含 ${tag}`);
+  for (const tag of ['<product_boundary>', '<agent_preset>', '<entry_contract>']) assert.ok(!prompt.includes(tag), `user prompt 不得含 ${tag}`);
 });
 
 test('every discipline that used to live in the fixed prompt is still present exactly once', () => {

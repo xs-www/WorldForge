@@ -85,3 +85,9 @@ export const AGENT_PRESET_REPLACEABLE_LAYER = 'preset_runtime';
  * 否则可以在拼装后的提示里冒充产品边界或入口契约。
  */
 export const AGENT_PROMPT_RESERVED_TAGS = Object.freeze(['<product_boundary>', '</product_boundary>', '<agent_preset>', '</agent_preset>', '<entry_contract>', '</entry_contract>']);
+
+/**
+ * 不可信内容标记（ADR-0029 §7 第 6 层）。它们只能出现在用户侧上下文里，
+ * 不得进入 system / entry_contract —— 否则作者笔记与资料库正文会被提升为指令。
+ */
+export const AGENT_UNTRUSTED_TAGS = Object.freeze(['<author_notes>', '</author_notes>', '<library_context>', '</library_context>', '<worldforge_context>', '</worldforge_context>', '<worldforge_examples>', '</worldforge_examples>', '<untrusted_context>', '</untrusted_context>']);

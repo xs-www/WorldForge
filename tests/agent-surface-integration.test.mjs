@@ -161,13 +161,13 @@ test('supplement generation reuses the same preset snapshot', async () => {
   assert.deepEqual(data.agent, { presetId: 'lore-writer', presetVersion: registry.get('lore-writer').version, presetHash: registry.get('lore-writer').hash, mode: 'structured_lore' });
 });
 
-test('the free entry sends preset, tool guide and inventory, and returns the snapshot', async () => {
+test('the free entry keeps untrusted content out of the system instructions', async () => {
   fakeModel.reset();
   fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '可以从三个方向展开。' } }] } }));
   const body = {
     messages: [{ role: 'user', content: '帮我比较两套文明' }],
     relatedInformation: '作者补充：偏工业风',
-    library: [{ id: 'CHR-W01-001', type: 'character', name: '测试人物', status: 'proposed', truthScope: 'unknown', worldId: 'W01', summary: '摘要' }],
+    library: [{ id: 'CHR-W01-001', type: 'character', name: '测试人物', status: 'proposed', truthScope: 'unknown', worldId: 'W01', summary: '摘要正文' }],
     artAssets: []
   };
   const response = await fetch(`${baseUrl}/api/ai/free`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -176,12 +176,19 @@ test('the free entry sends preset, tool guide and inventory, and returns the sna
   assert.equal(data.toolMode, 'native');
   const profile = registry.get('free-creator');
   assert.deepEqual(data.agent, { presetId: profile.id, presetVersion: profile.version, presetHash: profile.hash, mode: profile.mode });
+
   const system = fakeModel.requests[0].system;
   assert.ok(system.includes(profile.systemPrompt.trim()), '必须包含 free preset 投影正文');
   assert.ok(system.includes('search_lore'), '必须包含工具协议');
-  assert.ok(system.includes('可检索资料 1 条'), '必须包含本次可用范围');
-  assert.ok(system.includes('作者补充：偏工业风'), '作者笔记作为不可信层附加');
+  assert.ok(system.includes('可检索资料 1 条'), '必须包含本次可用范围（产品生成的元数据）');
   assert.ok(system.includes('<entry_contract>'), '入口契约层仍然存在');
+  // P1：作者笔记属于第 6 层，只能出现在用户侧上下文。
+  assert.ok(!system.includes('偏工业风'), 'system 不得包含 author_notes 正文');
+  assert.ok(!system.includes('<author_notes>'), 'system 不得包含 author_notes 标记');
+  const userMessage = fakeModel.requests[0].body.messages.filter(item => item.role === 'user').at(-1).content;
+  assert.ok(userMessage.includes('<untrusted_context>'), '不可信层必须附在用户侧');
+  assert.ok(userMessage.includes('偏工业风'), '作者笔记必须作为用户侧上下文传递');
+
   const offered = (fakeModel.requests[0].body.tools || []).map(tool => tool.function?.name);
   assert.deepEqual(offered.sort(), FREE_AGENT_TOOLS.map(tool => tool.name).sort(), '只提供白名单内的五个只读工具');
 });
@@ -212,7 +219,12 @@ test('tool-unavailable degradation keeps the same preset snapshot', async () => 
   assert.deepEqual(data.agent, { presetId: profile.id, presetVersion: profile.version, presetHash: profile.hash, mode: profile.mode });
   assert.equal(fakeModel.requests.length, 2, '一次带工具失败 + 一次不带工具重试');
   assert.ok(fakeModel.requests[1].system.includes(profile.systemPrompt.trim()), '降级路径必须保留同一 preset');
-  assert.ok(fakeModel.requests[1].system.includes('<library_context>'), '降级路径把条目索引放进不可信层');
+  // 降级的资料库索引同样属于第 6 层：只能进用户侧，不得进 system/entry_contract。
+  assert.ok(!fakeModel.requests[1].system.includes('<library_context>'), 'system 不得包含 library_context');
+  assert.ok(!fakeModel.requests[1].system.includes('测试势力'), 'system 不得包含资料库正文');
+  const fallbackUser = fakeModel.requests[1].body.messages.filter(item => item.role === 'user').at(-1).content;
+  assert.ok(fallbackUser.includes('<library_context>'), '降级路径把条目索引放进用户侧上下文');
+  assert.ok(fallbackUser.includes('测试势力'));
 });
 
 test('the preset cannot widen the server hard limits', async () => {

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, composeAgentSystemPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_TOOL_GUIDE, FREE_ENTRY_CONTRACT, HARNESS_VERSION, LORE_ENTRY_CONTRACT, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
+import { attachUntrustedContext, buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, composeAgentSystemPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_TOOL_GUIDE, FREE_ENTRY_CONTRACT, HARNESS_VERSION, LORE_ENTRY_CONTRACT, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
 import { AGENT_LIMITS, FREE_AGENT_TOOLS, prepareArtAssets, prepareLibrary, runToolCall } from './ai-tools.mjs';
 import { createToolCaller, runAgentLoop } from './ai-agent.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
@@ -371,12 +371,15 @@ async function callFreeAgent(payload) {
     artAssets.length ? `可查看美术资产 ${artAssets.length} 个` : '',
     attachedCount ? `并在消息里直接附了 ${attachedCount} 张图片` : ''
   ].filter(Boolean).join('，');
+  // 第 1–3 层只放产品与 preset 内容；作者笔记与资料正文属于第 6 层，
+  // 只能附到用户侧最后一条消息（ADR-0029 §7），不得进入 system/entry_contract。
   const systemFor = withTools => composeAgentSystemPrompt({
     presetPrompt: profile.systemPrompt,
     entryContract: FREE_ENTRY_CONTRACT,
-    extraContracts: [`本次可用范围：${inventory}。`, withTools ? FREE_AGENT_TOOL_GUIDE : ''],
-    authorNotes: related
+    extraContracts: [`本次可用范围：${inventory}。`, withTools ? FREE_AGENT_TOOL_GUIDE : '']
   });
+  const relatedNotes = related ? `<author_notes>\n${related}\n</author_notes>` : '';
+  const loopMessages = attachUntrustedContext(messages, [relatedNotes]);
   const runTool = async (name, args) => {
     const outcome = runToolCall(name, args, library, artAssets);
     if (Array.isArray(outcome.imageIds) && outcome.imageIds.length) {
@@ -398,22 +401,19 @@ async function callFreeAgent(payload) {
   });
 
   try {
-    const result = await runAgentLoop({ messages, tools: useTools ? policyTools : [], maxRounds: useTools ? undefined : 1, callModel: callModelFor(useTools), runTool });
+    const result = await runAgentLoop({ messages: loopMessages, tools: useTools ? policyTools : [], maxRounds: useTools ? undefined : 1, callModel: callModelFor(useTools), runTool });
     if (!result.reply) throw new Error(useTools ? '模型只调用了工具但没有给出回答，请重试或更换模型' : '模型没有返回内容');
     return describe(result, useTools ? 'native' : 'none');
   } catch (error) {
     if (!useTools || ![400, 404, 422].includes(error.status)) throw error;
-    // 兼容接口不支持工具调用：退回一轮不带工具的问答，把条目索引放进上下文。
+    // 兼容接口不支持工具调用：退回一轮不带工具的问答，把条目索引放进用户侧上下文。
     // 附图仍然保留，因为作者显式附加的图片不该因为接口不支持工具而消失。
     // 降级路径必须保留同一 preset 快照，不能换回固定提示。
     const index = library.slice(0, 120).map(entry => ({ id: entry.id, type: entry.type, name: entry.name, status: entry.status, truthScope: entry.truthScope, worldId: entry.worldId, summary: entry.summary }));
-    const fallbackSystem = composeAgentSystemPrompt({
-      presetPrompt: profile.systemPrompt,
-      entryContract: FREE_ENTRY_CONTRACT,
-      extraContracts: [`本次可用范围：${inventory}。`, `<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>`],
-      authorNotes: related
-    });
-    const result = await runAgentLoop({ messages, tools: [], maxRounds: 1, callModel: createToolCaller({ config, system: fallbackSystem }), runTool: () => ({ ok: false, summary: '本次运行不提供工具', content: '{}' }) });
+    const fallbackSystem = systemFor(false);
+    // 资料库正文与作者笔记一样属于第 6 层：只进用户侧，不进 system。
+    const fallbackMessages = attachUntrustedContext(messages, [relatedNotes, `<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>`]);
+    const result = await runAgentLoop({ messages: fallbackMessages, tools: [], maxRounds: 1, callModel: createToolCaller({ config, system: fallbackSystem }), runTool: () => ({ ok: false, summary: '本次运行不提供工具', content: '{}' }) });
     if (!result.reply) throw new Error('模型没有返回内容');
     return { ...describe(result, 'unavailable'), fallbackReason: error.message };
   }

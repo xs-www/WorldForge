@@ -1,5 +1,5 @@
 import { blockSchema, contentSpec, normalizeSelectedBlocks } from './ai-content-specs.mjs';
-import { AGENT_PROMPT_RESERVED_TAGS } from './agent-profile-contract.mjs';
+import { AGENT_PROMPT_RESERVED_TAGS, AGENT_UNTRUSTED_TAGS } from './agent-profile-contract.mjs';
 
 const TEXT_LIMITS = { name: 100, summary: 1200, details: 6000, listItem: 500 };
 export const HARNESS_VERSION = '2.1.0';
@@ -49,18 +49,48 @@ export function assertPresetPromptPortable(prompt) {
 }
 
 /**
- * 按 ADR-0029 §7 的顺序拼装第 1–3 层（外加可选的作者笔记）。
- * @param {{ presetPrompt?: string, entryContract?: string, extraContracts?: string[], authorNotes?: string }} options
+ * 不可信内容（作者笔记、资料库正文、示例）只能走用户侧上下文，
+ * 任何进入指令层的尝试都被直接拒绝，而不是悄悄拼进去。
  */
-export function composeAgentSystemPrompt({ presetPrompt = '', entryContract = '', extraContracts = [], authorNotes = '' } = {}) {
-  const layers = [`<product_boundary>\n${PRODUCT_BOUNDARY_INSTRUCTIONS}\n</product_boundary>`];
-  const preset = assertPresetPromptPortable(presetPrompt).trim();
+export function assertInstructionLayerClean(label, text) {
+  const hit = AGENT_UNTRUSTED_TAGS.filter(tag => String(text || '').includes(tag));
+  if (hit.length) {
+    const error = new Error(`${label} 不得包含不可信内容标记：${hit.join('、')}；不可信上下文只能作为用户侧上下文传递`);
+    error.code = 'AGENT_UNTRUSTED_LEAK';
+    throw error;
+  }
+  return String(text || '');
+}
+
+/**
+ * 按 ADR-0029 §7 的顺序拼装第 1–3 层。
+ * 第 4–6 层（作者提示、任务要求、不可信上下文）不得进入本函数：它们属于用户侧。
+ * @param {{ presetPrompt?: string, entryContract?: string, extraContracts?: string[] }} options
+ */
+export function composeAgentSystemPrompt({ presetPrompt = '', entryContract = '', extraContracts = [] } = {}) {
+  const boundary = assertInstructionLayerClean('第 1 层安全边界', PRODUCT_BOUNDARY_INSTRUCTIONS);
+  const preset = assertInstructionLayerClean('preset 层', assertPresetPromptPortable(presetPrompt).trim());
+  const contracts = [entryContract, ...extraContracts]
+    .map(item => assertInstructionLayerClean('第 3 层入口契约', String(item || '').trim()))
+    .filter(Boolean);
+  const layers = [`<product_boundary>\n${boundary}\n</product_boundary>`];
   if (preset) layers.push(`<agent_preset>\n${preset}\n</agent_preset>`);
-  const contracts = [entryContract, ...extraContracts].map(item => String(item || '').trim()).filter(Boolean);
   if (contracts.length) layers.push(`<entry_contract>\n${contracts.join('\n\n')}\n</entry_contract>`);
-  const notes = String(authorNotes || '').trim();
-  if (notes) layers.push(`<author_notes>\n${notes}\n</author_notes>`);
   return layers.join('\n\n');
+}
+
+/**
+ * 把不可信上下文附到用户侧最后一条消息（ADR-0029 §7 第 6 层）。
+ * 服务端不保存会话，所以不会累积；返回新数组，不改动调用方数据。
+ */
+export function attachUntrustedContext(messages, blocks = []) {
+  const content = blocks.map(item => String(item || '').trim()).filter(Boolean).join('\n\n');
+  if (!content) return Array.isArray(messages) ? messages : [];
+  const out = (Array.isArray(messages) ? messages : []).map(item => ({ ...item }));
+  const last = out[out.length - 1];
+  if (!last) return out;
+  last.content = `${last.content}\n\n<untrusted_context>\n${content}\n</untrusted_context>`;
+  return out;
 }
 
 /** 无 preset 时的固定默认提示：保留一个发布周期的回滚基线（计划 §12.4）。 */
@@ -117,7 +147,12 @@ export function buildPrompt(payload, bundle) {
   const actionGuide = ({ brainstorm: '提供彼此有实质差异的候选。', polish: '润色所选内容块，不改动未选择字段，也不新增上下文不支持的客观事实。', conflict_check: '在所选内容块内修正明显冲突与缺口，无法解决的内容不要伪装成确定事实。', relations: '强化所选正文中与既有资料有关的动机、影响和剧情钩子。', background_story: '创作彼此独立的背景故事候选。' })[payload?.action] || '提供彼此有实质差异的候选。';
   const examples = { canonSameType: bundle.examples || [], authorAdded: text(payload?.userExamples || '', 6000) };
   const context = { harnessVersion: bundle.harnessVersion, projectRules: bundle.projectRules, currentDraft: bundle.currentDraft, entries: bundle.entries, contextMeta: bundle.contextMeta };
-  return `目标模块：${contract.label}\n任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n只生成以下已勾选内容块，content 中不得出现其他键：\n${blockGuide}\n模块写作重点：${contract.focus}\n作者补充要求：${text(payload?.prompt || '无', 4000)}\n每个字段都直接输出可回填的成品内容；禁止输出“本候选”“层次位置”“设计说明”等元话语，也不要解释字段、Schema、候选策略或设计过程。关联建议不得使用上下文中不存在的 ID。\n<author_type_prompt>\n${text(payload?.typePrompt || '无额外分类提示', 8000)}\n</author_type_prompt>\n<author_personalized_style>\n${text(payload?.personalizedPrompt || '无额外统一风格要求', 8000)}\n</author_personalized_style>\n<worldforge_examples>\n${JSON.stringify(examples, null, 2)}\n</worldforge_examples>\n<worldforge_context>\n${JSON.stringify(context, null, 2)}\n</worldforge_context>`;
+  // 第 4 层（作者提示）→ 第 5 层（本次任务要求）→ 第 6 层（不可信上下文）。
+  // 顺序由 ADR-0029 §7 冻结，测试按出场位置断言。
+  const authorPrompts = `<author_type_prompt>\n${text(payload?.typePrompt || '无额外分类提示', 8000)}\n</author_type_prompt>\n<author_personalized_style>\n${text(payload?.personalizedPrompt || '无额外统一风格要求', 8000)}\n</author_personalized_style>`;
+  const taskRequest = `目标模块：${contract.label}\n任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n只生成以下已勾选内容块，content 中不得出现其他键：\n${blockGuide}\n模块写作重点：${contract.focus}\n作者补充要求：${text(payload?.prompt || '无', 4000)}\n每个字段都直接输出可回填的成品内容；禁止输出“本候选”“层次位置”“设计说明”等元话语，也不要解释字段、Schema、候选策略或设计过程。关联建议不得使用上下文中不存在的 ID。`;
+  const untrusted = `<worldforge_examples>\n${JSON.stringify(examples, null, 2)}\n</worldforge_examples>\n<worldforge_context>\n${JSON.stringify(context, null, 2)}\n</worldforge_context>`;
+  return `${authorPrompts}\n${taskRequest}\n${untrusted}`;
 }
 
 function assertString(value, path, max = 16000) { if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error(`${path} 必须是非空字符串`); return value.trim(); }

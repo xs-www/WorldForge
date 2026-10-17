@@ -1,5 +1,40 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 2 复审修正归档（不可信层与第 4/5 层顺序）
+
+复审发现两个阻断项，均为契约实现偏离，现已修正。测试 192 → 195 项，全部通过。
+
+### P1：不可信内容曾被提升到 system 指令层
+
+问题：自由创作的 `relatedInformation` 经 `composeAgentSystemPrompt` 的 `authorNotes` 参数直接拼进 system；工具降级路径更把 `<library_context>` 放进 `extraContracts`，等于置于 `<entry_contract>` 之内。ADR-0029 §7 把作者笔记、资料库正文与示例定义为第 6 层不可信上下文，必须作为用户侧上下文传递。
+
+修正：
+
+- `composeAgentSystemPrompt({ presetPrompt, entryContract, extraContracts })` **移除** `authorNotes` 参数——指令层从此没有接收不可信内容的入口，而不是靠调用方自觉。
+- 新增 `assertInstructionLayerClean(label, text)`：指令层任一文本出现 `<author_notes>`、`<library_context>`、`<worldforge_context>`、`<worldforge_examples>`、`<untrusted_context>` 及其闭合形式即抛 `AGENT_UNTRUSTED_LEAK`。第 1、2、3 层全部经过该检查，因此「误把资料库正文塞进 entry_contract」会在拼装时立刻失败。
+- 新增 `attachUntrustedContext(messages, blocks)`：把不可信块包进 `<untrusted_context>` 附到**最后一条用户消息**，返回新数组、不改动调用方数据；服务端不保存会话，因此不会跨轮累积。
+- `server.mjs`：主路径 `loopMessages = attachUntrustedContext(messages, [relatedNotes])`；降级路径 `attachUntrustedContext(messages, [relatedNotes, <library_context>])`；两条路径的 system 都只由 `systemFor()` 产生。
+- `agent-profile-contract.mjs` 新增 `AGENT_UNTRUSTED_TAGS`，供拼装层与测试共用同一份标记清单。
+
+出站请求现在的实际形态：system 只有 `product_boundary` / `agent_preset` / `entry_contract`；作者笔记与资料库索引出现在用户消息的 `<untrusted_context>` 里。集成测试按此断言，并显式断言 system 不含 `偏工业风`、`测试势力` 等正文。
+
+### P2：`buildPrompt` 第 4、5 层顺序反转
+
+问题：`buildPrompt` 先写任务要求（目标模块、任务、候选数量、内容块、作者补充要求），再写 `<author_type_prompt>` 与 `<author_personalized_style>`，实际顺序是 `task_request → author_prompts → untrusted_context`，而 ADR §7 冻结为 `author_prompts → task_request → untrusted_context`。原测试只覆盖第 1–3 层，因此没有发现。
+
+修正：`buildPrompt` 改为三段变量拼接——`authorPrompts` → `taskRequest` → `untrusted`，文本内容一字未改，只调整出场顺序。
+
+新增测试：
+
+- `tests/agent-prompt-layers.test.mjs`（10 项，原 7 项）：不可信标记进入指令层必须抛 `AGENT_UNTRUSTED_LEAK`（逐标记、含 preset 层夹带）；`attachUntrustedContext` 只改最后一条用户消息且不改动入参；user prompt 内 `author_type_prompt` → `目标模块` → `worldforge_context` 递增；system 内 1→2→3 递增；两条通道互不串层（第 4–6 层不得出现在 system，第 1–3 层不得出现在 user prompt）。
+- `tests/agent-surface-integration.test.mjs`（8 项，重写两条断言）：主路径与降级路径都断言 system 无不可信正文/标记、用户侧有 `<untrusted_context>` 与 `<library_context>`。
+
+### 验证
+
+- `npm run check` 全通过：195 项测试。
+- 未验证项不变：真实付费模型端到端、Sprint 3 的选择器与切换语义、Sprint 4 卡牌 Agent。
+- 说明：`AGENT_UNTRUSTED_LEAK` 是拼装层的内部断言错误码，不是 ADR-0029 §9 的对外错误码，不会出现在任何 HTTP 响应里；它的作用是让「把不可信内容塞进指令层」这类代码缺陷在测试中立即暴露。
+
 ## 2026-10-17 Sprint 2：两个现有入口接入产品投影，提示词分层归档
 
 本次交付 Sprint 2：`/api/ai`（设定助手）与 `/api/ai/free`（自由创作）真正使用 Registry 中的 preset。测试 177 → 192 项，全部通过。**未改动**作者保存边界、动态内容块 Schema、工具只读边界与检索硬上限。

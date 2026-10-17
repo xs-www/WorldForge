@@ -124,6 +124,8 @@ surface、mode、outputContract、toolPolicy 的合法组合**仅限**下表三�
 
 `runtime/system.md` 不得包含产品保留标记（`<product_boundary>`、`<agent_preset>`、`<entry_contract>` 及其闭合形式）：Sprint 2 起拼装层用这些标记分隔第 1、2、3 层，preset 伪造它们等于冒充更高优先级的层。命中即报 `AGENT_MANIFEST_INVALID`（属于投影内容违反契约，不是路径问题）。
 
+第 6 层（不可信上下文）**不得进入 system 指令**：`<author_notes>`、`<library_context>`、`<worldforge_context>`、`<worldforge_examples>`、`<untrusted_context>` 只能出现在用户侧消息里。拼装函数对指令层做标记检查，命中即抛 `AGENT_UNTRUSTED_LEAK`；`composeAgentSystemPrompt` 因此不再接受作者笔记参数，作者笔记与降级索引统一由 `attachUntrustedContext` 附到最后一条用户消息。
+
 ### 9. 稳定错误码
 
 Sprint 1 的 Registry 必须使用下列已冻结错误码，不得另起名字或把拒绝伪装成成功：
