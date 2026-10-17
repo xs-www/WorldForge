@@ -46,7 +46,12 @@ jobs:
           status=$?
           if [ "$status" -ne 0 ]; then
             # 仓库日志下载需要认证；把失败摘要写成注解，未登录也能通过 check-runs API 读到。
-            tail -n 60 check.log | while IFS= read -r line; do
+            {
+              echo '=== 失败用例 ==='
+              grep -E '^not ok|^# fail|^# tests|^# todo' check.log | head -n 40 || true
+              echo '=== 错误上下文 ==='
+              grep -E 'AssertionError|Error:|error:|expected:|actual:|operator:|at .*tests/' check.log | head -n 60 || true
+            } | while IFS= read -r line; do
               printf '::error::%s\n' "$line"
             done
           fi
