@@ -8,8 +8,8 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17",
   "counts": {
-    "sources": 133,
-    "documented": 56,
+    "sources": 134,
+    "documented": 57,
     "aggregated": 77
   },
   "files": [
@@ -161,7 +161,7 @@
       "source": "tests/card-agent.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "d2888a775eecfdb98b9df7144d33fdf393f0ad49851e6fc98ece0820b10f2e52"
+      "sha256": "77f260f9dd7a4e72380cfb36eefe04f655423c7344dc4cb51b598e6a06db30d5"
     },
     {
       "source": "card-agent.mjs",
@@ -236,10 +236,16 @@
       "sha256": "ffe1ea2f30f698f0908719e97607d9775beec4ef2e3cc88a3864e657da10f243"
     },
     {
+      "source": "dist/card-agent-apply.js",
+      "doc": "docs/static/dist/card-agent-apply.js.md",
+      "status": "documented",
+      "sha256": "8168fe54dc5adeca54b75098b49d0f72748a6c23ff8f0e91bc83a7b64d4e3e5f"
+    },
+    {
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "743e9f5a7e74ecd958cd1f3a657441f1915ff41810c7b77266df9fddd0a1a18c"
+      "sha256": "99d306e3c72684455b446a4fc7816ef513dcefe32f1d7fd64cbdb03e3eeb9566"
     },
     {
       "source": "dist/battle.js",
@@ -275,7 +281,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "9963a62793039077076cd33477a805dc3f7eaeaec46e9d14150c4a35e3a40abe"
+      "sha256": "014cccd713a17d070df4cb7b4810ad478d5e121853d353458241650afd42aa62"
     },
     {
       "source": "dist/macro.js",
@@ -359,7 +365,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "6dc35347e972dcf9962747b90599c1645fcdd582619f4d3e9a5c4b07ad09089f"
+      "sha256": "d5b0fe1cb097d3c0b080515a91bc4439c1ea17ef2a96c98953b3f890db7cfff7"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -797,7 +803,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "341a79545876bebf0c0c94cba499a3c7c611b3999b7b9e7ae21c27fee48f783a"
+      "sha256": "c3c94ce10d5d8c8bb31d7cb358e1daec89c422de9d6943e5f36c21eaba23e3d5"
     },
     {
       "source": "tests/world-package.test.mjs",

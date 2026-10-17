@@ -466,7 +466,9 @@ function buildCardContext(payload) {
     loreRefs: ids(draft.loreRefs, 12)
   };
   // 限定为当前卡牌引用的 lore；携带摘要、约束、状态与事实层次，供一致性审查使用。
-  const loreEntries = (Array.isArray(payload?.loreRefs) ? payload.loreRefs : []).slice(0, 20).map(entry => ({
+  // 只接受当前卡牌真正引用的条目：以 sanitized.loreRefs 为白名单求交集，防止请求体注入额外 lore。
+  const referencedLoreIds = new Set(sanitized.loreRefs);
+  const loreEntries = (Array.isArray(payload?.loreRefs) ? payload.loreRefs : []).filter(entry => referencedLoreIds.has(text(entry?.id, 100))).slice(0, 20).map(entry => ({
     id: text(entry?.id, 100),
     name: text(entry?.name, 160),
     type: text(entry?.type, 40),
@@ -475,8 +477,9 @@ function buildCardContext(payload) {
     summary: text(entry?.summary, 1200),
     constraints: Array.isArray(entry?.constraints) ? entry.constraints.map(item => text(item, 300)).filter(Boolean).slice(0, 8) : []
   })).filter(entry => entry.id);
-  const keywords = (Array.isArray(payload?.keywords) ? payload.keywords : []).slice(0, 30).map(item => ({
-    id: text(item?.id, 100), name: text(item?.name, 60), text: text(item?.text, 300), status: text(item?.status, 20) || 'proposed'
+  const keywordWhitelist = new Set([...sanitized.keywordIds, ...ids(payload?.allowedKeywordIds, 50)]);
+  const keywords = (Array.isArray(payload?.keywords) ? payload.keywords : []).filter(item => keywordWhitelist.has(text(item?.id, 100))).slice(0, 30).map(item => ({
+    id: text(item?.id, 100), name: text(item?.name, 60), definition: text(item?.definition, 300), status: text(item?.status, 20) || 'proposed'
   })).filter(item => item.id);
   return {
     draft: sanitized,

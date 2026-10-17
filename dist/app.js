@@ -132,17 +132,11 @@ function renderCardAgentResults(data){const box=q('#cardAgentResults'),status=q(
     const review=document.createElement('dl');review.className='card-agent-review';[['legalTargets','合法目标'],['timing','时机'],['effectOrder','效果顺序'],['duration','持续时间'],['counterplay','反制'],['edgeCases','边界案例'],['dependencies','依赖'],['openQuestions','开放问题']].forEach(([field,label])=>{const value=variant.review?.[field];if(value===undefined||value===null||(Array.isArray(value)&&!value.length))return;const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=Array.isArray(value)?value.join('；'):String(value);review.append(dt,dd)});card.append(review);
     const actions=document.createElement('div');actions.className='card-agent-actions';const apply=document.createElement('button');apply.type='button';apply.className='button secondary compact';apply.textContent='应用到表单';apply.onclick=()=>applyCardAgentVariant(index);const save=document.createElement('button');save.type='button';save.className='button secondary compact';save.textContent='保存为独立草案';save.onclick=()=>saveCardAgentDraft(index);actions.append(apply,save);card.append(actions);nodes.push(card)});
   box.replaceChildren(...nodes)}
-function applyCardAgentVariant(index){const variant=cardAgentVariants[index];if(!variant)return;const patch=variant.patch||{};const currentType=q('#cardType').value,targetType=patch.type||currentType;
-  if(patch.type)q('#cardType').value=patch.type;
-  for(const [field,value] of Object.entries(patch)){
-    if(field==='health'){if(targetType==='minion')q('#cardHealth').value=value;continue}
-    if(field==='durability'){if(targetType==='equipment')q('#cardHealth').value=value;continue}
-    if(field==='keywordIds'){if(Array.isArray(value)){selectedKeywordUsages=new Map(readStore(KEYWORD_KEY,[]).filter(k=>value.includes(k.id)).map(k=>[k.id,'']));renderKeywords();renderKeywordPreview()}continue}
-    if(field==='notes'||field==='effects'||field==='loreRefs')continue;
-    const selector={name:'#cardName',cost:'#cardCost',attack:'#cardAttack',rulesText:'#cardRules',rarity:'#cardRarity',type:'#cardType'}[field];
-    if(selector)q(selector).value=value;
-  }
-  if(patch.type)renderCardSubtype(patch.type,q('#cardSubtype').value);renderCardArt();showToast('已回填勾选字段，未保存')}
+function applyCardAgentVariant(index){const variant=cardAgentVariants[index];if(!variant)return;const patch=variant.patch||{},assigner=window.WorldforgeCardAgentApply;if(!assigner)return showToast('回填逻辑未加载');const {targetType,values}=assigner.formAssignments(patch,q('#cardType').value);
+  for(const [id,value] of Object.entries(values)){const input=q('#'+id);if(input)input.value=value}
+  if(Array.isArray(patch.keywordIds)){selectedKeywordUsages=new Map(readStore(KEYWORD_KEY,[]).filter(k=>patch.keywordIds.includes(k.id)).map(k=>[k.id,'']));renderKeywords();renderKeywordPreview()}
+  if(patch.type)renderCardSubtype(targetType,q('#cardSubtype').value);
+  renderCardArt();showToast('已回填勾选字段，未保存')}
 function saveCardAgentDraft(index){const variant=cardAgentVariants[index];if(!variant)return;applyCardAgentVariant(index);activeCardId=null;q('#editorState').textContent='Agent 候选 · proposed / untested';saveCurrentCard()}
 function normalizeCard(c){return WorldforgeCards.normalize(c)}function readCards(){return readStore(CARD_KEY,[]).map(normalizeCard)}function keywordMap(){return new Map(readStore(KEYWORD_KEY,[]).map(x=>[x.id,x]))}function formatKeywordUsage(k,d=''){return d.trim()?`${k.name}：${d.trim()}`:k.name}
 function artFileUrl(id){return apiUrl(`art-assets/${encodeURIComponent(id)}/file`).href}

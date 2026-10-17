@@ -624,6 +624,8 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 复审修正（2026-10-17）：关键词定义字段由不存在的 `k.text` 改为 `k.definition`；卡牌专用上下文改为只带 `draft.loreRefs` 引用条目的摘要与约束，并在第 6 层新增 `<card_lore>`；`allowedLoreIds` 由「整个资料库」收窄为当前引用；跨类型回填改为先算 `targetType = patch.type || currentType` 再回填专属数值，并补双向回归测试。
 
+复审修正（第二轮）：服务端关键词映射改读 `item.definition`，并按 `draft.keywordIds` ∪ `allowedKeywordIds` 过滤；`loreEntries` 与 `sanitized.loreRefs` 求交集，请求体无法注入未被当前卡牌引用的条目。前端把回填判断抽到 `dist/card-agent-apply.js`，浏览器与测试共用；测试用 `node:vm` 真实执行该文件，断言 minion→equipment 写 durability、反向写 health、类型不变时不写入，并断言关键词定义正文进入上下文、额外 lore 不进入 `<card_lore>`。
+
 验证：`npm run check` 全通过（225 项测试；`tests/card-agent.test.mjs` 11 项 + UI 静态断言）。未验证：真实付费模型端到端、浏览器点击流程、卡牌 Agent 与 W97 参数的实际联动。
 
 ## 12. Sprint 5：加固、迁移与发布

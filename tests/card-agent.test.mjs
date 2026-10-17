@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer as createProbe } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { completeCardVariants, createCardResponseSchema, inspectCardResponse, validateCardVariant } from '../card-agent.mjs';
 import { loadAgentProfiles } from '../agent-profile-registry.mjs';
 
@@ -210,13 +211,27 @@ test('illegal model output is reported as diagnostics instead of reaching the cl
   assert.ok(data.diagnostics.issues.some(issue => /未勾选字段/.test(issue.message)));
 });
 
-test('cross-type patches apply the target type stats (both directions)', () => {
-  // 服务端允许 patch.type 改变类型；前端回填必须先按目标类型判断专属数值。
-  const toEquipment = validateCardVariant(variant({ type: 'equipment', durability: 2 }), basePayload({ draft: { type: 'minion' }, selectedFields: ['type', 'durability'] }));
-  assert.equal(toEquipment.patch.type, 'equipment');
-  assert.equal(toEquipment.patch.durability, 2);
-  const toMinion = validateCardVariant(variant({ type: 'minion', health: 3 }), basePayload({ draft: { type: 'equipment' }, selectedFields: ['type', 'health'] }));
-  assert.equal(toMinion.patch.health, 3);
+test('cross-type patches apply the target type stats (both directions)', async () => {
+  // 真实执行前端回填逻辑（浏览器与测试共用 dist/card-agent-apply.js）。
+  const source = await readFile(new URL('../dist/card-agent-apply.js', import.meta.url), 'utf8');
+  const sandbox = { window: {} };
+  runInNewContext(source, sandbox);
+  const assigner = sandbox.window.WorldforgeCardAgentApply;
+  const toEquipment = assigner.formAssignments({ type: 'equipment', durability: 2 }, 'minion');
+  assert.equal(toEquipment.targetType, 'equipment');
+  assert.equal(toEquipment.values.cardHealth, 2, 'minion→equipment 应写入 durability');
+  assert.equal(toEquipment.values.cardType, 'equipment');
+  const toMinion = assigner.formAssignments({ type: 'minion', health: 3 }, 'equipment');
+  assert.equal(toMinion.values.cardHealth, 3, 'equipment→minion 应写入 health');
+  const sameType = assigner.formAssignments({ durability: 4 }, 'minion');
+  assert.equal(sameType.values.cardHealth, undefined, '类型不变时不得把 durability 写进随从');
+
+  // 服务端允许 patch.type 改变类型；回填按目标类型判断专属数值。
+  const serverPatch = validateCardVariant(variant({ type: 'equipment', durability: 2 }), basePayload({ draft: { type: 'minion' }, selectedFields: ['type', 'durability'] }));
+  assert.equal(serverPatch.patch.type, 'equipment');
+  assert.equal(serverPatch.patch.durability, 2);
+  const serverPatchBack = validateCardVariant(variant({ type: 'minion', health: 3 }), basePayload({ draft: { type: 'equipment' }, selectedFields: ['type', 'health'] }));
+  assert.equal(serverPatchBack.patch.health, 3);
 });
 
 test('the card context carries referenced lore content and keyword definitions', async () => {
@@ -228,7 +243,8 @@ test('the card context carries referenced lore content and keyword definitions',
       selectedFields: ['name'],
       draft: { ...basePayload().draft, loreRefs: ['CHR-W01-001'] },
       allowedLoreIds: ['CHR-W01-001'],
-      loreRefs: [{ id: 'CHR-W01-001', name: '灰烬匠', type: 'character', status: 'proposed', truthScope: 'unknown', summary: '以余温锻造的匠人。', constraints: ['不能凭空生火'] }]
+      loreRefs: [{ id: 'CHR-W01-001', name: '灰烬匠', type: 'character', status: 'proposed', truthScope: 'unknown', summary: '以余温锻造的匠人。', constraints: ['不能凭空生火'] }, { id: 'CHR-W01-999', name: '注入条目', type: 'character', status: 'proposed', truthScope: 'unknown', summary: '不应出现。', constraints: [] }],
+      keywords: [{ id: 'KEY-001', name: '疾启', definition: '入场即可攻击。', status: 'proposed' }]
     })
   });
   assert.equal(response.status, 200);
@@ -238,4 +254,8 @@ test('the card context carries referenced lore content and keyword definitions',
   assert.ok(user.includes('不能凭空生火'), '必须带约束');
   assert.ok(user.includes('以余温锻造的匠人。') || user.includes('灰烬匠'));
   assert.ok(user.includes('experimental'), '规则摘要必须标为 experimental');
+  assert.ok(user.includes('入场即可攻击。'), '关键词定义正文必须进入上下文');
+  const loreBlock = user.slice(user.indexOf('<card_lore>'), user.indexOf('</card_lore>'));
+  assert.ok(loreBlock.includes('CHR-W01-001'));
+  assert.ok(!loreBlock.includes('CHR-W01-999'), '未被当前卡牌引用的 lore 不得进入 <card_lore>');
 });
