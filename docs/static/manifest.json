@@ -294,7 +294,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "df0d72037e83fcbf9b0ace831fb23286dd28dd5d23037855cb099576c6e82e73"
+      "sha256": "5b4b41cce1d081a62a885488e2dcb0bf6a1db648bd3b1679288a153debf4b793"
     },
     {
       "source": "dist/login.html",
@@ -930,7 +930,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "2c58ff0c8067e893f626588e8292309c633a4772757bfd65c955176b3efe1226"
+      "sha256": "a4d1db2b8a67e63bd0d4cbc43f56795b39192a89f5615d62f97639197d483919"
     },
     {
       "source": "tests/world-package.test.mjs",
