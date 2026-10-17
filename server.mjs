@@ -20,6 +20,7 @@ import { AUTH_DEFAULT_QUOTA, AUTH_REQUIRE_ENV, AUTH_USERS_ENV, clearSessionCooki
 import { buildExportBundle, extensionForMimeType, parseImportBundle, planArtAssetImport, planImport } from './data-transfer.mjs';
 import { promptKeyOf, MAX_LORE_GROUPS } from './lore-groups.mjs';
 import { buildImportPlan, buildImportPrompt, buildWorldEntry, IMPORT_EXTRACTION_SCHEMA, LORE_IMPORT_ENTRY_CONTRACT, LORE_IMPORT_LIMITS, mergeExtractions, nextWorldIdOf, normalizeExtraction, normalizeImportSource, splitImportSource, validateImportPlan } from './lore-import.mjs';
+import { extractImportDocuments } from './lore-import-files.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
 import { buildMacroProposalPrompt, MACRO_PROPOSAL_SCHEMA } from './simulation/llm/macro-proposal.mjs';
@@ -1151,6 +1152,16 @@ createServer(async (req, res) => {
     }
     if (req.method === 'POST' && req.url === '/api/ai/free') { await chargeQuota('ai', session); return json(res, 200, await callFreeAgent(await readBody(req))); }
     // 设定导入（ADR-0033）：解析不写库、按段计费；commit 只追加新世界，不覆盖既有资料。
+    // 文件读取是纯本地变换（不调用模型、不写库），不计配额；体积上限在这一分支单独收口。
+    if (req.method === 'POST' && req.url === '/api/lore-import/extract') {
+      if (req.headers['x-worldforge-lore-import'] !== '1') return json(res, 403, { error: '缺少设定导入请求标记' });
+      let body;
+      try { body = await readBody(req, 48 * 1024 * 1024); }
+      catch (error) { error.status = 400; throw error; }
+      const result = extractImportDocuments(body?.files);
+      console.log(`[lore-import] extract files=${result.files.length} characters=${result.characters} warnings=${result.warnings.length}`);
+      return json(res, 200, result);
+    }
     if (req.method === 'POST' && req.url === '/api/lore-import/parse') { const payload = await readBody(req); return json(res, 200, await callLoreImport(payload, session)); }
     if (req.method === 'POST' && req.url === '/api/lore-import/commit') {
       if (req.headers['x-worldforge-lore-import'] !== '1') return json(res, 403, { error: '缺少设定导入请求标记' });

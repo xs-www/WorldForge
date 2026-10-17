@@ -22,7 +22,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 | HTTP 服务与持久化 | [`server.mjs.md`](server.mjs.md)、[`auth.mjs.md`](auth.mjs.md)、[`storage.mjs.md`](storage.mjs.md)、[`storage-migrations.mjs.md`](storage-migrations.mjs.md)、[`reference-assets.mjs.md`](reference-assets.mjs.md)、[`scripts/auth-cli.mjs.md`](scripts/auth-cli.mjs.md) | 路由与请求校验、账号/会话/配额/审计、设置读写、SQLite 内容库与整库快照、图片资产落盘、账号 CLI |
 | Agent Profile 契约与注册表 | [`agent-profile-contract.mjs.md`](agent-profile-contract.mjs.md)、[`agent-profile-registry.mjs.md`](agent-profile-registry.mjs.md)、[`agent-legacy.mjs.md`](agent-legacy.mjs.md)、[`agent-runtime.schema.json.md`](agent-runtime.schema.json.md)、[`.agent-presets/README.md`](.agent-presets/README.md) | 只读发现产品投影，Schema 校验 + 确定性指纹 + 11 个稳定错误码，投影损坏即拒绝启动；`WORLDFORGE_AGENT_LEGACY_PROMPTS=1` 时只把第 2 层 persona 退回固定提示 |
 | AI 生成栈 | [`ai-harness.mjs.md`](ai-harness.mjs.md)、[`ai-agent.mjs.md`](ai-agent.mjs.md)、[`ai-tools.mjs.md`](ai-tools.mjs.md)、[`ai-content-specs.mjs.md`](ai-content-specs.mjs.md)、[`prompt-settings.mjs.md`](prompt-settings.mjs.md)、[`image-context.mjs.md`](image-context.mjs.md) | 提示词分层与上下文预算、内容块 Schema、多轮只读工具循环与硬上限（6 轮 / 12 次调用 / 4 图） |
-| 设定导入（ADR-0033） | [`lore-import.mjs.md`](lore-import.mjs.md) | 长篇原文切分、单段抽取 Schema 与第 4–6 层提示词、跨段确定性合并、改写为资料格式与落库前复核 |
+| 设定导入（ADR-0033） | [`lore-import.mjs.md`](lore-import.mjs.md)、[`lore-import-files.mjs.md`](lore-import-files.mjs.md) | 长篇原文切分、单段抽取 Schema 与第 4–6 层提示词、跨段确定性合并、改写为资料格式与落库前复核；文件输入层解析 docx/xlsx/md/txt/zip，旧版 doc/xls 尽力抽取，rar/pdf 明确拒绝 |
 | 生图通道 | [`seedream.mjs.md`](seedream.mjs.md)、[`comfyui.mjs.md`](comfyui.mjs.md) | 外部生图 API 边界：固定参数、占位符替换、超时与失败上报 |
 | 模拟内核 | [`world-package.mjs.md`](simulation/compiler/world-package.mjs.md)、[`instance-store.mjs.md`](simulation/storage/instance-store.mjs.md)、[`simulation-runtime.mjs.md`](simulation/runtime/simulation-runtime.mjs.md)、[`mechanic-runtime.mjs.md`](simulation/rules/mechanic-runtime.mjs.md)、[`schemas/README.md`](simulation/schemas/README.md) | 编译 → 实例化 → 确定性 Tick → 快照/重放；规则权威、LLM 只提案 |
 | 前端 | [`dist/README.md`](dist/README.md)、[`dist/login.html.md`](dist/login.html.md)、[`dist/login.js.md`](dist/login.js.md) | 零构建的全局脚本装配、视图渲染、浏览器侧缓存与首次迁移；登录页是独立文档，未登录时不加载应用外壳 |
@@ -37,7 +37,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 4. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID；连接中断只按请求 ID 找回，不自动重发付费请求。
 5. **数据搬运**：`GET /api/export`（可选内嵌图片）→ 交换格式 JSON；`POST /api/import` → `data-transfer.mjs` 解析/合并 → 同一个内容库 → 图片落盘并登记美术元数据。预检与真实导入共用校验。
 6. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
-7. **设定导入**：主界面粘贴长篇原文 → `POST /api/lore-import/parse`（`lore-import.mjs` 切分 + 设定入口 preset 分段抽取 + 确定性合并 → 预览计划，不写库、按段计费）→ 作者逐条勾选 → `POST /api/lore-import/commit`（复核后追加一个新世界，`expectedRevision` 乐观锁）。导入结果全部 `proposed`。
+7. **设定导入**：主界面粘贴长篇原文或上传文档 → `POST /api/lore-import/extract`（`lore-import-files.mjs`：docx/xlsx/md/txt/zip 读成文本，压缩包逐条校验内部格式；不写库、不计配额）→ `POST /api/lore-import/parse`（`lore-import.mjs` 切分 + 设定入口 preset 分段抽取 + 确定性合并 → 预览计划，不写库、按段计费）→ 作者逐条勾选 → `POST /api/lore-import/commit`（复核后追加一个新世界，`expectedRevision` 乐观锁）。导入结果全部 `proposed`。
 
 ## 全局不变量（跨模块）
 
@@ -55,8 +55,8 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 
 ## 覆盖与清单
 
-- 当前 69 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
-- [`manifest.json`](manifest.json) 记录 158 个源/配置/清单文件：69 个 `documented`、88 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
+- 当前 70 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
+- [`manifest.json`](manifest.json) 记录 161 个源/配置/清单文件：70 个 `documented`、90 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
 - 清单哈希由 `node static-doc-manifest.mjs --check` 强制（已接入 `npm run check`）：任何条目与磁盘不一致都会以 `HASH_MISMATCH` 失败，改源码后必须 `--write` 重算。
 - 未收录（只在本文引用）：设计/ADR 文档 [`../../docs/PROJECT_DESIGN.md`](../../docs/PROJECT_DESIGN.md)、[`../../docs/WorldForge_2.0_Design_Document_V1.0.md`](../../docs/WorldForge_2.0_Design_Document_V1.0.md)、[`../../docs/adr/README.md`](../../docs/adr/README.md)；模拟模块关系 [`../../simulation/README.md`](../../simulation/README.md)；设定内容目录 `universe/`、`worlds/`、`mechanics/`、`cards/`、`templates/`；运行时数据库 `.data/*.sqlite*`；二进制素材 `dist/assets/`。
 - [`html-product.md`](html-product.md) 是 2026-10-17 之前逐次交付的追加式归档（含当时的验证/未验证结论），保留原貌，不作为当前实现索引。

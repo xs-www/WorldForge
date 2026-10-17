@@ -815,6 +815,14 @@
     "lore-import-route": {
       "lines": [
         "req.headers['x-worldforge-lore-import'] !== '1'"
+      ],
+      "count": 2,
+      "nth": 1
+    },
+    "POST /api/lore-import/extract": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/lore-import/extract'"
       ]
     }
   }

@@ -6,6 +6,7 @@ import { createServer as createProbe } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
+import { docxBytes, zipBytes } from './helpers/document-fixtures.mjs';
 
 // 设定导入（ADR-0033）的端到端契约：真实启动 server.mjs（匿名本机模式）+ 本地假模型，
 // 覆盖分段解析、结构化降级、preset 前置校验、预览不写库、确认后只追加新世界、编号冲突 409。
@@ -272,4 +273,47 @@ test('确认导入：结构不合格的计划返回 400 而不是写入半套数
   assert.equal(response.status, 400, response.body);
   const content = parse(await request(server.port, '/api/content'));
   assert.equal(content.loreEntries.some(entry => entry.worldId === 'W03'), false);
+});
+
+test('文件读取：缺标记头 403，DOCX 与压缩包被转成文本且不写库、不计模型调用', async () => {
+  fakeModel.reset();
+  const before = parse(await request(server.port, '/api/content'));
+
+  const forbidden = await request(server.port, '/api/lore-import/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { files: [] } });
+  assert.equal(forbidden.status, 403);
+
+  const docx = docxBytes(['炉心余热维持着城邦的运转。', '议会由七名议员组成。']);
+  const archive = zipBytes([{ name: '人物.md', data: '# 首席议员\n主持议会。' }]);
+  const response = await request(server.port, '/api/lore-import/extract', {
+    method: 'POST', headers: importHeaders,
+    body: { files: [{ name: '设定主线.docx', dataBase64: docx.toString('base64') }, { name: '附件.zip', dataBase64: archive.toString('base64') }] }
+  });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  assert.match(data.text, /炉心余热维持着城邦的运转/);
+  assert.match(data.text, /议会由七名议员组成/);
+  assert.match(data.text, /首席议员/);
+  assert.deepEqual(data.files.map(item => item.format), ['docx', 'zip']);
+  assert.equal(data.warnings.length, 0);
+  assert.equal(fakeModel.requests.length, 0, '文件读取不得调用模型');
+  const after = parse(await request(server.port, '/api/content'));
+  assert.equal(after.revision, before.revision, '文件读取不得写库');
+});
+
+test('文件读取：坏载荷与不支持的格式都有明确回应', async () => {
+  const badBase64 = await request(server.port, '/api/lore-import/extract', { method: 'POST', headers: importHeaders, body: { files: [{ name: '坏.md', dataBase64: '不是 base64!!' }] } });
+  assert.equal(badBase64.status, 400, badBase64.body);
+  assert.match(String(parse(badBase64).error), /base64/);
+
+  const empty = await request(server.port, '/api/lore-import/extract', { method: 'POST', headers: importHeaders, body: { files: [] } });
+  assert.equal(empty.status, 400);
+
+  const rar = await request(server.port, '/api/lore-import/extract', {
+    method: 'POST', headers: importHeaders,
+    body: { files: [{ name: '设定.rar', dataBase64: Buffer.from([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00, 1, 2, 3]).toString('base64') }] }
+  });
+  assert.equal(rar.status, 200, rar.body);
+  const data = parse(rar);
+  assert.equal(data.text, '');
+  assert.equal(data.warnings.some(item => item.code === 'RAR_UNSUPPORTED'), true);
 });

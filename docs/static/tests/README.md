@@ -9,7 +9,8 @@
 | `data-transfer-api.test.mjs` | `/api/export` 与 `/api/import` 端到端：下载头、`?images=1`、缺标记 403、`dryRun` 不写库、merge 保留未提及条目、replace 清空、坏文件 400 | 真实 `server.mjs` 子进程 + 临时数据目录 |
 | `lore-groups.test.mjs` | 五个固定组、自定义组规范化与上限、稳定 id 生成、旧类型派生、提示词档位收敛、服务端包装层与浏览器侧同源 | 直接 `import` `dist/lore-groups.js` 与 `lore-groups.mjs` |
 | `lore-import.test.mjs` | 设定导入纯变换层（ADR-0033）：原文规范化与按段落截断、切分确定性与块长上限、提示词 4→5→6 顺序且原文只出现一次、抽取 Schema 与类型闭集、模型返回四种外壳收敛与坏条目单条丢弃、跨段同名合并、世界/条目编号避让、关联名称解析与告警、编年史容器补建、地理孤儿、`info` 资料组、落库复核（强制 proposed、剔除越界引用、编号冲突 409） | 纯函数 + 固定 `now`，不联网不落盘 |
-| `lore-import-api.test.mjs` | 设定导入端到端：分段各调一次模型且原文只在用户侧、system 含第 3 层入口契约、解析不写库、跨段同名合并、关系解析成编号、未知 preset 在调用前 400、结构化被拒时降级并回传 `fallbackReason`、全部段落失败整体报错、确认导入只追加新世界并落 `info` 组、缺标记头 403、重复世界编号 409、坏计划 400 不写半套 | 真实 `server.mjs` 子进程 + 本地假模型 + 临时数据目录 |
+| `lore-import-api.test.mjs` | 设定导入端到端：分段各调一次模型且原文只在用户侧、system 含第 3 层入口契约、解析不写库、跨段同名合并、关系解析成编号、未知 preset 在调用前 400、结构化被拒时降级并回传 `fallbackReason`、全部段落失败整体报错、确认导入只追加新世界并落 `info` 组、缺标记头 403、重复世界编号 409、坏计划 400 不写半套；文件读取路由（缺标记 403、DOCX+ZIP 转文本、不写库不计模型调用、坏 base64 400、RAR 明确拒绝） | 真实 `server.mjs` 子进程 + 本地假模型 + 临时数据目录 |
+| `lore-import-files.test.mjs` | 文件输入层：UTF-8/BOM/UTF-16/GBK 文本识别、按签名而非扩展名识别格式、DOCX 段落/表格/脚注/实体、XLSX 共享与内联字符串/布尔/多工作表、ZIP 内格式校验（跳过 exe/png、路径穿越、加密条目、声明超大的炸弹、一层嵌套与深度上限）、旧版 doc/xls 尽力抽取、RTF、RAR/PDF 明确拒绝、扩展名与内容不符、超长截断与上传边界 | 在内存里按 ZIP/OOXML 规范写真实字节夹具（`tests/helpers/document-fixtures.mjs`），解析路径不做 mock |
 | `storage-postgres.test.mjs` | 缺连接串即失败、连接目标脱敏、迁移版本与 SQLite 对齐；设 `WORLDFORGE_TEST_PG_URL` 时跑真库往返 | 无数据库时 1 条 `skip`，需要真库的用例不阻塞 CI |
 | `frontend-dom-contract.test.mjs` | `app.js` 引用的每个 `#id` 都存在于 `index.html`、加载顺序、无默认世界种子、数据面板与资料组管理接线 | 源码级正则断言，不需要浏览器 |
 | `agent-legacy-rollback.test.mjs` | Sprint 5 回滚与冻结：开关只认精确 `1`（`true`/`yes`/空白都不生效）、legacy profile 沿用兼容矩阵且无提示词正文、四组启动模式（默认 / 显式回滚 / 损坏且未开启→拒绝启动 / 损坏且已开启→降级启动）、回滚只换 persona（第 1、3 层逐字一致、工具白名单与 Schema 不变）、`/api/ai/presets` 空目录结构 + `fallback`、`/api/health` 降级报告、回滚下拒绝写 preset 选择、S5-03 运行中快照冻结与重启后读取新 manifest/prompt | 真实 `server.mjs` 子进程（含必须退出的拒绝启动路径）+ 本地假模型 + 磁盘上改 manifest/prompt |
@@ -52,4 +53,5 @@
 - 运行方式：仓库根执行 `node --test tests/*.test.mjs`（`npm run check` 的最后一步）。测试运行器为每个文件起子进程，且 `agent-profile-api` / `agent-surface-integration` / `agent-settings-api` / `agent-legacy-rollback` / `auth-api` / `lore-import-api` / `data-transfer-api` 会再 `spawn` `server.mjs` 并占用临时端口——因此需要**子进程 spawn 与本地监听权限**，无网络的沙箱会失败。
 - `agent-legacy-rollback.test.mjs` 会主动剔除宿主环境里的 `WORLDFORGE_AGENT_LEGACY_PROMPTS`，避免开发机的 `.env` 让「默认路径」用例误开回滚；需要回滚的用例再显式传入。
 - `tests/fixtures/agent-profiles/legal/`（`fixture-card`/`fixture-free`/`fixture-lore`）是三个可加载的合法投影；`reject/` 是十份单点缺陷夹具（`absolute-path`、`directory-mismatch`、`duplicate-id`、`empty-prompt`、`incompatible-combination`、`missing-prompt`、`oversized-prompt`、`traversal`、`unknown-enum`、`unknown-field`），每份应只触发自己的稳定错误码。
+- `tests/helpers/document-fixtures.mjs` 是文档夹具生成器（ZIP/DOCX/XLSX/OLE2/RTF/RAR 字节），只被测试导入、不参与 `npm run check` 的 `tests/*.test.mjs` 匹配；CRC 字段固定为 0，读取端不校验校验和，夹具只保证结构与压缩算法正确。
 - `tests/snapshots/agent-prompt-layers.json` 冻结六层提示的 `name`/`priority`/`source`/`replaceableByPreset`；顺序变动必须是一次有意识的修改，并同步 ADR-0029 §7 与快照（`agent-profile-contract.test.mjs` 会同时比对代码常量、快照与 ADR）。

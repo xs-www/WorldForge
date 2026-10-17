@@ -16,9 +16,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'lore-import/parse', 'lore-import/commit', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=62/);
+  assert.match(htmlSource, /app\.js\?v=63/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=46/);
+  assert.match(htmlSource, /styles\.css\?v=47/);
   assert.match(htmlSource, /cards\.js\?v=7/);
   assert.match(htmlSource, /world-scope\.js\?v=2/);
   assert.match(htmlSource, /relation-picker\.js\?v=2/);
@@ -371,7 +371,7 @@ test('artwork gallery covers the whole asset library with a used/unused filter',
 test('设定导入从主界面入口走到预览、勾选与确认保存（ADR-0033）', () => {
   // 入口在世界列表页，和「新建世界」并列；对话框承载原文、预览与保存。
   assert.match(htmlSource, /id="openLoreImport"/);
-  for (const id of ['loreImportDialog', 'loreImportSource', 'loreImportCount', 'loreImportWorldName', 'loreImportInstruction', 'loreImportParse', 'loreImportStatus', 'loreImportReview', 'loreImportSummary', 'loreImportAgent', 'loreImportWarnings', 'loreImportEntries', 'loreImportSelectAll', 'loreImportSelectNone', 'loreImportSelected', 'loreImportSave', 'loreImportReviewStatus']) {
+  for (const id of ['loreImportDialog', 'loreImportSource', 'loreImportCount', 'loreImportWorldName', 'loreImportInstruction', 'loreImportParse', 'loreImportStatus', 'loreImportReview', 'loreImportSummary', 'loreImportAgent', 'loreImportWarnings', 'loreImportEntries', 'loreImportSelectAll', 'loreImportSelectNone', 'loreImportSelected', 'loreImportSave', 'loreImportReviewStatus', 'loreImportFiles', 'loreImportReadFiles', 'loreImportFileStatus']) {
     assert.match(htmlSource, new RegExp(`id="${id}"`), `设定导入对话框缺少 #${id}`);
   }
   assert.match(appSource, /function openLoreImport\(\)/);
@@ -383,6 +383,14 @@ test('设定导入从主界面入口走到预览、勾选与确认保存（ADR-0
   assert.match(appSource, /fetch\(apiUrl\('lore-import\/parse'\)/);
   assert.match(appSource, /X-Worldforge-Lore-Import':'1'/);
   assert.match(appSource, /expectedRevision:contentRevision/);
+  // 文件读取：另一个标记头请求，读成文本后回填文本框（正文仍由作者确认后才解析）。
+  assert.match(appSource, /fetch\(apiUrl\('lore-import\/extract'\)/);
+  assert.match(appSource, /async function readLoreImportFiles\(\)/);
+  assert.match(appSource, /q\('#loreImportFiles'\)/);
+  assert.match(appSource, /readAsDataURL/);
+  assert.match(appSource, /source\.value=data\.text\|\|''/);
+  assert.match(styleSource, /\.import-upload\{/);
+  assert.match(styleSource, /\.import-file-status\{/);
   // 预览条目必须用 createElement/textContent 渲染，不拼 HTML 字符串。
   assert.match(appSource, /function loreImportEntryRow\(entry\)\{const label=document\.createElement\('label'\)/);
   assert.match(appSource, /badge\.textContent=LORE_IMPORT_LABELS\[entry\.type\]\|\|entry\.type/);

@@ -271,6 +271,12 @@
 .import-source textarea:focus,.import-source input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
 .import-source-meta{display:flex;justify-content:space-between;gap:12px;color:var(--faint);font-size:10px;line-height:1.55}
 .import-source-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.import-upload{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.import-file{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:650}
+.import-file input{width:auto;max-width:100%;border:0;padding:0;background:transparent;font-weight:400;font-size:11px}
+.import-upload .field-help{flex:1;min-width:220px;line-height:1.55}
+.import-file-status{margin:0;color:var(--muted);font-size:10px;line-height:1.6;white-space:pre-wrap}
+.import-file-status:empty{display:none}
 .import-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .import-actions .field-help{flex:1;min-width:220px;line-height:1.6}
 .import-review{display:grid;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}

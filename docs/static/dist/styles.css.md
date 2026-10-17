@@ -10,3 +10,4 @@
 - **主题/密度**：暗色通过 `[data-theme]` 前缀选择器追加覆盖（如 `L153`、`L172`），密度由 `[data-density]` 控制，二者都由 `app.js` 的 `applyPreferences` 写在 `<html>` 上。
 - **账号面板是上下两段**：`.user-row` 用 `flex-direction:column`（信息在上、7 个操作控件在下并 `flex-wrap`）。0.3.0 曾用 `grid` + `minmax(0,1fr) auto`，操作区 max-content 超过可视宽度时把信息列压成 0 宽，中文会被 `word-break` 逐字换行成竖排；只有真正存在账号行时才暴露（匿名模式列表为空）。
 - **重复声明**：`.lore-workspace` 的 1200px/820px 断点在 `L22`、`L23` 与 `L175`、`L176` 各出现一次，实际生效的是后两行；调整该布局时需同时检查四处，否则改动可能被后续规则覆盖。
+- **设定导入对话框**：`L262` 起的 `.lore-import-*` / `.import-*` 段是独立追加的一段（不压缩成单行），包含对话框宽度、原文文本域、文件读取行、逐条勾选列表与告警块；`.import-review[hidden]` 必须显式写 `display:none`，因为 `.import-review{display:grid}` 会覆盖浏览器对 `[hidden]` 的默认样式。

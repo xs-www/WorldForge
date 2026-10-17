@@ -11,7 +11,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=46">
+  <link rel="stylesheet" href="./styles.css?v=47">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -456,7 +456,13 @@
     <form method="dialog" class="dialog-card lore-import-card" id="loreImportForm">
       <div class="dialog-header"><div><p class="eyebrow">设定导入</p><h2>从长篇文字建立新世界</h2><p>粘贴整篇设定，服务端会调用当前配置的设定 Agent 分段解析，改写成资料库条目；解析结果先预览，确认后才写入一个新建的世界。</p></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div>
       <div class="import-source">
-        <label class="full">设定原文<textarea id="loreImportSource" rows="12" maxlength="120000" spellcheck="false" placeholder="把世界设定、人物小传、势力介绍、年表……整篇贴进来。Agent 只整理原文写出的信息，不会补写新的设定。"></textarea></label>
+        <div class="import-upload">
+          <label class="import-file">从文件读取<input id="loreImportFiles" type="file" multiple accept=".md,.markdown,.txt,.docx,.doc,.xlsx,.xls,.zip,.rar,.rtf"></label>
+          <button class="button secondary compact" id="loreImportReadFiles" type="button">读取文件</button>
+          <small class="field-help">支持 .md / .txt / .docx / .xlsx / .doc / .zip / .rar；压缩包会逐个校验内部格式，旧版 .doc 只做尽力抽取。</small>
+        </div>
+        <p class="import-file-status" id="loreImportFileStatus" role="status"></p>
+        <label class="full">设定原文<textarea id="loreImportSource" rows="12" maxlength="120000" spellcheck="false" placeholder="把世界设定、人物小传、势力介绍、年表……整篇贴进来，或先「读取文件」再整理到此处。Agent 只整理原文写出的信息，不会补写新的设定。"></textarea></label>
         <div class="import-source-meta"><span id="loreImportCount">0 字 · 预计 1 段</span><small id="loreImportLimitHelp">单次最多解析 90000 字（10 段）；超出部分会明确截断并在结果里提示。</small></div>
         <div class="import-source-row">
           <label>世界名称（可选）<input id="loreImportWorldName" maxlength="80" placeholder="留空则采用原文里的世界名称"></label>
@@ -485,6 +491,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=62"></script>
+  <script src="./app.js?v=63"></script>
 </body>
 </html>

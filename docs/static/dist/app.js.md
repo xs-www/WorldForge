@@ -33,6 +33,7 @@
 | `currentWorldId()` / `worldGroups()` | 当前世界取自 `activeWorldId` → 偏好 `worldId` → **空串（未归属）**，没有默认世界；分组委托 `WorldforgeWorldScope.groups` | `L66` / `L67` |
 | `renderWorldHub` / `worldPanel` / `renderWorldDetailHeader` / `enterWorld` / `leaveWorld` | 世界列表与详情两层视图；未归属分组提供“归入某世界”下拉 | `L46` / `L45` / `L47` / `L48` / `L49` |
 | `createWorld()` / `adoptWorldGroup(...)` | 新建下一可用 `W##`；把孤儿资料批量改 `worldId`（`WorldforgeWorldScope.reassign`） | `L50` / `L51` |
+| `LORE_IMPORT_LABELS` / `openLoreImport` / `readLoreImportFiles` / `renderLoreImportPlan` / `parseLoreImport` / `saveLoreImport` | 设定导入（ADR-0033）：文件读取（`lore-import/extract`，把抽取文本回填文本框）→ 逐条勾选预览 → `lore-import/commit`；勾选状态只在内存，保存后用服务端快照重载并进入新世界 | `L131`–`L143` |
 | `setTypeAttributes(t)` / `updateLoreBadge(s)` | 按资料类型改写表单标签/占位符/按钮文案并显示地图、编年史专属字段组 | `L52` |
 | `selectLoreType` / `loadLore` / `collectLoreForm` / `saveLore` / `deleteLore` / `resetLoreEditor` / `fillLoreForm` / `loreListItem` / `renderLoreList` | 资料编辑器主链路：选中→填表→收集→落库→重渲染。`collectLoreForm` 里世界条目的 `worldId` 恒等于其自身 `id`；在某个世界内新建「世界」条目会被拒绝，要求回世界列表 | `L103`–`L108`, `L111`, `L114` |
 | `populateLocationParents` / `beginGeographyEntry` / `prepareGeographyFramework` / `geographyNode` / `renderGeographyTree` | 地理层级：以 `form:'geography'` 的资料组集合为作用域（不再写死 `location`），父级下拉只列 `allowedParentKinds` 合法项 | `L88`, `L109`–`L112` |
