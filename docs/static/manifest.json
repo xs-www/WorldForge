@@ -227,7 +227,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "6c6c277505f1a65ffe734a581c63ff59a178e3a448b7a603ff28df25fd8d83ab"
+      "sha256": "74606be45875d5fc841a0fe35bb41eeeadcb128a32067f6212f34d02267b72bb"
     },
     {
       "source": "dist/battle.js",
@@ -263,7 +263,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "b88e42b3d1e7ee6ade6785e21ec824306860e65b2c5c25e69809c2d4be7ff7a1"
+      "sha256": "8f92b3bff5d5b2c99f15d50a70ba2d2cff58bd3f64c148c84de53b18cecdf7be"
     },
     {
       "source": "dist/macro.js",
@@ -533,7 +533,7 @@
       "source": "tests/agent-settings-ui.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "7112b77469dd8c5844c85e137e30d3bad85acd591618639a3045797e7b5be798"
+      "sha256": "d8d3bf1ded67cf89910b00e0a10ea94759ecaaf0e9484b5f8da1d4d4456c2978"
     },
     {
       "source": "tests/agent-settings-api.test.mjs",
@@ -785,7 +785,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "2ba22acf21ff8e5b97f2ae9f88ad48fa27ac1da9545893c8a25a07cc8cfa5804"
+      "sha256": "6a66c9bf86fd7983a3f7810bac10ad466c419bbcc14fabefdae97768d772e5e6"
     },
     {
       "source": "tests/world-package.test.mjs",

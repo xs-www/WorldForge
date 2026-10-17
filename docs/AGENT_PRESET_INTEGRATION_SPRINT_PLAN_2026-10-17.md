@@ -553,6 +553,21 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 验证：`npm run check` 全通过（210 项测试；新增 `agent-settings-api.test.mjs` 5 项与 `agent-settings-ui.test.mjs` 5 项）。Docker 白名单测试自动捕获了遗漏的 `agent-settings.mjs` 并已加入镜像。**未验证**：真实浏览器点击流程（本轮为静态 UI 断言 + 真实服务端 API 断言，未做浏览器 DOM 演练）、真实付费模型端到端、Sprint 4 卡牌 Agent。
 
+### 10.6 Sprint 3 复审修正（2026-10-17）
+
+复审在真实浏览器里发现 4 个阻断项，均已修正：
+
+| # | 问题 | 修正 |
+|---|---|---|
+| 1 | 最终「保存设置」绑定到 `saveSettingsWithVisuals`，而提交 `agentPresets` 的旧 `saveSettings` 已被覆盖成死代码，选择实际不会保存 | Agent 提交逻辑移入被绑定的 `saveSettingsWithVisuals`；删除旧 `saveSettings` 与其残留绑定；新增 `agentSettingsPatchFromForm` / `applyAgentSettingsAfterSave` / `showAgentSaveError` 辅助函数 |
+| 2 | `bootstrap` 只调 `refreshAgentSettings`，未先加载 preset 目录，自由创作选择器显示「没有兼容的 preset」并被禁用 | 启动顺序改为 `refreshAgentCatalog()` → `refreshAgentSettings()`；打开设置后也 `syncFreePresetBar()` |
+| 3 | 首次发送后未把服务端返回的 `agent.presetId` 冻结到 `freeConversationPreset`，设置变化会让同一对话中途换 persona | 首次成功后写入 `freeConversationPreset=data.agent.presetId`，后续轮次固定该快照 |
+| 4 | `fillPresetSelect` 在已保存 preset 失效时不显示失效项，视觉上选中第一个兼容项，造成无提示替换 | 失效时插入 `<option value=原 id>（已不可用）</option>` 并保持选中；chip 用文字标注「已不可用」；保存时 `agentSettingsPatchFromForm` 只提交有效选择，避免失效项阻塞其他设置 |
+
+测试改为**解析最终事件绑定**再检查处理器正文（`lastBoundHandler` + `functionBody`），并断言不存在同名旧实现、启动顺序、首轮冻结、失效项标记；这直接针对「测试只匹配到死代码」的教训。
+
+验证：`npm run check` 全通过（213 项测试；`agent-settings-ui.test.mjs` 5 → 8 项）。缓存版本升到 `app.js?v=46`。
+
 ## 11. Sprint 4：卡牌文字 Agent 纵切
 
 ### 11.1 目标

@@ -23,7 +23,7 @@
 | `showToast(m)` / `setStorageStatus(text,state)` | 2s toast；页头 SQLite 状态徽标 | `L28` / `L24` |
 | `readPreferences()` / `applyPreferences()` | 偏好读写并落到 `<html data-theme/data-density>` | `L29` / `L30` |
 | `captureTypePrompt` / `showTypePrompt` / `captureImagePrompt` / `showImagePrompt` | 设置面板里“多分类提示词草稿”的切换，未保存前只存在内存 `promptProfileDrafts`/`imagePromptDrafts` | `L31–L34` |
-| `openSettings()` / `saveSettings(event)` | 设置：密钥永不回填（留空=不改），`clearApiKey`/`clearSeedreamApiKey` 显式清除 | `L35` / `L36` |
+| `openSettings()` / `saveSettingsWithVisuals(event)` | 设置：密钥永不回填（留空=不改），`clearApiKey`/`clearSeedreamApiKey` 显式清除。**`#settingsSave` 最终绑定到 `saveSettingsWithVisuals`**，Agent 选择（`agentPresets: agentSettingsPatchFromForm()`）与生图提示词都在这条路径上；`openSettingsWithVisuals` 先调用 `openSettings` 再补视觉提示词 | `L35` / `L219` |
 | `switchModule(m)` | 模块路由唯一入口：切换 `[data-module]`/`[data-page]`、改 `document.title`，并调用 `WorldforgeBattleUI.refresh`、`WorldforgeMacro.refresh`、`refreshSimulation` | `L37` |
 | `normalizeLore(e)` | 资料归一化：非法类型回落 `world`；`story` 强制 `status=proposed`/`truthScope=unknown` 并清空摘要与标签；`location`/`chronicle` 字段交由子脚本归一 | `L38` |
 | `readLore` / `persistLore` / `makeLoreId` | 读含种子、写剔除种子；ID = `<前缀>-<36 进制时间戳>` | `L39` |
@@ -50,7 +50,7 @@
 | `FREE_ATTACH_LIMIT` / `toggleFreeAttachment` / `renderFreeAttachments` / `freeContextSnapshot` / `freeContextPreview` / `freeAgentMeta` / `renderFreeChat` / `sendFreeMessage` / `runNameTool` | 自由创作 Agent：图片附件上限 4、参考资料授权范围、对话记录只存内存 | `L161`, `L163`–`L169` |
 | `renderSimulation` / `refreshSimulation` / `simulationPreset` / `advanceSimulation` / `runFullSimulation` / `resetSimulation` / `disableSimulationControls` / `simulationResource` / `simulationLogRow` | W99 能源危机诊断（折叠面板），行动预设 → `simulation/advance` | `L170`–`L179` |
 | `currentCardImagePayload` / `currentLoreImagePayload` / `defaultLoreArtPurpose` / `composeVisualPrompt` / `renderLoreArtCandidates` / `updateLoreVisualState` / `prepareLoreVisualPrompt` / `optimizeLoreVisualPrompt` / `generateLoreVisual` | 视觉原型链路（后置覆盖版，见约束）；载荷含 `targetType/targetId/purpose/provider/size/referenceAssetIds/library` | `L185`–`L194` |
-| `optimizeCardArtPromptWithLore` / `generateCardArtWithLore` / `openSettingsWithVisuals` / `saveSettingsWithVisuals` | 带生图提示词设置的覆盖版本，在 `L203` 之后生效 | `L195`–`L198` |
+| `optimizeCardArtPromptWithLore` / `generateCardArtWithLore` / `openSettingsWithVisuals` / `saveSettingsWithVisuals` | 带生图提示词设置的覆盖版本，在 `L225` 最终绑定；`saveSettingsWithVisuals` 同时提交文字提示词、视觉提示词与三个 Agent preset 选择 | `L219`–`L220` |
 | `loadLore` / `resetLoreEditor` / `refreshArtAssets` 的**重绑定** | `L199` 先存原函数，`L200–L202` 覆盖为“原逻辑 + 视觉/AI 状态刷新” | `L199`–`L202` |
 | `readUiState` / `aiPanelState` / `applyAiPanel` / `setAiPanel` | AI 面板 open/min/closed 三态存 `worldforge-ui-state-v1` | `L207`–`L210` |
 | `bootstrap()` | 启动序列：`hydrateContent` → `refreshArtAssets` → `applyPreferences` → `leaveWorld` → `renderPickerSummaries` → `resetCardEditor` → 并行取 AI/图像状态 → `updateLoreVisualState` → `applyAiPanel`；加载时立即执行 | `L211` |
@@ -67,6 +67,6 @@
 
 - 顶层读取 `document.currentScript.src`（`L2`），必须以普通 `<script>` 同步加载；改为 `type="module"` 会在启动即抛错。
 - 正文写入必须经 `writeStore`（`L18`）走 `scheduleContentSync`，直接 `localStorage.setItem` 不会触发 SQLite 同步；例外是 `cacheContent`（`L23`），它只用于回写缓存。
-- `L180`–`L198` 注册的 handler 有一部分被 `L199`–`L205` 覆盖（`#saveLore`、`#openSettings`、`#saveSettings`、生图/优化按钮）；修改交互需同时确认两处，否则改动会被后置覆盖抵消。
+- `L204` 注册的 handler 有相当一部分被 `L225` 覆盖（`#saveLore`、`#openSettings`、`#saveSettings`、生图/优化按钮）。**`#saveSettings` 的旧 `saveSettings` 已删除**：它曾含 Agent 选择却从未被绑定（Sprint 3 复审回归），现在 Agent 选择只在最终绑定的 `saveSettingsWithVisuals` 里。新增设置项时请只改被绑定的那一份，并用 `tests/agent-settings-ui.test.mjs` 的「解析最终绑定」断言验证。
 - 生图/提示词优化按钮的可用性由 `llmReady` 与 `imageStatus[provider]` 双重控制（如 `L191`、`L193`）；未配置密钥时按钮保持 disabled，源码中不存在绕过路径。
 - 卡面上的资料引用只做 ID 引用，不改写被关联条目（`relationIds` / `loreRefs` 均为去重数组）；删除条目时关联是否清理静态分析无法确认。

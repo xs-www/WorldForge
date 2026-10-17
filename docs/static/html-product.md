@@ -1,5 +1,49 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 3 复审修正归档（绑定、首屏、会话冻结、失效项）
+
+复审在真实浏览器里发现 4 个阻断项，全部修正。测试 210 → 213 项，全部通过。
+
+### 阻断项 1：实际保存处理器没有提交 Agent preset
+
+`dist/app.js` 末尾把 `#saveSettings` 重新绑定到 `saveSettingsWithVisuals`（带生图提示词版本），而我在 Sprint 3 里把 `agentPresets` 加进了**更早的** `saveSettings`。后者因此成为死代码：界面有三个选择器，但保存时从未提交。
+
+修正：把 Agent 提交逻辑移入被绑定的处理器——`saveSettingsWithVisuals` 的请求体加入 `agentPresets: agentSettingsPatchFromForm()`，成功分支调用 `applyAgentSettingsAfterSave(data)`，失败分支调用 `showAgentSaveError(error.message)`；删除旧 `saveSettings` 定义与残留的 `q('#saveSettings').onclick=saveSettings;` 绑定（否则会因函数已删除而抛 ReferenceError）。
+
+### 阻断项 2：自由创作选择器首屏不可用
+
+`bootstrap` 只调 `refreshAgentSettings()`，没有先加载 preset 目录，`fillPresetSelect` 面对空目录生成「没有兼容的 preset」并禁用选择器。打开设置虽然会加载目录，但不会同步顶部选择器。
+
+修正：启动顺序改为 `await refreshAgentCatalog(); await refreshAgentSettings();`；`openSettings` 末尾补 `syncFreePresetBar()`，打开设置后顶部选择器与设置值一致。
+
+### 阻断项 3：自由对话没有冻结会话 preset
+
+首次发送后没有把服务端返回的 `agent.presetId` 写入 `freeConversationPreset`。若此后设置页或其他刷新改变 `agentSelections.free`，同一份已有历史会在下一轮换用新 persona，绕过「切换即开新对话」的确认约定。
+
+修正：首次成功响应后 `if(!freeConversationPreset && data.agent?.presetId) freeConversationPreset = data.agent.presetId;`，后续轮次固定该快照；只有 `chooseFreePreset` 会改变它（且带确认）。
+
+### 阻断项 4：失效的已保存 preset 被静默替换
+
+`fillPresetSelect` 在 `selectedId` 不在目录中时不做任何标记，浏览器于是视觉上选中第一个兼容项；一旦保存生效，作者会在无提示的情况下换掉 persona。
+
+修正：失效时插入 `<option value="{原 id}" selected>（已不可用）</option>` 并保持选中，chip 用文字显示「本轮 Agent：{id}（已不可用）」；`agentSettingsPatchFromForm()` 只提交仍有效的选择，避免失效项阻塞模型设置等其他字段的保存。
+
+### 静态测试改为验证最终绑定
+
+原测试只匹配 `agentPresets:{lore:...}` 这串文本，恰好命中了死代码。现在 `tests/agent-settings-ui.test.mjs`（5 → 8 项）先解析 `q('#saveSettings').onclick=` **最后一次**绑定的处理器名，再截取该函数正文做断言，并额外断言：
+
+- 不存在同名旧实现（`async function saveSettings(event){` 只允许 0 处）；
+- `bootstrap` 中 `refreshAgentCatalog()` 先于 `refreshAgentSettings()`；
+- `sendFreeMessage` 首轮后冻结 `freeConversationPreset`；
+- `fillPresetSelect` 含「（已不可用）」且保持原 id 选中；
+- 切换确认与清空对话逻辑在 `chooseFreePreset` 内。
+
+### 验证与未验证
+
+- `npm run check` 全通过：213 项测试。
+- 缓存版本升到 `app.js?v=46`。
+- **未验证**：真实浏览器点击流程（本轮仍是静态绑定断言 + 真实服务端 API 断言；复审的浏览器复现正是本轮修正的对象，需要复审再次实测）、真实付费模型端到端、Sprint 4 卡牌 Agent。
+
 ## 2026-10-17 Sprint 3：按入口选择 Agent preset 归档
 
 本次交付 Sprint 3：设置页选择器、`agent-settings.json` 持久化、请求快照与错误区分。测试从 200 项增至 210 项，全部通过。
