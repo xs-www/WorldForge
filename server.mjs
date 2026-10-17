@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { attachUntrustedContext, buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, composeAgentSystemPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_TOOL_GUIDE, FREE_ENTRY_CONTRACT, HARNESS_VERSION, LORE_ENTRY_CONTRACT, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
+import { attachUntrustedContext, buildCardPrompt, buildContextBundle, buildPrompt, buildSupplementPrompt, CARD_ENTRY_CONTRACT, completeAiVariants, composeAgentSystemPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_TOOL_GUIDE, FREE_ENTRY_CONTRACT, HARNESS_VERSION, LORE_ENTRY_CONTRACT, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
+import { CARD_ACTIONS, CARD_FIELDS, completeCardVariants, createCardResponseSchema } from './card-agent.mjs';
 import { AGENT_LIMITS, FREE_AGENT_TOOLS, prepareArtAssets, prepareLibrary, runToolCall } from './ai-tools.mjs';
 import { createToolCaller, runAgentLoop } from './ai-agent.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
@@ -442,6 +443,84 @@ async function callFreeAgent(payload) {
   }
 }
 
+/**
+ * 卡牌入口的受限上下文：只发送当前草案、本次允许引用的 ID 与必要规则摘要。
+ * 不读取数据库、卡牌库或模拟状态；AI 拿不到作者未显式提供的条目。
+ */
+function buildCardContext(payload) {
+  const draft = payload?.draft && typeof payload.draft === 'object' ? payload.draft : {};
+  const text = (value, limit) => String(value ?? '').trim().slice(0, limit);
+  const ids = (value, limit) => (Array.isArray(value) ? [...new Set(value.map(item => text(item, 100)).filter(Boolean))].slice(0, limit) : []);
+  const sanitized = {
+    name: text(draft.name, 100),
+    type: ['minion', 'spell', 'equipment'].includes(draft.type) ? draft.type : 'minion',
+    rarity: ['common', 'rare', 'epic', 'legendary'].includes(draft.rarity) ? draft.rarity : 'common',
+    cost: Number(draft.cost) || 0,
+    attack: Number(draft.attack) || 0,
+    health: Number(draft.health) || 0,
+    durability: Number(draft.durability) || 0,
+    tribeId: text(draft.tribeId, 60),
+    spellSchoolId: text(draft.spellSchoolId, 60),
+    rulesText: text(draft.rulesText, 2000),
+    keywordIds: ids(draft.keywordIds, 12),
+    loreRefs: ids(draft.loreRefs, 12)
+  };
+  const keywords = (Array.isArray(payload?.keywords) ? payload.keywords : []).slice(0, 30).map(item => ({
+    id: text(item?.id, 100), name: text(item?.name, 60), text: text(item?.text, 300), status: text(item?.status, 20) || 'proposed'
+  })).filter(item => item.id);
+  return {
+    draft: sanitized,
+    loreIds: ids(payload?.allowedLoreIds, 50),
+    keywordIds: ids(payload?.allowedKeywordIds, 50),
+    mechanicIds: ids(payload?.allowedMechanicIds, 50),
+    rules: { combat: 'W97 实验对战（experimental / untested）；基础对战规则尚未裁定', keywords }
+  };
+}
+
+async function callCardAgent(payload) {
+  const config = aiConfig();
+  if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
+  const profile = resolveSurfaceProfile('card', payload?.presetId);
+  const agent = agentSnapshot(profile);
+  const action = CARD_ACTIONS.includes(payload?.action) ? payload.action : 'brainstorm';
+  const selectedFields = (Array.isArray(payload?.selectedFields) ? payload.selectedFields : []).filter(field => CARD_FIELDS.includes(field));
+  const context = buildCardContext(payload);
+  const promptSettings = await loadPromptSettings();
+  const promptPayload = { ...payload, action, selectedFields, personalizedPrompt: promptSettings.personalizedPrompt };
+  const validationPayload = { ...promptPayload, draft: context.draft, allowedLoreIds: context.loreIds, allowedKeywordIds: context.keywordIds };
+  const expectedCount = Math.min(3, Math.max(1, Number(payload?.variantCount) || 1));
+  const schema = createCardResponseSchema({ selectedFields, variantCount: expectedCount });
+  const system = composeAgentSystemPrompt({ presetPrompt: profile.systemPrompt, entryContract: CARD_ENTRY_CONTRACT });
+  const modelOptions = { system };
+  const prompt = buildCardPrompt(promptPayload, context);
+
+  let structured = true;
+  let raw;
+  try { raw = await requestModel(config, prompt, { structured: true, schema, payload: promptPayload, ...modelOptions }); }
+  catch (error) {
+    if (![400, 404, 422].includes(error.status)) throw error;
+    structured = false;
+    raw = await requestModel(config, buildCardPrompt(promptPayload, context, { requireJson: true }), { structured: false, payload: promptPayload, ...modelOptions });
+  }
+  const result = await completeCardVariants({
+    raw,
+    payload: validationPayload,
+    expectedCount,
+    requestSupplement: async ({ missingCount, acceptedVariants, issues }) => {
+      const supplementPayload = { ...promptPayload, variantCount: missingCount };
+      const supplementSchema = createCardResponseSchema({ selectedFields, variantCount: missingCount });
+      const supplementPrompt = `${buildCardPrompt(supplementPayload, context, { requireJson: true })}\n\n<accepted_variants>\n${JSON.stringify(acceptedVariants, null, 2)}\n</accepted_variants>\n<validation_issues>\n${issues.slice(0, 8).map(item => `- ${item.index === null ? '整体' : `第 ${item.index + 1} 条`}：${item.message}`).join('\n') || '- 返回条数不足'}\n</validation_issues>`;
+      if (!structured) return requestModel(config, supplementPrompt, { structured: false, payload: supplementPayload, ...modelOptions });
+      try { return await requestModel(config, supplementPrompt, { structured: true, schema: supplementSchema, payload: supplementPayload, ...modelOptions }); }
+      catch (error) {
+        if (![400, 404, 422].includes(error.status)) throw error;
+        return requestModel(config, supplementPrompt, { structured: false, payload: supplementPayload, ...modelOptions });
+      }
+    }
+  });
+  return { ...result, action, model: config.model, agent, contextMeta: { loreIds: context.loreIds, keywordIds: context.keywordIds, selectedFields } };
+}
+
 async function callNameGenerator(payload) {
   const config = aiConfig();
   if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
@@ -586,6 +665,8 @@ createServer(async (req, res) => {
       const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, agentPresets: publicAgentSelections(agentSettings), agentPresetDefaults: agentProfiles.defaults });
     }
     if (req.method === 'POST' && req.url === '/api/ai/free') return json(res, 200, await callFreeAgent(await readBody(req)));
+    // 卡牌文字 Agent：只返回字段补丁与静态评审，不保存、不生成图片、不改 canon。
+    if (req.method === 'POST' && req.url === '/api/ai/card') return json(res, 200, await callCardAgent(await readBody(req)));
     if (req.method === 'POST' && req.url === '/api/ai/tools/names') return json(res, 200, await callNameGenerator(await readBody(req)));
     if (req.method === 'POST' && req.url === '/api/ai') { const payload = await readBody(req); return json(res, 200, await callAi(payload)); }
     if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: '不支持的请求方法' });

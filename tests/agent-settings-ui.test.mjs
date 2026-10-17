@@ -100,6 +100,24 @@ test('the lore assistant sends its preset snapshot and shows it', () => {
   assert.ok(functionBody(app, 'renderAiVariants').includes('data.agent?.presetId'), '候选区应显示本轮实际 preset');
 });
 
+test('the card agent panel covers the five actions, field selection and apply/save-as-draft', () => {
+  assert.match(html, /id="cardAgentPanel"/);
+  assert.match(html, /id="runCardAgent"/);
+  for (const value of ['brainstorm', 'polish', 'rules_review', 'balance_review', 'lore_alignment']) {
+    assert.match(html, new RegExp(`id="cardAgentAction"[\\s\\S]*?value="${value}"`), `缺少操作 ${value}`);
+  }
+  assert.match(app, /function runCardAgent\(\)/);
+  assert.ok(functionBody(app, 'runCardAgent').includes("apiUrl('ai/card')"), '卡牌 Agent 必须请求 /api/ai/card');
+  assert.ok(functionBody(app, 'cardAgentPayload').includes('presetId:agentSelections.card'), '请求必须携带卡牌入口的 preset 快照');
+  assert.ok(functionBody(app, 'cardAgentPayload').includes('selectedFields'), '必须只提交勾选的字段');
+  // 回填不保存，独立草案才保存，且固定 proposed / untested。
+  assert.ok(functionBody(app, 'applyCardAgentVariant').includes('未保存'));
+  const draft = functionBody(app, 'saveCardAgentDraft');
+  assert.ok(draft.includes('activeCardId=null'), '独立草案必须新建 id');
+  assert.ok(draft.includes('proposed / untested'));
+  assert.match(styles, /\.card-agent-variant\{/);
+});
+
 test('preset failures are distinguished from model failures and styled as text', () => {
   const helper = functionBody(app, 'agentErrorIsPreset');
   assert.ok(helper.includes('AGENT_PROFILE_') && helper.includes('AGENT_SETTINGS_INVALID'));

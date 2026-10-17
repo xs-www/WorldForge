@@ -37,6 +37,34 @@ export const FREE_AGENT_TOOL_GUIDE = `你还可以调用只读资料工具查看
 - 工具是只读的；你无法写入、删除，也无法读取资料库以外的任何内容（含本机文件与密钥）。
 - 取得足够信息后直接给出最终回答，不要为了凑次数反复调用工具。`;
 
+/** 第 3 层：卡牌文字设计入口的输出契约（Sprint 4）。 */
+export const CARD_ENTRY_CONTRACT = `你只返回卡牌字段补丁与静态评审，不返回整张卡牌、不保存、不调用图像生成、不改动 canon。
+所有卡牌内容都是 proposed，数值状态一律 untested；没有真实仿真或试玩结果时，禁止声称任何数值「已平衡」「已验证」。
+只写本次勾选的字段；未勾选的字段由作者保留。随从、法术、武器三类字段互斥：法术不写 attack/health/durability，武器不写 health，随从不写 durability；tribeId 只用于随从，spellSchoolId 只用于法术。
+引用只能使用本次上下文提供的 lore、关键词与机制 ID；不要发明新关键词、新机制或任意脚本效果。
+每条候选的 review 必须给出 legalTargets、timing、effectOrder、duration、counterplay 与至少一条 edgeCases；规则尚未裁定时写入 dependencies 或 openQuestions，不要伪造正式规则。`;
+
+/**
+ * 卡牌入口的第 4–6 层提示词。
+ * 第 4 层沿用作者保存的个性化提示；第 5 层是本次任务；第 6 层是卡牌草案与可用引用。
+ */
+export function buildCardPrompt(payload, context = {}, { requireJson = false } = {}) {
+  const jsonInstruction = requireJson ? '\n严格只返回 JSON 对象。' : '';
+  const authorPrompts = `<author_personalized_style>\n${text(payload?.personalizedPrompt || '无额外统一风格要求', 8000)}\n</author_personalized_style>`;
+  const actionGuide = ({
+    brainstorm: '按勾选字段提出彼此有实质差异的候选。',
+    polish: '润色勾选字段的措辞与结构，不新增上下文不支持的客观事实。',
+    rules_review: '只做规则审查：指出目标、时机、顺序、持续、反制与边界案例的缺漏，可返回空的 patch。',
+    balance_review: '只做静态平衡评审：比较费用与效果、指出退化或雪球风险，不做仿真结论、不声称已平衡。',
+    lore_alignment: '检查与所提供 lore 的一致性；不一致处写入 dependencies 或 openQuestions，不擅自改写设定。'
+  })[payload?.action] || '按勾选字段提出彼此有实质差异的候选。';
+  const fields = Array.isArray(payload?.selectedFields) ? payload.selectedFields : [];
+  const count = Math.min(3, Math.max(1, Number(payload?.variantCount) || 1));
+  const taskRequest = `任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n本次允许改写的字段（patch 只能出现这些键）：${fields.length ? fields.join('、') : '（空，只能返回评审）'}\n作者补充要求：${text(payload?.requirements || '无', 4000)}\n每条候选都要给出 review；数值只能标为 untested。${jsonInstruction}`;
+  const untrusted = `<card_draft>\n${JSON.stringify(context.draft || {}, null, 2)}\n</card_draft>\n<allowed_references>\n${JSON.stringify({ loreIds: context.loreIds || [], keywordIds: context.keywordIds || [], mechanicIds: context.mechanicIds || [] }, null, 2)}\n</allowed_references>\n<rules_context>\n${JSON.stringify(context.rules || {}, null, 2)}\n</rules_context>`;
+  return `${authorPrompts}\n${taskRequest}\n${untrusted}`;
+}
+
 /** preset 层不得伪造这些分隔标记，否则可以冒充产品边界或入口契约。 */
 export function assertPresetPromptPortable(prompt) {
   const hit = AGENT_PROMPT_RESERVED_TAGS.filter(tag => String(prompt || '').includes(tag));

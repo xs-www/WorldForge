@@ -1,6 +1,6 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY package.json server.mjs agent-runtime.schema.json agent-profile-contract.mjs agent-profile-registry.mjs agent-settings.mjs storage.mjs storage-migrations.mjs seedream.mjs comfyui.mjs reference-assets.mjs ai-content-specs.mjs ai-harness.mjs ai-tools.mjs ai-agent.mjs image-context.mjs prompt-settings.mjs ./
+COPY package.json server.mjs agent-runtime.schema.json agent-profile-contract.mjs agent-profile-registry.mjs agent-settings.mjs card-agent.mjs storage.mjs storage-migrations.mjs seedream.mjs comfyui.mjs reference-assets.mjs ai-content-specs.mjs ai-harness.mjs ai-tools.mjs ai-agent.mjs image-context.mjs prompt-settings.mjs ./
 COPY scripts/compile-world-package.mjs ./scripts/compile-world-package.mjs
 COPY simulation/ ./simulation/
 COPY dist/ ./dist/

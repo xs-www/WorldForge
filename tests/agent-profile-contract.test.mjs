@@ -370,6 +370,10 @@ test('runtime prompts replace only the preset layer and do not restate the produ
   assert.doesNotMatch(free, /工具/, '工具协议属于入口契约层，不在 preset 层重复');
 
   const card = await readFile(new URL('card-designer/runtime/system.md', presetsRoot), 'utf8');
-  for (const keyword of ['untested', 'proposed', '开放问题', '原创']) assert.ok(card.includes(keyword), `card-designer prompt should keep ${keyword}`);
+  // Sprint 4 起 card-designer 也按分层裁剪：纪律移到第 1/3 层，preset 只留 persona。
+  assert.ok(card.includes('卡牌与机制设计伙伴'), 'card-designer 应保留 persona');
+  for (const moved of ['untested', 'proposed', '开放问题', '不得声称任何数值已平衡']) {
+    assert.ok(!card.includes(moved), `${moved} 已移入第 1/3 层，不应在 preset 层重复`);
+  }
   assert.doesNotMatch(card, /(?<!不得声称任何数值)已平衡/, 'card-designer 只能以否定形式提到平衡');
 });

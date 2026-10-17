@@ -1,5 +1,14 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 4：卡牌文字 Agent 归档
+
+- 新增 `card-agent.mjs`：字段白名单、三类型互斥、关键词/设定 ID 白名单、效果操作白名单与脚本拒绝、评审六项完整性、禁平衡声明、数值自动 untested 标记、差额补生成与诊断。
+- `ai-harness.mjs` 新增 `CARD_ENTRY_CONTRACT`（第 3 层）与 `buildCardPrompt`（第 4–6 层）；`card-designer` 投影裁到 `1.1.0`，只留 persona。
+- `server.mjs` 新增 `POST /api/ai/card` 与 `buildCardContext`：只发送当前草案、允许引用的 ID 与 W97 `experimental` 规则摘要；不保存、不生成图片、不改 canon。按 ADR §6 使用 `toolPolicy=none`（卡牌上下文走请求体，未启用 `card_context_readonly`）。
+- 卡牌编辑器新增可收起「卡牌 Agent」面板：五种操作、字段勾选、候选补丁与评审、诊断展开、应用到表单（不保存）、保存为独立草案（固定 `proposed` / `untested`）。
+- 测试：`tests/card-agent.test.mjs` 9 项 + UI 静态断言；`npm run check` 223 项通过。
+- 未验证：真实付费模型端到端、浏览器点击流程、卡牌 Agent 与 W97 参数的实际联动。
+
 ## 2026-10-17 Sprint 3 复审修正归档（绑定、首屏、会话冻结、失效项）
 
 复审在真实浏览器里发现 4 个阻断项，全部修正。测试 210 → 213 项，全部通过。

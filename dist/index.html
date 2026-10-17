@@ -10,7 +10,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=37">
+  <link rel="stylesheet" href="./styles.css?v=38">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -207,6 +207,21 @@
         </aside>
 
         <section class="panel editor-panel" aria-labelledby="editorHeading">
+          <details class="card-agent" id="cardAgentPanel">
+            <summary>卡牌 Agent <span>只返回字段补丁与静态评审，不自动保存</span></summary>
+            <div class="card-agent-body">
+              <div class="card-agent-controls">
+                <label>操作<select id="cardAgentAction"><option value="brainstorm">构思</option><option value="polish">润色</option><option value="rules_review">规则审查</option><option value="balance_review">静态平衡评审</option><option value="lore_alignment">设定一致性</option></select></label>
+                <label>候选数量<select id="cardAgentCount"><option value="1">1 份</option><option value="2">2 份</option><option value="3">3 份</option></select></label>
+                <label class="card-agent-requirement">补充要求<input id="cardAgentRequirement" type="text" maxlength="500" placeholder="可选，例如：压低费用曲线"></label>
+              </div>
+              <fieldset class="card-agent-fields"><legend>允许改写的字段</legend>
+                <label><input type="checkbox" value="name" checked>名称</label><label><input type="checkbox" value="cost" checked>费用</label><label><input type="checkbox" value="rulesText" checked>规则文本</label><label><input type="checkbox" value="attack">攻击</label><label><input type="checkbox" value="health">生命</label><label><input type="checkbox" value="durability">耐久</label><label><input type="checkbox" value="keywords">关键词</label><label><input type="checkbox" value="rarity">稀有度</label><label><input type="checkbox" value="type">类型</label>
+              </fieldset>
+              <div class="card-agent-actions"><button class="button primary compact" id="runCardAgent" type="button">生成补丁</button><span class="card-agent-status" id="cardAgentStatus" role="status"></span></div>
+              <div class="card-agent-results" id="cardAgentResults"></div>
+            </div>
+          </details>
           <div class="panel-title editor-title"><div><button class="button secondary compact" id="backToCardLibrary" type="button">← 卡牌库</button><h2 id="editorHeading">卡牌编辑器</h2><span id="editorState">新卡牌</span></div><div><span class="status proposed">proposed</span><button class="button primary compact" id="saveCard" type="button">保存卡牌</button></div></div>
           <div class="editor-body">
             <div class="card-stage">
@@ -440,6 +455,6 @@
   <script src="./battle.js?v=1"></script>
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
-  <script src="./app.js?v=46"></script>
+  <script src="./app.js?v=47"></script>
 </body>
 </html>
