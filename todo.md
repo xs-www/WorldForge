@@ -10,12 +10,14 @@
 - [x] 完成 Sprint 2：设定助手与自由创作真正使用 Registry 中的 preset。新增第 1 层安全边界、第 3 层入口契约与 `composeAgentSystemPrompt`；`lore-writer` / `free-creator` 投影裁剪到 `1.1.0` 并保持关键纪律各出现一次；未知或不兼容 preset 在模型调用前 400；三个响应回显 `agent` 快照；差额补生成与工具降级沿用同一快照；工具白名单与 6 轮 / 12 次 / 4 图硬上限不变；前端显示本轮实际 preset；Registry 拒绝含产品保留标记的 prompt。
 - [x] 完成 Sprint 3：分入口 preset 选择器、`agent-settings.json` 持久化与会话切换语义；设置页可改选，自由对话首轮冻结 preset。
 - [x] 完成 Sprint 4：卡牌文字 Agent（`card-agent.mjs` + `POST /api/ai/card` + 卡牌编辑器面板），只返回受验证补丁与静态评审，固定 proposed / untested。
-- [ ] 按同一计划实现 Sprint 5：安全加固、迁移、Docker 与真实模型/浏览器验收。
-- [x] Sprint 5 第一项：静态文档可验证化。新增 `static-doc-anchors.mjs` 与 `docs/static/anchors.json`，每个 `L###` 必须命中唯一锚点（期望源码子串），区间校验起止顺序，`--write` 生成行号；已接入 `npm run check`，并用 9 项夹具覆盖错误子串、歧义、倒置区间与源码漂移；`server.mjs.md` 的 83 处引用全部重新生成并通过。
+- [x] 按同一计划实现 Sprint 5 的回滚与冻结部分：新增 `agent-legacy.mjs`（`WORLDFORGE_AGENT_LEGACY_PROMPTS` 仅精确 `1` 生效，只替换第 2 层 persona）、Registry 损坏时默认拒绝启动 / 显式开关下降级启动、`/api/health` 的 `degraded` 与 `/api/ai/presets` 的 `fallback` 报告、前端「固定提示（回滚模式）」、四组启动模式与 S5-03 冻结测试（`tests/agent-legacy-rollback.test.mjs` 9 项）；`Dockerfile` COPY 闭包补齐新模块，镜像重建后容器 `healthy`，本机与容器预设 ID/版本/哈希一致。
+- [ ] Sprint 5 剩余验收：真实配置模型的三入口各一次（需外发/付费授权）、浏览器（桌面与窄屏）点击流程与卡牌候选回填、卡牌 Agent ↔ W97 参数联动、真实 Seedream 生图；未执行项已在计划 §12.5 记录，不以 mock 代替。
+- [x] Sprint 5 第一项：静态文档可验证化。新增 `static-doc-anchors.mjs` 与 `docs/static/anchors.json`，每个 `L###` 必须命中唯一锚点（期望源码子串），区间校验起止顺序，`--write` 生成行号；已接入 `npm run check`，并用 9 项夹具覆盖错误子串、歧义、倒置区间与源码漂移；`server.mjs.md` 的引用当时 83 处、补齐回滚章节后为 100 处，全部重新生成并通过。
 - [x] 新增 GitHub Actions 流水线：`check`（语法检查 + 195 项单元测试）、`image-smoke`（真实构建镜像 + 容器内 HTTP 断言）、`publish`（前两关通过后构建 amd64/arm64 并推送 GHCR）；新增 `scripts/ci/smoke-container.mjs` 与只拉不建的 `compose.nas.yaml`，NAS 不再需要源码或在本地编译。
 - [ ] 上机验证交付链路：在 GitHub 上真实跑一次 Actions，用 `docker buildx imagetools inspect` 确认 GHCR 标签与双架构，并在 NAS 上跑通 `docker compose -f compose.nas.yaml up -d`（绑定挂载权限、端口占用、GHCR 登录态、ARM 拉取均未实机验证）。
 - [x] 按实际使用流程完成界面级回归测试（隔离空库 + 容器数据副本，Chrome CDP 驱动），产出 `docs/USAGE_FLOW_TEST_2026-10-17.md`：确认 15 项缺陷，其中 3 项阻断级。
-- [x] 按 `code-static-documentation` v2.0（compact）建立 `docs/static/` 全项目静态文档：58 篇（54 篇文件级 + `dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/` 四篇目录级汇档）+ `manifest.json`（128 条源码哈希，基线 commit `2533c8b`）。
+- [x] 按 `code-static-documentation` v2.0（compact）建立 `docs/static/` 全项目静态文档：59 篇文件级文档（Sprint 5 新增 `agent-legacy.mjs.md`）+ `dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/` 四篇目录级汇档 + `manifest.json`（137 条源码哈希，基线 commit `2533c8b`）；`server.mjs.md` 的 100 处 `L###` 由 `static-doc-anchors.mjs` 校验。
+- [ ] 静态文档增量校验有两处既有哈希漂移（`package.json`、`.agent-presets/card-designer/runtime/system.md` 的 manifest 记录与当前内容不符，早于 Sprint 5）。本次未改写其哈希，以免用新值掩盖尚未重审的文档；下次触碰这两处时一并重出文档。
 - [ ] 修 P0-1：`readLore()` 未归一化 `W01_SEED`，导致未保存过 W01 的库里点开基线世界抛 `TypeError … reading 'kind'`、世界无法编辑，且继续保存会生成重复世界条目（报告 D1）。
 - [ ] 修 P0-2：W01 的「删除」按钮可见但 `deleteLore()` 静默 return，点击无任何反馈（报告 D2）。
 - [ ] 修 P0-3：删除世界只删世界条目，子资料变成「未命名世界（XX）· 未归属」空壳分组；需先裁定级联删除 / 迁移 / 禁止删除之一（报告 D3）。

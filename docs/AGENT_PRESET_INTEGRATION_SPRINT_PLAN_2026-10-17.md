@@ -5,7 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
-- 执行进度：Sprint 0–2 已签收；Sprint 3（设置页选择器、`agent-settings.json`、请求快照与错误区分）工程实现已完成，见 §10.5，等待验收。Sprint 4–5 未开始：卡牌文字 Agent 尚无产品入口。
+- 执行进度：Sprint 0–4 已签收；Sprint 5 已按 §12.0.1 的八条约束实现回滚开关、降级启动、四组启动模式与 S5-03 冻结测试，见 §12.5。真实付费模型三入口验收与浏览器点击流程仍未执行（未获外发授权），因此 Sprint 5 整体不标记为「已验收」。
 
 ## 1. 执行摘要
 
@@ -707,6 +707,56 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 - Registry 初始化失败时不得自动选取任意其他 persona；运维可切回固定提示路径。
 - `agent-settings.json` 是附加配置，删除后回到三个默认映射。
 - 卡牌 Agent 是新增入口；关闭不会影响现有卡牌编辑、原画或对战纵切。
+
+### 12.5 Sprint 5 执行记录（2026-10-17）
+
+#### 实现
+
+| 项 | 落地 |
+|---|---|
+| 回滚开关 | 新增 `agent-legacy.mjs`；`server.mjs` 在 `loadLocalEnv()` 之后读取 `WORLDFORGE_AGENT_LEGACY_PROMPTS`，只有精确字符串 `1` 才启用 |
+| legacy profile | 三个入口各一份；`mode` / `outputContract` / `toolPolicy` / `statusPolicy` 取自 `AGENT_SURFACE_COMPATIBILITY`，`systemPrompt` 恒为空串、`legacy: true`，因此调用方**不传** `presetPrompt` |
+| 快照回显 | `presetId: legacy-fixed-prompt`、`presetVersion: 0.0.0-legacy`、`presetHash: ''`、`mode` 保留；请求里伪造的版本与哈希仍被忽略 |
+| 启动降级 | Registry 失败时默认仍 `process.exit(1)`；只有开关打开才记录 `agentRegistryFailure` 并降级启动，日志明确写「已按显式回滚开关降级启动」 |
+| `/api/health` | 保持 HTTP 200；降级时 `degraded: true` + `diagnostics`（含稳定错误码），回滚时 `promptSource: legacy-fixed-prompts` |
+| `/api/ai/presets` | 保持 `schemaVersion` / `presets` / `defaults` 结构；回滚时 `presets: []`、`defaults` 为 legacy id，并带 `fallback: legacy-fixed-prompts` |
+| `/api/settings` | 回滚时 `agentPresets` / `agentPresetDefaults` 显示 legacy 并新增 `agentPromptSource`；携带 `agentPresets` 的写入返回 400（`AGENT_SETTINGS_INVALID`），不写盘 |
+| 前端 | `agentCatalogFallback` 记住 `fallback`；`fillPresetSelect` 显示单个 disabled 的「固定提示（回滚模式）」，自由对话 chip 与设置状态行同步；`app.js?v=49` |
+| 迁移 | 未新增迁移代码：旧安装缺 `agent-settings.json` 时由 `loadAgentSettings` 回落到 Registry 默认映射（§12.2 的三个 id），不触碰 `prompt-settings.json`、`.env.local`、SQLite 或浏览器偏好 |
+| Docker | `Dockerfile` 的 COPY 闭包加入 `agent-legacy.mjs`；镜像重建并沿用持久卷 |
+| 测试 | 新增 `tests/agent-legacy-rollback.test.mjs`（9 项）：开关精确性、legacy profile 契约、四组启动模式、只换 persona、降级响应、S5-03 冻结 |
+
+#### S5 矩阵证据
+
+| ID | 覆盖 |
+|---|---|
+| S5-01 | `agent-profile-registry.test.mjs`：`prompt path resolution refuses escapes that bypass the schema`、`preset directories, manifests and intermediate directories cannot be symlinks`、`startup refuses a broken root instead of silently switching persona`；`agent-profile-api.test.mjs`：`startup refuses a corrupted projection instead of degrading silently`、`startup refuses symlinked preset directories and manifests`；新增回滚测试的「损坏根目录」两组；容器内实测（见下） |
+| S5-02 | `agent-profile-registry.test.mjs` 的 prompt 路径用例：超长 → `AGENT_PROMPT_TOO_LARGE`；`Buffer.from([0xff,0xfe,0x00,0x41])` 非 UTF-8 与 NUL → 明确诊断并拒绝，不把损坏文本交给模型 |
+| S5-03 | 新增 `S5-03: a booted process keeps its frozen snapshot until restart`：同一进程内改 manifest + prompt 后版本与哈希不变；重启后读到新值；只改 prompt 时版本不变但哈希改变 |
+| S5-04 | `agent-settings-api.test.mjs` 的伪造 `presetVersion` / `presetHash` 用例；新增回滚用例断言 legacy 下哈希恒为空串 |
+| S5-05 | `agent-surface-integration.test.mjs`：`an incompatible or unknown preset fails before any model call`；`agent-profile-registry.test.mjs`：`resolve enforces surface compatibility before any model call`；`agent-settings-api.test.mjs` 的 400 且不写盘用例 |
+| S5-06 | `agent-loop.test.mjs`：`a model that rejects images degrades once and still answers`、工具预算与轮次上限强制收尾；`agent-surface-integration.test.mjs`：`tool-unavailable degradation keeps the same preset snapshot`、两条第 5 层 JSON 降级用例；`card-agent.test.mjs`：Schema 与诊断 |
+| S5-07 | `agent-profile-registry.test.mjs`：`startup refuses when any entry point loses its preset`；新增回滚测试的四组启动模式（默认 / 显式回滚 / 损坏且未开启 → 拒绝启动 / 损坏且已开启 → 降级启动） |
+
+#### 发布验收（对应 §12.3）
+
+| 项 | 结果 |
+|---|---|
+| 1. 本机 `npm run check` | 通过：244 项测试全绿，`static-doc-anchors` 100 处引用全部命中唯一锚点 |
+| 2. Docker 重建 + `healthy` | 通过：`docker build -t worldforge:local .`（镜像 `6ebc4c3455bf`），沿用 `worldforge_worldforge-data` 持久卷重建容器，状态 `Up (healthy)`，`http://127.0.0.1:4173` |
+| 3. 本机与容器预设元数据一致 | 通过：`card-designer` / `free-creator` / `lore-writer` 均为 `1.1.0`，哈希分别为 `2dcf9d23…`、`d84b7e3d…`、`0a2bf933…`，两端逐字相同 |
+| 4. 浏览器三入口 smoke | **部分**：容器内 `GET /` 与 `GET /worldforge/` 均 200，页面引用 `app.js?v=49`，脚本含回滚标记；真实浏览器点击流程仍未执行 |
+| 5. 真实模型三入口 | **未执行**：未获外发/付费授权，未发起任何真实模型调用；不以 mock 代替记录 |
+| 6. Seedream | 未调用 |
+
+容器内故障注入（不计费）：`WORLDFORGE_AGENT_PRESETS_DIR=/nope` 时，默认启动 `exit 1` 并打印 `AGENT_ROOT_UNREADABLE` + 「拒绝启动」；加 `WORLDFORGE_AGENT_LEGACY_PROMPTS=1` 后降级启动，`/api/health` 返回 `degraded: true`、`promptSource: legacy-fixed-prompts`、`diagnostics[0].code = AGENT_ROOT_UNREADABLE`，`/api/ai/presets` 返回 `fallback: legacy-fixed-prompts` 且 `presets` 为空，`/api/settings` 的 `agentPromptSource` 为 `legacy-fixed-prompts`。
+
+#### 仍未验证
+
+- 真实付费模型的设定候选 / 自由工具检索 / 卡牌候选各一次（§12.3 第 5 项）；
+- 浏览器（桌面与窄屏）实际点击三个入口、切换自由对话 preset、应用卡牌候选；
+- 卡牌 Agent 与 W97 参数的实际联动；
+- 真实 Seedream 生图。
 
 ## 13. 全量测试矩阵
 

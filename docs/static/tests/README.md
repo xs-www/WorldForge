@@ -5,6 +5,7 @@
 ## 测试文件
 | 测试文件 | 覆盖的契约 / 回归点 | 关键手法 |
 | --- | --- | --- |
+| `agent-legacy-rollback.test.mjs` | Sprint 5 回滚与冻结：开关只认精确 `1`（`true`/`yes`/空白都不生效）、legacy profile 沿用兼容矩阵且无提示词正文、四组启动模式（默认 / 显式回滚 / 损坏且未开启→拒绝启动 / 损坏且已开启→降级启动）、回滚只换 persona（第 1、3 层逐字一致、工具白名单与 Schema 不变）、`/api/ai/presets` 空目录结构 + `fallback`、`/api/health` 降级报告、回滚下拒绝写 preset 选择、S5-03 运行中快照冻结与重启后读取新 manifest/prompt | 真实 `server.mjs` 子进程（含必须退出的拒绝启动路径）+ 本地假模型 + 磁盘上改 manifest/prompt |
 | `agent-loop.test.mjs` | 工具循环：无工具即答、查条目后再答、trace 摘要、畸形参数与未知工具回灌而非抛错、工具预算与轮次上限强制收尾、`chat`/`responses` 两种线格式、图片附件按轮上限与「模型拒绝图片时降级一次」、provider 错误保留 HTTP 状态 | 注入假 `callModel` / `fakeFetch`，断言请求体与循环行为 |
 | `agent-presets.test.mjs` | 三个 DSH preset 自包含（不引用仓库外路径）、`card-designer` 能力边界窄化、三个 persona 的提示契约互不相同 | 直接读 `agent.cordis.yml`/`preset.yml`/`SKILL.md` 文本做断言，不起服务 |
 | `agent-profile-api.test.mjs` | `GET /api/ai/presets` 只返回脱敏元数据与 `defaults`；损坏投影、符号链接 preset、缺入口、重复 ID 均**拒绝启动**；镜像只带 6 个投影文件；部署的 schema 与设计树一致 | 真实 `server.mjs` 子进程 + 临时目录 + 空闲端口 + `symlink` 夹具 |
@@ -37,6 +38,7 @@
 | `world-scope.test.mjs` | 按 `worldId` 分组且世界条目为组头、孤立 `worldId` 进「未分配」而非消失、缺 `worldId` 回落默认世界、`nextWorldId` 取最小空位、搜索字段、`reassign` 只移动非世界条目并报数 | `dist/world-scope.js` 纯函数 |
 
 ## 共享约定
-- 运行方式：仓库根执行 `node --test tests/*.test.mjs`（`npm run check` 的最后一步）。测试运行器为每个文件起子进程，且 `agent-profile-api` / `agent-surface-integration` 会再 `spawn` `server.mjs` 并占用临时端口——因此需要**子进程 spawn 与本地监听权限**，无网络的沙箱会失败。
+- 运行方式：仓库根执行 `node --test tests/*.test.mjs`（`npm run check` 的最后一步）。测试运行器为每个文件起子进程，且 `agent-profile-api` / `agent-surface-integration` / `agent-settings-api` / `agent-legacy-rollback` 会再 `spawn` `server.mjs` 并占用临时端口——因此需要**子进程 spawn 与本地监听权限**，无网络的沙箱会失败。
+- `agent-legacy-rollback.test.mjs` 会主动剔除宿主环境里的 `WORLDFORGE_AGENT_LEGACY_PROMPTS`，避免开发机的 `.env` 让「默认路径」用例误开回滚；需要回滚的用例再显式传入。
 - `tests/fixtures/agent-profiles/legal/`（`fixture-card`/`fixture-free`/`fixture-lore`）是三个可加载的合法投影；`reject/` 是十份单点缺陷夹具（`absolute-path`、`directory-mismatch`、`duplicate-id`、`empty-prompt`、`incompatible-combination`、`missing-prompt`、`oversized-prompt`、`traversal`、`unknown-enum`、`unknown-field`），每份应只触发自己的稳定错误码。
 - `tests/snapshots/agent-prompt-layers.json` 冻结六层提示的 `name`/`priority`/`source`/`replaceableByPreset`；顺序变动必须是一次有意识的修改，并同步 ADR-0029 §7 与快照（`agent-profile-contract.test.mjs` 会同时比对代码常量、快照与 ADR）。

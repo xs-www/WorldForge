@@ -14,6 +14,7 @@ import { generateSeedreamImage, seedreamConfig, validateImageRequest, validateSe
 import { normalizeReferenceAssetIds, parseReferenceUpload, toReferenceDataUrl } from './reference-assets.mjs';
 import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, DEFAULT_VISUAL_STYLE_PROMPT, normalizePromptSettings, validatePromptSettings } from './prompt-settings.mjs';
 import { asAgentProfileError, loadAgentProfiles, publicRegistryView, registryHealthSummary } from './agent-profile-registry.mjs';
+import { LEGACY_PROMPTS_ENV, LEGACY_PROMPT_SOURCE, legacyDefaults, legacyPresetsView, legacyProfile, legacyPromptsEnabled, legacyRegistryHealth } from './agent-legacy.mjs';
 import { AGENT_SETTINGS_ENV, AGENT_SETTINGS_FILENAME, loadAgentSettings, publicAgentSelections, saveAgentSettings, validateAgentSelectionPatch } from './agent-settings.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
@@ -50,32 +51,81 @@ const simulationDashboard = createSimulationDashboardService(simulationDatabaseP
 const macroSimulation = createMacroSimulationService(simulationDatabasePath);
 await mkdir(assetsPath, { recursive: true });
 
+// 回滚开关（计划 §12.4）：默认关闭，只有精确的 `1` 才启用。启用后三个入口改用代码内
+// 固定 persona；第 1 层安全边界、第 3 层入口契约、Schema、工具白名单与 canon 纪律不变。
+const legacyPrompts = legacyPromptsEnabled();
+
 // Agent Profile Registry：启动时一次性加载并冻结，请求期间不再读取磁盘，
 // 因此不会读到半写入文件。任何无效、损坏或不兼容的 preset 都会拒绝启动并打印
 // 稳定错误码，而不是跳过或静默换用其他 persona（ADR-0029 §9、计划 §12.1）。
-let agentProfiles;
+// 唯一例外是显式打开回滚开关：此时才允许降级启动，并由 /api/health 明确报告 degraded。
+let agentProfiles = null;
+let agentRegistryFailure = null;
 try {
   agentProfiles = await loadAgentProfiles();
   const summary = registryHealthSummary(agentProfiles);
   console.log(`[agent-profiles] loaded ${summary.count} preset(s): ${summary.ids.join(', ')}`);
+  if (legacyPrompts) console.warn(`[agent-profiles] 回滚模式（${LEGACY_PROMPTS_ENV}=1）：三个入口使用代码内固定 persona，preset 提示词不参与请求。`);
 } catch (error) {
   const failure = asAgentProfileError(error);
   console.error(`[agent-profiles] ${failure.code}: ${failure.message}`);
   for (const detail of failure.details) console.error(`[agent-profiles]   - ${detail}`);
-  console.error('[agent-profiles] 拒绝启动：请修复或移除损坏的 preset 投影后重试。产品不会自动改用其他 persona。');
-  // 必须显式退出：数据库与模拟服务在启动阶段已经打开，仅 throw 会让事件循环保持存活，
-  // 容器会表现为"启动失败但不退出"，本机也会留下锁定的 SQLite 文件。
-  process.exit(1);
+  if (!legacyPrompts) {
+    console.error('[agent-profiles] 拒绝启动：请修复或移除损坏的 preset 投影后重试。产品不会自动改用其他 persona。');
+    // 必须显式退出：数据库与模拟服务在启动阶段已经打开，仅 throw 会让事件循环保持存活，
+    // 容器会表现为"启动失败但不退出"，本机也会留下锁定的 SQLite 文件。
+    process.exit(1);
+  }
+  agentRegistryFailure = failure;
+  console.warn('[agent-profiles] 已按显式回滚开关降级启动：/api/health 报告 degraded，三个入口使用固定提示。');
 }
 
 // 按 surface 保存的服务端默认选择（Sprint 3）。旧安装没有该文件时使用 Registry 默认值；
 // 文件损坏时同样回落默认值并记录原因，但绝不因为某个 preset 消失就自动改选其他 persona。
-let agentSettings = await loadAgentSettings(agentSettingsPath, { defaults: agentProfiles.defaults });
+let agentSettings = await loadAgentSettings(agentSettingsPath, { defaults: agentDefaults() });
 if (agentSettings.reason) console.warn(`[agent-settings] using defaults (${agentSettings.reason}) at ${agentSettingsPath}`);
 else console.log(`[agent-settings] ${AGENT_SURFACES_FOR_LOG(agentSettings)}`);
 
 function AGENT_SURFACES_FOR_LOG(settings) {
   return Object.entries(settings.selections).map(([surface, id]) => `${surface}=${id}`).join(' ');
+}
+
+/** 回滚模式下三处对外视图统一改用 legacy 默认映射，避免界面显示「已选中某个 preset」。 */
+function agentDefaults() {
+  return legacyPrompts ? legacyDefaults() : agentProfiles.defaults;
+}
+
+/** `/api/health`：正常路径与既有摘要完全一致；降级或回滚时追加来源与诊断。 */
+function agentRegistryHealth() {
+  if (!agentProfiles) return legacyRegistryHealth(agentRegistryFailure);
+  const summary = registryHealthSummary(agentProfiles);
+  return legacyPrompts ? { ...summary, promptSource: LEGACY_PROMPT_SOURCE } : summary;
+}
+
+/** `/api/ai/presets`：回滚时保持既有结构并带 `fallback`，不假装 Registry 目录为空。 */
+function agentPresetsView() {
+  return legacyPrompts ? legacyPresetsView() : publicRegistryView(agentProfiles);
+}
+
+/** 回滚时保存 preset 选择只会让界面与真实行为不一致，因此直接拒绝而不是静默忽略。 */
+function agentSelectionPatch(payload) {
+  if (!legacyPrompts) return validateAgentSelectionPatch(payload?.agentPresets, { registry: agentProfiles });
+  if (payload?.agentPresets && Object.keys(payload.agentPresets).length) {
+    const error = new Error(`AGENT_SETTINGS_INVALID: 回滚模式（${LEGACY_PROMPTS_ENV}=1）下不接受 Agent preset 选择；请移除该开关并重启后再修改`);
+    error.status = 400;
+    throw error;
+  }
+  return {};
+}
+
+/** `/api/settings` 的 Agent 片段：回滚模式下显示固定提示，而不是会误导人的 preset id。 */
+function agentSettingsView() {
+  const view = {
+    agentPresets: publicAgentSelections(agentSettings),
+    agentPresetDefaults: agentDefaults(),
+    agentSettingsSource: agentSettings.reason || 'file'
+  };
+  return legacyPrompts ? { ...view, agentPresets: legacyDefaults(), agentPromptSource: LEGACY_PROMPT_SOURCE } : view;
 }
 
 async function saveLocalEnv(values) {
@@ -289,6 +339,9 @@ async function optimizeImagePrompt(payload) {
 // 并把 AgentProfileError 统一映射为 400（不产生外部 token 与费用）。
 
 function resolveSurfaceProfile(surface, presetId) {
+  // 回滚模式：persona 来源固定为代码内提示，Registry 此时可能根本不可用，
+  // 因此不再解析请求里的 presetId，也不把它当成错误——三处响应仍回显 legacy 快照。
+  if (legacyPrompts) return legacyProfile(surface);
   // 解析优先级：请求快照 > 服务端按 surface 保存的默认值 > Registry 默认值。
   // 请求自带值时以请求为准，但版本与哈希永远由服务端解析结果回显（S3-05）。
   const explicit = presetId !== undefined && presetId !== null && presetId !== '';
@@ -304,6 +357,15 @@ function resolveSurfaceProfile(surface, presetId) {
 
 function agentSnapshot(profile) {
   return { presetId: profile.id, presetVersion: profile.version, presetHash: profile.hash, mode: profile.mode };
+}
+
+/**
+ * 第 1–3 层系统提示。回滚模式不传 `presetPrompt`，第 2 层因此退回 `ai-harness.mjs` 的
+ * 代码内固定 persona；入口契约与产品边界始终保持原样（计划 §12.0.1 第 3 条）。
+ */
+function agentSystemPrompt(profile, options) {
+  if (profile.legacy) return composeAgentSystemPrompt(options);
+  return composeAgentSystemPrompt({ presetPrompt: profile.systemPrompt, ...options });
 }
 
 /** 工具策略只映射到服务端白名单；preset 不能扩大轮次/调用/附图硬上限。 */
@@ -322,7 +384,7 @@ async function callAi(payload) {
   // 先解析 preset：不兼容或未知的 preset 在调用模型前就失败。
   const profile = resolveSurfaceProfile('lore', payload?.presetId);
   const agent = agentSnapshot(profile);
-  const system = composeAgentSystemPrompt({ presetPrompt: profile.systemPrompt, entryContract: LORE_ENTRY_CONTRACT });
+  const system = agentSystemPrompt(profile, { entryContract: LORE_ENTRY_CONTRACT });
   const bundle = buildContextBundle(payload);
   const promptSettings = await loadPromptSettings();
   // promptPayload 已注入服务端作者提示（第 4 层），初次与补生成必须共用它，
@@ -397,8 +459,7 @@ async function callFreeAgent(payload) {
   ].filter(Boolean).join('，');
   // 第 1–3 层只放产品与 preset 内容；作者笔记与资料正文属于第 6 层，
   // 只能附到用户侧最后一条消息（ADR-0029 §7），不得进入 system/entry_contract。
-  const systemFor = withTools => composeAgentSystemPrompt({
-    presetPrompt: profile.systemPrompt,
+  const systemFor = withTools => agentSystemPrompt(profile, {
     entryContract: FREE_ENTRY_CONTRACT,
     extraContracts: [`本次可用范围：${inventory}。`, withTools ? FREE_AGENT_TOOL_GUIDE : '']
   });
@@ -504,7 +565,7 @@ async function callCardAgent(payload) {
   const validationPayload = { ...promptPayload, draft: context.draft, allowedLoreIds: context.loreIds, allowedKeywordIds: context.keywordIds };
   const expectedCount = Math.min(3, Math.max(1, Number(payload?.variantCount) || 1));
   const schema = createCardResponseSchema({ selectedFields, variantCount: expectedCount });
-  const system = composeAgentSystemPrompt({ presetPrompt: profile.systemPrompt, entryContract: CARD_ENTRY_CONTRACT });
+  const system = agentSystemPrompt(profile, { entryContract: CARD_ENTRY_CONTRACT });
   const modelOptions = { system };
   const prompt = buildCardPrompt(promptPayload, context);
 
@@ -583,7 +644,7 @@ async function serveStatic(req, res) {
 createServer(async (req, res) => {
   try {
     const requestUrl = new URL(req.url, 'http://localhost'), pathname = requestUrl.pathname;
-    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health(), agentProfiles: registryHealthSummary(agentProfiles) });
+    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health(), agentProfiles: agentRegistryHealth() });
     if (req.method === 'GET' && req.url === '/api/macro') return json(res, 200, macroSimulation.view());
     if (req.method === 'POST' && req.url === '/api/macro/step') {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
@@ -658,14 +719,14 @@ createServer(async (req, res) => {
     }
     if (req.method === 'GET' && req.url === '/api/ai/status') { const c = aiConfig(); return json(res, 200, { configured: Boolean(c.key), model: c.model, style: c.style }); }
     // 只返回脱敏元数据与默认映射：不含系统提示正文、文件路径或 DSH 插件明细。
-    if (req.method === 'GET' && req.url === '/api/ai/presets') return json(res, 200, publicRegistryView(agentProfiles));
-    if (req.method === 'GET' && req.url === '/api/settings') { const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), workflow = await loadComfyWorkflow(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiBaseUrl: comfyUi.baseUrl, comfyUiConfigured: Boolean(workflow), comfyUiWorkflow: workflow ? JSON.stringify(workflow, null, 2) : '', promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, agentPresets: publicAgentSelections(agentSettings), agentPresetDefaults: agentProfiles.defaults, agentSettingsSource: agentSettings.reason || 'file' }); }
+    if (req.method === 'GET' && req.url === '/api/ai/presets') return json(res, 200, agentPresetsView());
+    if (req.method === 'GET' && req.url === '/api/settings') { const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), workflow = await loadComfyWorkflow(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiBaseUrl: comfyUi.baseUrl, comfyUiConfigured: Boolean(workflow), comfyUiWorkflow: workflow ? JSON.stringify(workflow, null, 2) : '', promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, ...agentSettingsView() }); }
     if (req.method === 'POST' && req.url === '/api/settings') {
       if (req.headers['x-worldforge-settings'] !== '1') return json(res, 403, { error: '缺少本机设置请求标记' });
       const payload = await readBody(req);
       const settings = validateSettings(payload);
       // Agent 选择需要 Registry 校验，因此在通用设置之外单独处理；只提交部分入口时其余保持不变。
-      const selectionPatch = validateAgentSelectionPatch(payload.agentPresets, { registry: agentProfiles });
+      const selectionPatch = agentSelectionPatch(payload);
       const values = { LLM_BASE_URL: settings.baseUrl, LLM_MODEL: settings.model, LLM_API_STYLE: settings.style, SEEDREAM_BASE_URL: settings.seedream.baseUrl, SEEDREAM_MODEL: settings.seedream.model, COMFYUI_BASE_URL: settings.comfyUi.baseUrl };
       if (settings.apiKey !== undefined) values.LLM_API_KEY = settings.apiKey;
       if (settings.seedream.apiKey !== undefined) values.SEEDREAM_API_KEY = settings.seedream.apiKey;
@@ -676,7 +737,7 @@ createServer(async (req, res) => {
         agentSettings = await saveAgentSettings(agentSettingsPath, { selections: { ...agentSettings.selections, ...selectionPatch } });
         console.log(`[agent-settings] updated ${Object.entries(selectionPatch).map(([surface, id]) => `${surface}=${id}`).join(' ')}`);
       }
-      const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, agentPresets: publicAgentSelections(agentSettings), agentPresetDefaults: agentProfiles.defaults });
+      const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, ...agentSettingsView() });
     }
     if (req.method === 'POST' && req.url === '/api/ai/free') return json(res, 200, await callFreeAgent(await readBody(req)));
     // 卡牌文字 Agent：只返回字段补丁与静态评审，不保存、不生成图片、不改 canon。

@@ -269,6 +269,72 @@
         "let agentSettings = await loadAgentSettings"
       ]
     },
+    "legacy-flag": {
+      "lines": [
+        "const legacyPrompts = legacyPromptsEnabled();"
+      ]
+    },
+    "legacy-degrade": {
+      "lines": [
+        "if (!legacyPrompts) {"
+      ]
+    },
+    "legacy-resolve": {
+      "lines": [
+        "if (legacyPrompts) return legacyProfile(surface);"
+      ]
+    },
+    "agent-defaults-def": {
+      "lines": [
+        "function agentDefaults()"
+      ]
+    },
+    "agent-registry-health-def": {
+      "lines": [
+        "function agentRegistryHealth()"
+      ]
+    },
+    "agent-presets-view-def": {
+      "lines": [
+        "function agentPresetsView()"
+      ]
+    },
+    "agent-selection-patch-def": {
+      "lines": [
+        "function agentSelectionPatch("
+      ]
+    },
+    "agent-settings-view-def": {
+      "lines": [
+        "function agentSettingsView()"
+      ]
+    },
+    "agent-system-prompt-def": {
+      "lines": [
+        "function agentSystemPrompt(profile, options)"
+      ]
+    },
+    "agent-system-lore": {
+      "lines": [
+        "agentSystemPrompt(profile, { entryContract: LORE_ENTRY_CONTRACT })"
+      ]
+    },
+    "agent-system-card": {
+      "lines": [
+        "agentSystemPrompt(profile, { entryContract: CARD_ENTRY_CONTRACT })"
+      ]
+    },
+    "agent-system-free": {
+      "lines": [
+        "const systemFor = withTools => agentSystemPrompt(profile, {"
+      ]
+    },
+    "health-route": {
+      "lines": [
+        "'/api/health'",
+        "agentRegistryHealth()"
+      ]
+    },
     "callAi-def": {
       "lines": [
         "function callAi("
@@ -527,7 +593,7 @@
       "lines": [
         "req.method === 'GET'",
         "'/api/ai/presets'",
-        "publicRegistryView"
+        "agentPresetsView()"
       ]
     },
     "GET /api/settings": {

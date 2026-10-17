@@ -53,6 +53,8 @@
 | `optimizeCardArtPromptWithLore` / `generateCardArtWithLore` / `openSettingsWithVisuals` / `saveSettingsWithVisuals` | 带生图提示词设置的覆盖版本，在 `L225` 最终绑定；`saveSettingsWithVisuals` 同时提交文字提示词、视觉提示词与三个 Agent preset 选择 | `L219`–`L220` |
 | `loadLore` / `resetLoreEditor` / `refreshArtAssets` 的**重绑定** | `L199` 先存原函数，`L200–L202` 覆盖为“原逻辑 + 视觉/AI 状态刷新” | `L199`–`L202` |
 | `readUiState` / `aiPanelState` / `applyAiPanel` / `setAiPanel` | AI 面板 open/min/closed 三态存 `worldforge-ui-state-v1` | `L207`–`L210` |
+| `refreshAgentCatalog` / `refreshAgentSettings` / `agentPresetFor` / `fillPresetSelect` / `syncFreePresetBar` / `agentPanelStatusText` / `applyAgentSettingsAfterSave` | 三个预设选择器与状态文案：目录来自 `api/ai/presets`，`agentCatalogFallback` 记住响应里的 `fallback` 标记；已保存但消失的 preset 显示「（已不可用）」而不改写选择 | `L198` / `L199` / `L195` / `L200` / `L201` / `L204` / `L206` |
+| `agentSettingsPatchFromForm` / `agentSelectionIsValid` / `chooseFreePreset` | 只提交仍存在的 preset；切换自由对话 preset 需确认并清空当前对话 | `L203` / `L202` / `L207` |
 | `bootstrap()` | 启动序列：`hydrateContent` → `refreshArtAssets` → `applyPreferences` → `leaveWorld` → `renderPickerSummaries` → `resetCardEditor` → 并行取 AI/图像状态 → `updateLoreVisualState` → `applyAiPanel`；加载时立即执行 | `L211` |
 
 ## 重点逻辑
@@ -62,6 +64,7 @@
 - **卡面一致性（`L129` + `L147`）**：预览与 PNG 都从 `WorldforgeCards.compileDescription()` 的 `runs` 出发，字体随字数降档（`L125`：>95 字 21px 起，最多 7 行），裁剪由 `artRect(type)` 按卡牌类型给出画框。
 - **保存卡牌的宽松策略（`L159`）**：先 `compileCardPng` 写入 `cardPngCache` 再做本地落库；PNG 编译失败只 toast 警告，卡牌仍然保存（`compiled=false` 分支）。
 - **AI 候选只读（`L101`–`L106`）**：`runAi` 把当前表单 + 勾选内容块 + 参考条目发给 `api/ai`，返回的变体留在 `aiVariants`；只有 `saveAiSelections` 会把所选合并成独立 `proposed` 条目，不会覆盖当前编辑中的资料。
+- **回滚模式的界面提示（`L198`–`L204`）**：`api/ai/presets` 带 `fallback: 'legacy-fixed-prompts'` 时，`fillPresetSelect` 把选择器替换为单个 disabled 的「固定提示（回滚模式）」，`syncFreePresetBar` 与 `agentPanelStatusText` 改显回滚文案；这是「运维已切回固定 persona」，不是「配置丢失」，因此不得显示空的「没有兼容的 preset」。
 
 ## 重要约束
 
@@ -70,3 +73,4 @@
 - `L204` 注册的 handler 有相当一部分被 `L225` 覆盖（`#saveLore`、`#openSettings`、`#saveSettings`、生图/优化按钮）。**`#saveSettings` 的旧 `saveSettings` 已删除**：它曾含 Agent 选择却从未被绑定（Sprint 3 复审回归），现在 Agent 选择只在最终绑定的 `saveSettingsWithVisuals` 里。新增设置项时请只改被绑定的那一份，并用 `tests/agent-settings-ui.test.mjs` 的「解析最终绑定」断言验证。
 - 生图/提示词优化按钮的可用性由 `llmReady` 与 `imageStatus[provider]` 双重控制（如 `L191`、`L193`）；未配置密钥时按钮保持 disabled，源码中不存在绕过路径。
 - 卡面上的资料引用只做 ID 引用，不改写被关联条目（`relationIds` / `loreRefs` 均为去重数组）；删除条目时关联是否清理静态分析无法确认。
+- 回滚标记必须来自服务端响应（`agentCatalogFallback` 只由 `api/ai/presets` 的 `fallback` 字段赋值），前端不得自行推断或持久化该状态；恢复预设时移除 `WORLDFORGE_AGENT_LEGACY_PROMPTS` 并重启服务端即可。
