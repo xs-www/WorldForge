@@ -612,17 +612,19 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 | ID | 实现 |
 |---|---|
-| S4-01 | card-agent.mjs 的 createCardResponseSchema({selectedFields, variantCount})：patch 只含勾选字段，1–3 个候选，review 六项必填 |
-| S4-02 | uildCardContext(payload)：当前草案、允许引用的 lore/关键词/机制 ID 与 W97 experimental 规则摘要，不读取数据库 |
-| S4-03 | callCardAgent：structured_card + 	oolPolicy=none（按 ADR §6；卡牌上下文由请求体携带，故未启用 card_context_readonly） |
+| S4-01 | `card-agent.mjs` 的 `createCardResponseSchema({selectedFields, variantCount})`：patch 只含勾选字段，1–3 个候选，review 六项必填 |
+| S4-02 | `buildCardContext(payload)`：当前草案、卡牌引用的 lore 内容（摘要/约束/状态/事实层次）、关键词定义与 W97 experimental 规则摘要；白名单收窄为这些引用，不读取数据库 |
+| S4-03 | `callCardAgent`：`structured_card` + `toolPolicy=none`（按 ADR-0029 §6；卡牌上下文由请求体携带，未启用 `card_context_readonly`） |
 | S4-04 | 三类型互斥：法术无 attack/health/durability、武器无 health/tribeId/spellSchoolId、随从无 durability/spellSchoolId |
-| S4-05 | 关键词与设定 ID 白名单；效果只允许 deal_damage/heal/draw_card 且 params 拒绝脚本表达式 |
+| S4-05 | 关键词与设定 ID 白名单；效果只允许 `deal_damage`/`heal`/`draw_card`，`params` 出现脚本表达式即拒绝 |
 | S4-06 | review 的 legalTargets/timing/effectOrder/duration/counterplay/edgeCases 缺失即诊断 |
-| S4-07 | completeCardVariants 只补缺失数量并保留诊断；补生成沿用同一 system 与数量口径 |
-| S4-08 | POST /api/ai/card：不保存、不调用图像生成、不改 canon；响应含 gent 快照与 diagnostics |
-| S4-09–14 | 卡牌编辑器可收起面板：五种操作、字段勾选、候选补丁与评审、诊断展开、应用到表单（不保存）、保存为独立草案（固定 proposed/untested） |
+| S4-07 | `completeCardVariants` 只补缺失数量并保留诊断；补生成沿用同一 system 与数量口径 |
+| S4-08 | `POST /api/ai/card`：不保存、不调用图像生成、不改 canon；响应含 `agent` 快照与 `diagnostics` |
+| S4-09–14 | 卡牌编辑器可收起面板：五种操作、字段勾选、候选补丁与评审、诊断展开、应用到表单（不保存，按目标类型回填 health/durability）、保存为独立草案（固定 proposed/untested） |
 
-验证：pm run check 全通过（223 项测试；新增 	ests/card-agent.test.mjs 9 项与 1 项 UI 断言）。未验证：真实付费模型端到端、浏览器点击流程、卡牌 Agent 与 W97 对战参数的实际联动。
+复审修正（2026-10-17）：关键词定义字段由不存在的 `k.text` 改为 `k.definition`；卡牌专用上下文改为只带 `draft.loreRefs` 引用条目的摘要与约束，并在第 6 层新增 `<card_lore>`；`allowedLoreIds` 由「整个资料库」收窄为当前引用；跨类型回填改为先算 `targetType = patch.type || currentType` 再回填专属数值，并补双向回归测试。
+
+验证：`npm run check` 全通过（225 项测试；`tests/card-agent.test.mjs` 11 项 + UI 静态断言）。未验证：真实付费模型端到端、浏览器点击流程、卡牌 Agent 与 W97 参数的实际联动。
 
 ## 12. Sprint 5：加固、迁移与发布
 

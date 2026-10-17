@@ -8,9 +8,23 @@
 - [x] **Sprint 0 正式验收**：作者逐条签署 ADR-0029 §10 五项（只读仓库随附投影、按 surface 独立保存、自由聊天切换即新对话、本轮不接受自定义 preset、卡牌 Agent 独立浮动面板且只返回补丁），五项全部接受、无改判；ADR-0029 据此转为 canon，Sprint 0 退出条件「runtime manifest 与兼容矩阵经作者确认」关闭。
 - [x] 完成 Sprint 1 并修正只读验收问题：新增 `agent-profile-registry.mjs`（Schema 校验、安全路径、确定性 SHA-256 指纹、深度冻结只读快照、三入口完整性门）与仓库根 Schema 部署副本；`server.mjs` 启动时加载并在任何投影损坏或入口缺失时拒绝启动并退出；新增 `GET /api/ai/presets` 与 `/api/health` 的 `agentProfiles` 摘要；`Dockerfile` 只打包 6 个投影文件；已真实 `docker build` 比对本机与容器的 ID、版本与哈希一致。
 - [x] 完成 Sprint 2：设定助手与自由创作真正使用 Registry 中的 preset。新增第 1 层安全边界、第 3 层入口契约与 `composeAgentSystemPrompt`；`lore-writer` / `free-creator` 投影裁剪到 `1.1.0` 并保持关键纪律各出现一次；未知或不兼容 preset 在模型调用前 400；三个响应回显 `agent` 快照；差额补生成与工具降级沿用同一快照；工具白名单与 6 轮 / 12 次 / 4 图硬上限不变；前端显示本轮实际 preset；Registry 拒绝含产品保留标记的 prompt。
-- [ ] 按同一计划实现 Sprint 3–5：分入口 preset 选择器、`agent-settings.json` 与会话切换语义、卡牌文字 Agent、安全加固与发布验收。当前所有请求仍使用服务端默认 `lore-writer` / `free-creator`，界面还不能改选。
+- [x] 完成 Sprint 3：分入口 preset 选择器、`agent-settings.json` 持久化与会话切换语义；设置页可改选，自由对话首轮冻结 preset。
+- [x] 完成 Sprint 4：卡牌文字 Agent（`card-agent.mjs` + `POST /api/ai/card` + 卡牌编辑器面板），只返回受验证补丁与静态评审，固定 proposed / untested。
+- [ ] 按同一计划实现 Sprint 5：安全加固、迁移、Docker 与真实模型/浏览器验收。
 - [x] 新增 GitHub Actions 流水线：`check`（语法检查 + 195 项单元测试）、`image-smoke`（真实构建镜像 + 容器内 HTTP 断言）、`publish`（前两关通过后构建 amd64/arm64 并推送 GHCR）；新增 `scripts/ci/smoke-container.mjs` 与只拉不建的 `compose.nas.yaml`，NAS 不再需要源码或在本地编译。
 - [ ] 上机验证交付链路：在 GitHub 上真实跑一次 Actions，用 `docker buildx imagetools inspect` 确认 GHCR 标签与双架构，并在 NAS 上跑通 `docker compose -f compose.nas.yaml up -d`（绑定挂载权限、端口占用、GHCR 登录态、ARM 拉取均未实机验证）。
+- [x] 按实际使用流程完成界面级回归测试（隔离空库 + 容器数据副本，Chrome CDP 驱动），产出 `docs/USAGE_FLOW_TEST_2026-10-17.md`：确认 15 项缺陷，其中 3 项阻断级。
+- [x] 按 `code-static-documentation` v2.0（compact）建立 `docs/static/` 全项目静态文档：58 篇（54 篇文件级 + `dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/` 四篇目录级汇档）+ `manifest.json`（128 条源码哈希，基线 commit `2533c8b`）。
+- [ ] 修 P0-1：`readLore()` 未归一化 `W01_SEED`，导致未保存过 W01 的库里点开基线世界抛 `TypeError … reading 'kind'`、世界无法编辑，且继续保存会生成重复世界条目（报告 D1）。
+- [ ] 修 P0-2：W01 的「删除」按钮可见但 `deleteLore()` 静默 return，点击无任何反馈（报告 D2）。
+- [ ] 修 P0-3：删除世界只删世界条目，子资料变成「未命名世界（XX）· 未归属」空壳分组；需先裁定级联删除 / 迁移 / 禁止删除之一（报告 D3）。
+- [ ] 修 P1-1：世界稳定 ID 改名不级联子资料、卡牌与偏好，世界被拆成两半；建议直接禁止修改世界 ID（报告 D4）。
+- [ ] 修 P1-2：卡牌补删除与复制入口（当前编辑器与卡牌库均无，且无 `deleteCard`）（报告 D5）。
+- [ ] 修 P1-3：关键词补编辑与删除（当前只有「定义关键词」，ID 是卡牌引用外键）（报告 D6）。
+- [ ] 修 P1-4：新增 `DELETE /api/art-assets/:id`（当前 405）并回收磁盘文件、清理引用（报告 D7）。
+- [ ] 修 P1-5：补导入/恢复闭环，并让导出包含图片（当前只有「导出完整 JSON」且无图片）（报告 D8）。
+- [ ] 修 P1-6：资料「所属世界」改为可编辑，支持单条跨世界移动（当前只读 span，只有整组「归入」）（报告 D9）。
+- [ ] 修 P2 批次：删除资料时清理卡牌 `loreRefs`、备注入口不可达、世界面板分类计数为 0 且返回后陈旧、地理层级断档导致城市无法归位、`chronicle.kind` 历史脏数据与 `W-DRAFT-…` 派生 ID（报告 D10–D15）。
 
 - [x] 完成 M0 仓库骨架与基础模板。
 - [x] 交付可直接使用的 HTML 世界设计工作台。

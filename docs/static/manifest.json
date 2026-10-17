@@ -161,7 +161,7 @@
       "source": "tests/card-agent.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "0505c5489e187b05b4b1ba9c0d90bd15affbb04fd77e9e5268ffb77fee2bd77f"
+      "sha256": "d2888a775eecfdb98b9df7144d33fdf393f0ad49851e6fc98ece0820b10f2e52"
     },
     {
       "source": "card-agent.mjs",
@@ -203,7 +203,7 @@
       "source": "ai-harness.mjs",
       "doc": "docs/static/ai-harness.mjs.md",
       "status": "documented",
-      "sha256": "61e8f35642622590e5fb783b89484d2968f857d150b884b2a0331103757492e6"
+      "sha256": "4d27fc74db44856df0ca3cb0012170a24a4ee6a3e1a158100b2f6d457451d808"
     },
     {
       "source": "ai-tools.mjs",
@@ -239,7 +239,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "9a1da33cdba81b6279c609877ef02a797fce54a28552564e84b2bcc5ed499c80"
+      "sha256": "743e9f5a7e74ecd958cd1f3a657441f1915ff41810c7b77266df9fddd0a1a18c"
     },
     {
       "source": "dist/battle.js",
@@ -359,7 +359,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "3c29a4795063507cb8902184cae2e0e3bb60674f1823859f22c19e42ad22df45"
+      "sha256": "6dc35347e972dcf9962747b90599c1645fcdd582619f4d3e9a5c4b07ad09089f"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",

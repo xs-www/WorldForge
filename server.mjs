@@ -465,12 +465,23 @@ function buildCardContext(payload) {
     keywordIds: ids(draft.keywordIds, 12),
     loreRefs: ids(draft.loreRefs, 12)
   };
+  // 限定为当前卡牌引用的 lore；携带摘要、约束、状态与事实层次，供一致性审查使用。
+  const loreEntries = (Array.isArray(payload?.loreRefs) ? payload.loreRefs : []).slice(0, 20).map(entry => ({
+    id: text(entry?.id, 100),
+    name: text(entry?.name, 160),
+    type: text(entry?.type, 40),
+    status: text(entry?.status, 20),
+    truthScope: text(entry?.truthScope, 30),
+    summary: text(entry?.summary, 1200),
+    constraints: Array.isArray(entry?.constraints) ? entry.constraints.map(item => text(item, 300)).filter(Boolean).slice(0, 8) : []
+  })).filter(entry => entry.id);
   const keywords = (Array.isArray(payload?.keywords) ? payload.keywords : []).slice(0, 30).map(item => ({
     id: text(item?.id, 100), name: text(item?.name, 60), text: text(item?.text, 300), status: text(item?.status, 20) || 'proposed'
   })).filter(item => item.id);
   return {
     draft: sanitized,
-    loreIds: ids(payload?.allowedLoreIds, 50),
+    loreEntries,
+    loreIds: loreEntries.map(entry => entry.id),
     keywordIds: ids(payload?.allowedKeywordIds, 50),
     mechanicIds: ids(payload?.allowedMechanicIds, 50),
     rules: { combat: 'W97 实验对战（experimental / untested）；基础对战规则尚未裁定', keywords }

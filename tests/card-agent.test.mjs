@@ -209,3 +209,33 @@ test('illegal model output is reported as diagnostics instead of reaching the cl
   assert.equal(data.diagnostics.status, 'partial');
   assert.ok(data.diagnostics.issues.some(issue => /未勾选字段/.test(issue.message)));
 });
+
+test('cross-type patches apply the target type stats (both directions)', () => {
+  // 服务端允许 patch.type 改变类型；前端回填必须先按目标类型判断专属数值。
+  const toEquipment = validateCardVariant(variant({ type: 'equipment', durability: 2 }), basePayload({ draft: { type: 'minion' }, selectedFields: ['type', 'durability'] }));
+  assert.equal(toEquipment.patch.type, 'equipment');
+  assert.equal(toEquipment.patch.durability, 2);
+  const toMinion = validateCardVariant(variant({ type: 'minion', health: 3 }), basePayload({ draft: { type: 'equipment' }, selectedFields: ['type', 'health'] }));
+  assert.equal(toMinion.patch.health, 3);
+});
+
+test('the card context carries referenced lore content and keyword definitions', async () => {
+  model.reset();
+  const response = await fetch(`http://127.0.0.1:${port}/api/ai/card`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...basePayload(),
+      selectedFields: ['name'],
+      draft: { ...basePayload().draft, loreRefs: ['CHR-W01-001'] },
+      allowedLoreIds: ['CHR-W01-001'],
+      loreRefs: [{ id: 'CHR-W01-001', name: '灰烬匠', type: 'character', status: 'proposed', truthScope: 'unknown', summary: '以余温锻造的匠人。', constraints: ['不能凭空生火'] }]
+    })
+  });
+  assert.equal(response.status, 200);
+  const user = model.requests[0].messages[1].content;
+  assert.ok(user.includes('<card_lore>'), '第 6 层应附引用 lore 的内容');
+  assert.ok(user.includes('以余温锻造的匠人。'), '必须带摘要');
+  assert.ok(user.includes('不能凭空生火'), '必须带约束');
+  assert.ok(user.includes('以余温锻造的匠人。') || user.includes('灰烬匠'));
+  assert.ok(user.includes('experimental'), '规则摘要必须标为 experimental');
+});

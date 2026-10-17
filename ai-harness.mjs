@@ -61,7 +61,7 @@ export function buildCardPrompt(payload, context = {}, { requireJson = false } =
   const fields = Array.isArray(payload?.selectedFields) ? payload.selectedFields : [];
   const count = Math.min(3, Math.max(1, Number(payload?.variantCount) || 1));
   const taskRequest = `任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n本次允许改写的字段（patch 只能出现这些键）：${fields.length ? fields.join('、') : '（空，只能返回评审）'}\n作者补充要求：${text(payload?.requirements || '无', 4000)}\n每条候选都要给出 review；数值只能标为 untested。${jsonInstruction}`;
-  const untrusted = `<card_draft>\n${JSON.stringify(context.draft || {}, null, 2)}\n</card_draft>\n<allowed_references>\n${JSON.stringify({ loreIds: context.loreIds || [], keywordIds: context.keywordIds || [], mechanicIds: context.mechanicIds || [] }, null, 2)}\n</allowed_references>\n<rules_context>\n${JSON.stringify(context.rules || {}, null, 2)}\n</rules_context>`;
+  const untrusted = `<card_draft>\n${JSON.stringify(context.draft || {}, null, 2)}\n</card_draft>\n<allowed_references>\n${JSON.stringify({ loreIds: context.loreIds || [], keywordIds: context.keywordIds || [], mechanicIds: context.mechanicIds || [] }, null, 2)}\n</allowed_references>\n<card_lore>\n${JSON.stringify(context.loreEntries || [], null, 2)}\n</card_lore>\n<rules_context>\n${JSON.stringify(context.rules || {}, null, 2)}\n</rules_context>`;
   return `${authorPrompts}\n${taskRequest}\n${untrusted}`;
 }
 

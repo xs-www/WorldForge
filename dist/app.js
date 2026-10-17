@@ -115,7 +115,7 @@ function saveAiSelections(){const selected=qa('.ai-variant-check:checked').map(i
 let cardAgentVariants=[],cardAgentMeta=null;
 const CARD_AGENT_FIELDS={name:'名称',cost:'费用',rulesText:'规则文本',attack:'攻击',health:'生命',durability:'耐久',keywords:'关键词',rarity:'稀有度',type:'类型'};
 function cardAgentSelectedFields(){return [...document.querySelectorAll('#cardAgentPanel .card-agent-fields input:checked')].map(input=>input.value)}
-function cardAgentPayload(){const body={action:q('#cardAgentAction').value,variantCount:Number(q('#cardAgentCount').value)||1,requirements:q('#cardAgentRequirement').value.trim(),presetId:agentSelections.card||undefined,draft:collectCardDraftForAgent(),keywords:readStore(KEYWORD_KEY,[]).map(k=>({id:k.id,name:k.name,text:k.text,status:k.status})),allowedKeywordIds:readStore(KEYWORD_KEY,[]).map(k=>k.id),allowedLoreIds:readLore().map(entry=>entry.id).slice(0,200),selectedFields:[]};
+function cardAgentPayload(){const draft=collectCardDraftForAgent(),body={action:q('#cardAgentAction').value,variantCount:Number(q('#cardAgentCount').value)||1,requirements:q('#cardAgentRequirement').value.trim(),presetId:agentSelections.card||undefined,draft,keywords:readStore(KEYWORD_KEY,[]).map(k=>({id:k.id,name:k.name,definition:k.definition,status:k.status})),allowedKeywordIds:readStore(KEYWORD_KEY,[]).map(k=>k.id),allowedLoreIds:(draft.loreRefs||[]).slice(0,20),loreRefs:readLore().filter(entry=>(draft.loreRefs||[]).includes(entry.id)).slice(0,20).map(entry=>({id:entry.id,name:entry.name,type:entry.type,status:entry.status,truthScope:entry.truthScope,summary:entry.summary,constraints:entry.constraints})),selectedFields:[]};
   const fields=cardAgentSelectedFields();
   body.selectedFields=fields.filter(field=>['name','cost','rulesText','attack','health','durability','rarity','type'].includes(field));
   if(fields.includes('keywords'))body.selectedFields.push('keywordIds');
@@ -132,10 +132,11 @@ function renderCardAgentResults(data){const box=q('#cardAgentResults'),status=q(
     const review=document.createElement('dl');review.className='card-agent-review';[['legalTargets','合法目标'],['timing','时机'],['effectOrder','效果顺序'],['duration','持续时间'],['counterplay','反制'],['edgeCases','边界案例'],['dependencies','依赖'],['openQuestions','开放问题']].forEach(([field,label])=>{const value=variant.review?.[field];if(value===undefined||value===null||(Array.isArray(value)&&!value.length))return;const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=Array.isArray(value)?value.join('；'):String(value);review.append(dt,dd)});card.append(review);
     const actions=document.createElement('div');actions.className='card-agent-actions';const apply=document.createElement('button');apply.type='button';apply.className='button secondary compact';apply.textContent='应用到表单';apply.onclick=()=>applyCardAgentVariant(index);const save=document.createElement('button');save.type='button';save.className='button secondary compact';save.textContent='保存为独立草案';save.onclick=()=>saveCardAgentDraft(index);actions.append(apply,save);card.append(actions);nodes.push(card)});
   box.replaceChildren(...nodes)}
-function applyCardAgentVariant(index){const variant=cardAgentVariants[index];if(!variant)return;const patch=variant.patch||{};const currentType=q('#cardType').value;
+function applyCardAgentVariant(index){const variant=cardAgentVariants[index];if(!variant)return;const patch=variant.patch||{};const currentType=q('#cardType').value,targetType=patch.type||currentType;
+  if(patch.type)q('#cardType').value=patch.type;
   for(const [field,value] of Object.entries(patch)){
-    if(field==='health'){if(currentType==='minion')q('#cardHealth').value=value;continue}
-    if(field==='durability'){if(currentType==='equipment')q('#cardHealth').value=value;continue}
+    if(field==='health'){if(targetType==='minion')q('#cardHealth').value=value;continue}
+    if(field==='durability'){if(targetType==='equipment')q('#cardHealth').value=value;continue}
     if(field==='keywordIds'){if(Array.isArray(value)){selectedKeywordUsages=new Map(readStore(KEYWORD_KEY,[]).filter(k=>value.includes(k.id)).map(k=>[k.id,'']));renderKeywords();renderKeywordPreview()}continue}
     if(field==='notes'||field==='effects'||field==='loreRefs')continue;
     const selector={name:'#cardName',cost:'#cardCost',attack:'#cardAttack',rulesText:'#cardRules',rarity:'#cardRarity',type:'#cardType'}[field];
