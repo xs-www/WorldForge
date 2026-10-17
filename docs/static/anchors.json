@@ -352,7 +352,9 @@
     "preset-resolve-lore": {
       "lines": [
         "resolveSurfaceProfile('lore'"
-      ]
+      ],
+      "count": 2,
+      "nth": 1
     },
     "preset-resolve-free": {
       "lines": [
@@ -368,14 +370,14 @@
       "lines": [
         "const agent = agentSnapshot(profile);"
       ],
-      "count": 3,
+      "count": 4,
       "nth": 1
     },
     "agent-snapshot-call-free": {
       "lines": [
         "const agent = agentSnapshot(profile);"
       ],
-      "count": 3,
+      "count": 4,
       "nth": 2
     },
     "prompt-payload": {
@@ -781,6 +783,38 @@
     "card-context-world": {
       "lines": [
         "worldId: text(draft.worldId, 30)"
+      ]
+    },
+    "map-limited": {
+      "lines": [
+        "async function mapLimited(items"
+      ]
+    },
+    "call-lore-import": {
+      "lines": [
+        "async function callLoreImport(payload, session)"
+      ]
+    },
+    "commit-lore-import": {
+      "lines": [
+        "async function commitLoreImport(body"
+      ]
+    },
+    "POST /api/lore-import/parse": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/lore-import/parse'"
+      ]
+    },
+    "POST /api/lore-import/commit": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/lore-import/commit'"
+      ]
+    },
+    "lore-import-route": {
+      "lines": [
+        "req.headers['x-worldforge-lore-import'] !== '1'"
       ]
     }
   }

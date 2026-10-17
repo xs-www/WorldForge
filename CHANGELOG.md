@@ -2,6 +2,24 @@
 
 本文件记录 Worldforge 的重要变更。日期采用 `YYYY-MM-DD`。
 
+## [未发布] - 2026-10-21
+
+设定导入（ADR-0033，proposed，待作者裁定）：主界面可以把一篇长篇设定原文解析并改写为资料库条目，确认后建立一个新世界。
+
+### Added
+- `lore-import.mjs`：设定导入的纯变换层——原文规范化与确定性切分（9000 字/段、最多 10 段、按段落/句末断点）、单段抽取的严格 JSON Schema、第 4–6 层提示词、模型返回的宽松收敛、跨段「类型 + 名称」合并、世界与条目编号分配、改写成 `values` / `location` / `chronicle` / `relationIds`，以及落库前复核。
+- `POST /api/lore-import/parse`：按段调用「设定助手」入口的 preset 解析原文，返回预览计划（世界编号、条目、告警、统计、Agent 快照），**不写库**；每段计入一次 AI 配额，单段失败只告警，全部失败才报错，结构化被拒时降级为非结构化 JSON 约束并回传 `fallbackReason`。
+- `POST /api/lore-import/commit`：沿用 `contentStore.replace` 与 `expectedRevision` 乐观锁，只**追加**新世界与其资料；要求 `x-worldforge-lore-import: 1`，世界编号冲突 409，审计动作 `content.import_lore`。
+- 世界列表页的「导入设定文本」对话框：原文、可选世界名与补充要求、字符/段数预算提示、解析结果的世界名与告警、逐条勾选与全选、保存后自动进入新世界。
+- 测试：`tests/lore-import.test.mjs`（14 项纯函数）、`tests/lore-import-api.test.mjs`（7 项端到端 + 假模型）、`tests/subpath-routing.test.mjs` 增加设定导入的界面与请求契约断言。
+
+### Changed
+- `Dockerfile` 的根模块 COPY 白名单加入 `lore-import.mjs`；`npm run check` 的语法检查加入该模块；`docs/static/anchors.json` 新增 6 个锚点并把两个随调用点重复的锚点改为 `count/nth`。
+
+### 未验证 / 未决
+- 真实模型对长文的分段质量、真实导入后的地理树与年表渲染、多人并发导入同一世界编号的体验都需要作者实测；本文与 ADR 均未声称已验证。
+- 是否允许并入既有世界、是否把导入暴露给 DSH preset 侧入口、超过 9 万字是否分批续传，均待裁定。
+
 ## [0.3.1] - 2026-10-20
 
 多世界化改造（0.3.x 增量，不单独发 0.4.0）：资料类型从固定十三类改为「五项固定资料组 + 作者自定义组」，删除内置默认世界与题材种子，新增服务端整库导入/导出，并让作者资料库支持 PostgreSQL（ADR-0031、ADR-0032）。

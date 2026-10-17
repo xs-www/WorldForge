@@ -2,6 +2,8 @@
 
 ## 当前
 
+- [x] 设定导入（ADR-0033）：新增 `lore-import.mjs`，主界面「导入设定文本」把长篇原文分段交给已配置的设定 Agent 解析，改写成资料库条目（角色 / 世界地图 / 编年史 / 背景故事 / 世界信息），预览中逐条勾选后只追加一个新世界。解析不写库且按段计入 AI 配额；导入永远 `proposed`，不写 canon、不覆盖既有条目、不写仓库；`npm run check` 全绿（含 21 项新增测试）。
+- [ ] 设定导入待作者裁定与实测：真实模型对 3–9 万字长文的分段质量与漏抽率、真实导入后地理树与年表的渲染、是否允许并入**已有世界**、是否把导入暴露为 DSH preset 侧入口、超过 9 万字是否分批续传。
 - [x] 将 WorldForge 卡牌设计智能体重构为仓库内可版本化的 DSH Agent preset，并补齐可移植技能与能力边界测试。
 - [x] 将现有结构化设定写作助手与自由创作聊天分别抽离为 `lore-writer`、`free-creator` DSH Agent preset。
 - [x] 完成 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0 工程实现：兼容矩阵、提示词六层顺序与稳定错误码；新增 `docs/schemas/agent-runtime.schema.json`、`agent-profile-contract.mjs`（契约真值）与提示词层次 snapshot；三个 preset 补齐 `worldforge.runtime.json` + `runtime/system.md`；新增合法/非法夹具与 12 项契约测试。

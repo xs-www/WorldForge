@@ -8,9 +8,9 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17T13:59:24.942Z",
   "counts": {
-    "sources": 155,
-    "documented": 68,
-    "aggregated": 86,
+    "sources": 158,
+    "documented": 69,
+    "aggregated": 88,
     "config": 1
   },
   "files": [
@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "8aaf7305917f84aec971b015125fb0f4215b90b8af1186075e7d033d37a742e3"
+      "sha256": "e4c4e8c0cbeb50db4fdd19a1ba03485216cbe3791110f19f479beb4e824e6c8c"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,13 +294,13 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "7ef6ed9acba30a9c32c6980f2a3ab143f5224caabfbe67dbc078a89c56ba87f0"
+      "sha256": "b306ff1e6af812c33b86b98206c59b969889833cdb6bcbd4b998f4c26058a9d1"
     },
     {
       "source": "dist/login.html",
       "doc": "docs/static/dist/login.html.md",
       "status": "documented",
-      "sha256": "2d0a8751a0dc6ade59964601a6497626b81156ee8ad0b554725263f1938d666a"
+      "sha256": "05999c1f0c054737b06868a7aedf1e4a1fc794a0e9c0d2bad7dfb898bd4ba6c5"
     },
     {
       "source": "dist/login.js",
@@ -330,7 +330,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "e2a1b6bb89b6e0d727df57041208b46b3a11338255d033e3454e0edf3c6fb0bd"
+      "sha256": "b9dd29afc7ed490e7a1b0812f8c6b3cc550ecd87f8ad000272bbb07f136b08e6"
     },
     {
       "source": "dist/world-scope.js",
@@ -348,13 +348,13 @@
       "source": "Dockerfile",
       "doc": "docs/static/Dockerfile.md",
       "status": "documented",
-      "sha256": "d11b87118e1f6d52876cb31c9ac0c3456ccf00ced6e7eac364aa87b2c1b97e49"
+      "sha256": "c3999b2ca19f75c77c1dc84b43290f51b3f2bad47f36ed0b30153781a54ef09f"
     },
     {
       "source": "docs/static/anchors.json",
       "doc": "docs/static/server.mjs.md",
       "status": "config",
-      "sha256": "8e179d021a002897a3b5e1cb233dd26ab9eb4ccea2791d5f1ca9c3ebb4ff4cb3"
+      "sha256": "ab35ea57fb69ca2757eb0e2432232b1fe428cec5e8b192bd6323289c55475647"
     },
     {
       "source": "image-context.mjs",
@@ -369,10 +369,16 @@
       "sha256": "065c805d78603239e612eb04a67f0c7196ab826f4075878af0453ba94fb7d88f"
     },
     {
+      "source": "lore-import.mjs",
+      "doc": "docs/static/lore-import.mjs.md",
+      "status": "documented",
+      "sha256": "37a575451e924804f797bfd16d31f8b4b5d36f574d57640d97efa2c19d22df26"
+    },
+    {
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "274c790139a197a59e16d13f4c51d94bedd9c0cd2f92ca59af6b3af89f3b0fc1"
+      "sha256": "0a4a130d29aeeb5b02c3e3ea040a5019b1eaba1907a34092d305853706f5d35d"
     },
     {
       "source": "prompt-settings.mjs",
@@ -414,7 +420,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "75aa3f08ee1aa49e15d83674433d01ef4915cde9958b31407261e3270e05d132"
+      "sha256": "292d46ed12cddee62f8004dee7336ab92085064f21e21714ffd0406ea9388234"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -855,6 +861,18 @@
       "sha256": "a6e401d7fc41e059b7ec378b1c91d9d6dc695a6c1adaf0facc78f5accc450cb9"
     },
     {
+      "source": "tests/lore-import-api.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "d4f0fb8966c0d4957dd00eb37d9d75ec722c40b3fb08ca995fa1d7359e161b24"
+    },
+    {
+      "source": "tests/lore-import.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "ac4fceb09db5bde62713b9a7f80f2b482f87f6543b5c7653af7036b902c95ea9"
+    },
+    {
       "source": "tests/macro-simulation.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
@@ -870,7 +888,7 @@
       "source": "tests/README.md",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "603e3b022901ed07a5c9b96aaff3b2e7fafb4af09bbb1f92b28fde5b35ac1d27"
+      "sha256": "4b1a747f0a2031951011b8407f533086b1a985bc517a1890f4dc47222757d1ac"
     },
     {
       "source": "tests/reference-assets.test.mjs",
@@ -930,7 +948,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "865a713a6fbaf29d4e69ddea5dff907e5c62d936e271621e8453ab094571ea29"
+      "sha256": "2b1d076577fd221d6779e03e2fb1c6c4c179c749550bd25150f4562b4c0936cc"
     },
     {
       "source": "tests/world-package.test.mjs",

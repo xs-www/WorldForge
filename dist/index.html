@@ -11,7 +11,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=45">
+  <link rel="stylesheet" href="./styles.css?v=46">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -34,6 +34,7 @@
           <div><p class="breadcrumb">项目 / 世界观架构</p><h1 id="worldTitle">世界观架构</h1><p>每个世界是一块独立的设定空间。进入某个世界后，只会看到属于它的资料。</p></div>
           <div class="heading-actions">
             <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="worldSearch" placeholder="搜索世界名称、编号或正文" aria-label="搜索世界"></label>
+            <button class="button secondary" id="openLoreImport" type="button">导入设定文本</button>
             <button class="button primary" id="newWorld" type="button">新建世界</button>
           </div>
         </div>
@@ -451,6 +452,28 @@
   </div></div><div class="dialog-actions settings-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="saveSettings" value="default">保存设置</button></div></form></dialog>
   <dialog id="passwordDialog" class="dialog-card password-card"><form method="dialog" id="passwordForm"><div class="dialog-header"><div><p class="eyebrow">账号</p><h2>修改口令</h2><p>修改成功后，其他设备上的登录会立即失效。</p></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="login-form"><label>当前口令<input id="currentPassword" type="password" autocomplete="current-password" required minlength="10" maxlength="200"></label><label>新口令<input id="newPassword" type="password" autocomplete="new-password" required minlength="10" maxlength="200"></label><label>再输一次<input id="confirmPassword" type="password" autocomplete="new-password" required minlength="10" maxlength="200"></label><p class="login-error" id="passwordError" role="alert" hidden></p></div><div class="dialog-actions"><button class="button secondary" value="cancel" formnovalidate>取消</button><button class="button primary" id="savePassword" value="default">保存口令</button></div></form></dialog>
   <dialog id="imageViewer" class="image-viewer"><form method="dialog"><button class="close-button" value="cancel" aria-label="关闭图片">×</button><img id="imageViewerImage" alt="画作大图"><div><strong id="imageViewerTitle">画作预览</strong><small id="imageViewerMeta"></small><a class="button secondary compact image-download" id="imageViewerDownload" href="#" download>下载原画</a></div></form></dialog>
+  <dialog id="loreImportDialog" class="lore-import-dialog">
+    <form method="dialog" class="dialog-card lore-import-card" id="loreImportForm">
+      <div class="dialog-header"><div><p class="eyebrow">设定导入</p><h2>从长篇文字建立新世界</h2><p>粘贴整篇设定，服务端会调用当前配置的设定 Agent 分段解析，改写成资料库条目；解析结果先预览，确认后才写入一个新建的世界。</p></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div>
+      <div class="import-source">
+        <label class="full">设定原文<textarea id="loreImportSource" rows="12" maxlength="120000" spellcheck="false" placeholder="把世界设定、人物小传、势力介绍、年表……整篇贴进来。Agent 只整理原文写出的信息，不会补写新的设定。"></textarea></label>
+        <div class="import-source-meta"><span id="loreImportCount">0 字 · 预计 1 段</span><small id="loreImportLimitHelp">单次最多解析 90000 字（10 段）；超出部分会明确截断并在结果里提示。</small></div>
+        <div class="import-source-row">
+          <label>世界名称（可选）<input id="loreImportWorldName" maxlength="80" placeholder="留空则采用原文里的世界名称"></label>
+          <label>补充要求（可选）<input id="loreImportInstruction" maxlength="200" placeholder="例如：势力单独整理，不要合并人物"></label>
+        </div>
+        <div class="import-actions"><button class="button primary" id="loreImportParse" type="button">解析并预览</button><span class="field-help" id="loreImportStatus" role="status">解析会调用已配置的语言模型并按段计费；结果只是 proposed 草案，不会自动成为正史。</span></div>
+      </div>
+      <section class="import-review" id="loreImportReview" hidden>
+        <div class="import-review-head"><strong id="loreImportSummary">—</strong><small id="loreImportAgent"></small></div>
+        <div class="import-warnings" id="loreImportWarnings"></div>
+        <div class="import-entry-toolbar"><button class="button secondary compact" id="loreImportSelectAll" type="button">全选</button><button class="button secondary compact" id="loreImportSelectNone" type="button">全不选</button><span class="field-help" id="loreImportSelected">已选 0 / 0 条</span></div>
+        <div class="import-entry-list" id="loreImportEntries"></div>
+        <p class="field-help" id="loreImportReviewStatus" role="status"></p>
+      </section>
+      <div class="dialog-actions"><span class="field-help import-footer-help">导入只追加新世界与其中的资料，不会修改既有条目；所有条目固定 proposed，可在世界里继续编辑。</span><button class="button secondary" value="cancel" formnovalidate>关闭</button><button class="button primary" id="loreImportSave" type="button" hidden>保存到新世界</button></div>
+    </form>
+  </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./geography.js?v=2"></script>
   <script src="./chronicle.js?v=1"></script>
@@ -462,6 +485,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=61"></script>
+  <script src="./app.js?v=62"></script>
 </body>
 </html>

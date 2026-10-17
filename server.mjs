@@ -18,7 +18,8 @@ import { LEGACY_PROMPTS_ENV, LEGACY_PROMPT_SOURCE, legacyDefaults, legacyPresets
 import { AGENT_SETTINGS_ENV, AGENT_SETTINGS_FILENAME, loadAgentSettings, publicAgentSelections, saveAgentSettings, validateAgentSelectionPatch } from './agent-settings.mjs';
 import { AUTH_DEFAULT_QUOTA, AUTH_REQUIRE_ENV, AUTH_USERS_ENV, clearSessionCookie, cookieSecureMode, isSecureRequest, openAuthStore, sessionCookie } from './auth.mjs';
 import { buildExportBundle, extensionForMimeType, parseImportBundle, planArtAssetImport, planImport } from './data-transfer.mjs';
-import { promptKeyOf } from './lore-groups.mjs';
+import { promptKeyOf, MAX_LORE_GROUPS } from './lore-groups.mjs';
+import { buildImportPlan, buildImportPrompt, buildWorldEntry, IMPORT_EXTRACTION_SCHEMA, LORE_IMPORT_ENTRY_CONTRACT, LORE_IMPORT_LIMITS, mergeExtractions, nextWorldIdOf, normalizeExtraction, normalizeImportSource, splitImportSource, validateImportPlan } from './lore-import.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
 import { buildMacroProposalPrompt, MACRO_PROPOSAL_SCHEMA } from './simulation/llm/macro-proposal.mjs';
@@ -737,6 +738,150 @@ async function callMacroProposal(payload) {
   }
 }
 
+// ── 设定导入（ADR-0033）────────────────────────────────────────────────────
+// 作者在主界面粘贴一篇长篇设定 → 服务端分段调用「已配置的设定 Agent」→ 每段返回
+// 结构化条目 → 确定性地合并、分配编号、改写成项目资料格式 → 预览 → 作者确认后建世界。
+// 解析不写库；写库只在 commit，且永远以 proposed 追加，不改动任何既有条目。
+
+/** 有界并发：段数不多，但串行会让长文导入等太久，全并发又容易触发接口限流。 */
+async function mapLimited(items, limit, mapper) {
+  const list = Array.isArray(items) ? items : [];
+  const results = new Array(list.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, list.length)) }, async () => {
+    while (cursor < list.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(list[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * 解析一次导入请求。逐段解析、逐段计费（每段一次模型调用 = 1 次 AI 配额），
+ * 单段失败只记警告；只有全部段落都失败或配额不足时才整体失败。
+ */
+async function callLoreImport(payload, session) {
+  const config = aiConfig();
+  if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
+  // preset 在调用模型之前解析：未知或不兼容的 preset 不产生任何外部调用与费用。
+  // 与设定助手共用「设定」入口的 preset：导入不另开一套 persona 选择。
+  const profile = resolveSurfaceProfile('lore', payload?.presetId);
+  const agent = agentSnapshot(profile);
+  const source = normalizeImportSource(payload?.text);
+  const split = splitImportSource(source.text);
+  const chunks = split.chunks;
+  console.log(`[lore-import] start chunks=${chunks.length} characters=${source.characters} truncated=${source.truncated} preset=${profile.id}`);
+  const instructions = String(payload?.instruction || '').trim().slice(0, 300);
+  const promptSettings = await loadPromptSettings();
+  const system = agentSystemPrompt(profile, { entryContract: LORE_IMPORT_ENTRY_CONTRACT });
+  const promptFor = (chunk, extra = {}) => buildImportPrompt({
+    index: chunk.index,
+    total: chunks.length,
+    text: chunk.text,
+    instruction: instructions,
+    personalizedPrompt: promptSettings.personalizedPrompt,
+    ...extra
+  });
+  const runChunk = async chunk => {
+    await chargeQuota('ai', session);
+    let structured = true;
+    let fallbackReason = null;
+    let raw;
+    try {
+      raw = await requestModel(config, promptFor(chunk), { structured: true, schema: IMPORT_EXTRACTION_SCHEMA, name: 'worldforge_lore_import', system });
+    } catch (error) {
+      // 配额不足是整体性错误：继续跑后面的段只会继续撞 429。
+      if (error.code === 'AUTH_QUOTA_EXCEEDED' || error.status === 429) throw error;
+      // 兼容接口常忽略 response_format/json_schema：改用非结构化 JSON 约束重试同一段。
+      if (![400, 404, 422].includes(error.status)) return { chunk, error };
+      structured = false;
+      fallbackReason = `结构化请求被拒绝（HTTP ${error.status}）：${error.message}`;
+      console.warn(`[lore-import] 第 ${chunk.index + 1}/${chunks.length} 段${fallbackReason}；改用非结构化 JSON 约束重试。`);
+      try {
+        raw = await requestModel(config, promptFor(chunk, { requireJson: true }), { structured: false, system });
+      } catch (fallbackError) {
+        if (fallbackError.code === 'AUTH_QUOTA_EXCEEDED' || fallbackError.status === 429) throw fallbackError;
+        return { chunk, error: fallbackError };
+      }
+    }
+    const normalized = normalizeExtraction(raw, { chunkIndex: chunk.index });
+    return { chunk, ...normalized, structured, fallbackReason };
+  };
+  const outcomes = await mapLimited(chunks, LORE_IMPORT_LIMITS.concurrency, runChunk);
+  const extractions = [], warnings = [], issues = [];
+  let fallbackReason = null;
+  for (const outcome of outcomes) {
+    if (outcome.error) {
+      issues.push({ code: 'CHUNK_FAILED', message: `第 ${outcome.chunk.index + 1}/${chunks.length} 段解析失败：${String(outcome.error.message || outcome.error).slice(0, 300)}` });
+      continue;
+    }
+    extractions.push({ world: outcome.world, entries: outcome.entries });
+    for (const issue of outcome.issues || []) issues.push({ code: issue.code, message: `第 ${issue.chunk + 1} 段：${issue.message}` });
+    if (!fallbackReason && outcome.fallbackReason) fallbackReason = outcome.fallbackReason;
+  }
+  if (!extractions.length) {
+    const reason = issues[0]?.message || '模型没有返回可用的抽取结果';
+    throw new Error(`设定解析失败：${reason}`);
+  }
+  const merged = mergeExtractions(extractions);
+  const current = await contentStore.read();
+  const worldId = nextWorldIdOf(current.loreEntries);
+  if (source.truncated) warnings.push({ code: 'SOURCE_TRUNCATED', message: `原文超过 ${LORE_IMPORT_LIMITS.characters} 字，只解析了前面部分（省略 ${source.droppedCharacters} 字）` });
+  if (split.truncated) warnings.push({ code: 'SOURCE_TRUNCATED', message: `分段上限为 ${LORE_IMPORT_LIMITS.maxChunks} 段，最后 ${split.droppedCharacters} 字未解析` });
+  if (!merged.entries.length) warnings.push({ code: 'EMPTY_EXTRACTION', message: '模型没有整理出任何条目；可以缩短原文或补充更明确的条目名称后重试' });
+  const plan = buildImportPlan({
+    worldId,
+    world: merged.world,
+    entries: merged.entries,
+    warnings: [...warnings, ...merged.warnings, ...issues],
+    extractions,
+    source: { characters: source.characters, truncated: source.truncated, droppedCharacters: source.droppedCharacters + split.droppedCharacters },
+    existingEntries: current.loreEntries
+  });
+  return {
+    ...plan,
+    agent,
+    model: config.model,
+    harnessVersion: HARNESS_VERSION,
+    ...(fallbackReason ? { fallbackReason } : {})
+  };
+}
+
+/**
+ * 把作者确认过的导入计划写入内容库：追加一个世界条目及其资料，绝不改动既有条目。
+ * `expectedRevision` 与 `PUT /api/content` 同一套乐观锁；世界编号冲突返回 409。
+ */
+async function commitLoreImport(body, { actor = '' } = {}) {
+  const current = await contentStore.read();
+  const plan = validateImportPlan(body?.plan ?? body, { existingEntries: current.loreEntries });
+  const now = new Date().toISOString();
+  const worldEntry = buildWorldEntry({ worldId: plan.worldId, world: plan.world, now: () => now });
+  const groups = [...current.loreGroups];
+  const warnings = [...plan.warnings];
+  for (const group of plan.groups) {
+    const exists = groups.some(item => item.id === group.id && (item.worldId || '') === (group.worldId || ''));
+    if (exists) continue;
+    if (groups.length >= MAX_LORE_GROUPS) {
+      warnings.push({ code: 'GROUP_LIMIT_REACHED', message: `自定义资料组已达上限 ${MAX_LORE_GROUPS}，「${group.label}」未单独落库（读取时会按资料自动派生）` });
+      continue;
+    }
+    groups.push(group);
+  }
+  const saved = await contentStore.replace({
+    loreEntries: [...current.loreEntries, worldEntry, ...plan.entries],
+    cardDrafts: current.cardDrafts,
+    keywords: current.keywords,
+    loreGroups: groups,
+    notes: current.notes,
+    expectedRevision: body?.expectedRevision
+  }, { actor });
+  console.log(`[lore-import] commit world=${plan.worldId} entries=${plan.entries.length} revision=${saved.revision}`);
+  return { worldId: plan.worldId, world: worldEntry, entries: plan.entries, warnings, revision: saved.revision, lastSavedBy: saved.lastSavedBy };
+}
+
 // ── 数据导入 / 导出 ─────────────────────────────────────────────────────────
 // 导出与导入都以「服务端内容库」为真值，而不是浏览器缓存；这样换机、换数据库
 // （SQLite ↔ PostgreSQL）与多用户协作都能得到同一份完整快照。
@@ -1005,6 +1150,14 @@ createServer(async (req, res) => {
       return json(res, 200, await auth.deleteUser({ username: userMatch[1], actor: session.username }));
     }
     if (req.method === 'POST' && req.url === '/api/ai/free') { await chargeQuota('ai', session); return json(res, 200, await callFreeAgent(await readBody(req))); }
+    // 设定导入（ADR-0033）：解析不写库、按段计费；commit 只追加新世界，不覆盖既有资料。
+    if (req.method === 'POST' && req.url === '/api/lore-import/parse') { const payload = await readBody(req); return json(res, 200, await callLoreImport(payload, session)); }
+    if (req.method === 'POST' && req.url === '/api/lore-import/commit') {
+      if (req.headers['x-worldforge-lore-import'] !== '1') return json(res, 403, { error: '缺少设定导入请求标记' });
+      const result = await commitLoreImport(await readBody(req), { actor: session?.username || 'anonymous' });
+      if (auth) await auth.audit({ actor: session?.username || 'anonymous', action: 'content.import_lore', detail: { worldId: result.worldId, entries: result.entries.length, revision: result.revision } });
+      return json(res, 200, result);
+    }
     // 卡牌文字 Agent：只返回字段补丁（评审由作者完成），不保存、不生成图片、不改 canon。
     if (req.method === 'POST' && req.url === '/api/ai/card') { await chargeQuota('ai', session); return json(res, 200, await callCardAgent(await readBody(req))); }
     if (req.method === 'POST' && req.url === '/api/ai/tools/names') { await chargeQuota('ai', session); return json(res, 200, await callNameGenerator(await readBody(req))); }

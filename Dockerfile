@@ -4,7 +4,7 @@ WORKDIR /app
 # SQLite 路径本身不依赖任何第三方包，本机运行仍然可以是零依赖的。
 COPY package.json package-lock.json /app/
 RUN npm install --omit=dev --no-audit --no-fund
-COPY package.json server.mjs auth.mjs agent-runtime.schema.json agent-profile-contract.mjs agent-profile-registry.mjs agent-legacy.mjs agent-settings.mjs card-agent.mjs storage.mjs storage-migrations.mjs storage-postgres.mjs data-transfer.mjs lore-groups.mjs seedream.mjs comfyui.mjs reference-assets.mjs ai-content-specs.mjs ai-harness.mjs ai-tools.mjs ai-agent.mjs image-context.mjs prompt-settings.mjs ./
+COPY package.json server.mjs auth.mjs agent-runtime.schema.json agent-profile-contract.mjs agent-profile-registry.mjs agent-legacy.mjs agent-settings.mjs card-agent.mjs storage.mjs storage-migrations.mjs storage-postgres.mjs data-transfer.mjs lore-import.mjs lore-groups.mjs seedream.mjs comfyui.mjs reference-assets.mjs ai-content-specs.mjs ai-harness.mjs ai-tools.mjs ai-agent.mjs image-context.mjs prompt-settings.mjs ./
 COPY scripts/compile-world-package.mjs ./scripts/compile-world-package.mjs
 # 账号运维 CLI 随镜像交付：NAS 上用 `docker compose exec worldforge node scripts/auth-cli.mjs ...`
 # 创建首个管理员或重置口令，不需要把源码放到 NAS。
