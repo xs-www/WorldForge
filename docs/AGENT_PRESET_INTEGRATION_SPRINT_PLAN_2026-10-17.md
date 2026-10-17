@@ -746,7 +746,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 | 项 | 结果 |
 |---|---|
-| 1. 本机 `npm run check` | 通过：**256** 项测试全绿；两道静态文档门禁均通过（`static-doc-anchors` 100 处引用唯一命中、`static-doc-manifest` 139 个条目哈希/文档路径/计数一致） |
+| 1. 本机 `npm run check` | 通过：**259** 项测试全绿；两道静态文档门禁均通过（`static-doc-anchors` 100 处引用唯一命中、`static-doc-manifest` 139 个条目哈希/文档路径/计数一致） |
 | 2. Docker 重建 + `healthy` | 通过：镜像 `f0c8bd8f029b`（`worldforge:local`），沿用 `worldforge_worldforge-data` 持久卷重建容器，状态 `Up (healthy)`，`http://127.0.0.1:4173` |
 | 3. 本机与容器预设元数据一致 | 通过：`card-designer` `1.1.1`（哈希 `96b27a40…`）、`free-creator` `1.1.0`（`d84b7e3d…`）、`lore-writer` `1.1.0`（`0a2bf933…`），两端逐字相同；容器内 `app.js` / `index.html` / `styles.css` / `ai-harness.mjs` / `card-agent.mjs` / `server.mjs` / 卡牌投影两份文件与工作树哈希一致 |
 | 4. 浏览器三入口 smoke | 通过（作者实测，2026-10-17）：作者在根路径与 `/worldforge` 子路径手动点检三入口，确认可用；机器侧另有无头 Chrome（CDP）确认设置页三个选择器分别显示三个不同 Agent，以及容器内 `GET /` 与 `GET /worldforge/` 返回 200、页面引用 `app.js?v=51`。证据级别：作者确认，未保留点击日志 |
@@ -769,6 +769,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 |---|---|---|
 | P1 | `.agent-presets/card-designer/runtime/system.md` 与 `worldforge.runtime.json` 仍要求「字段补丁与静态评审」，位于**第 2 层系统提示**，会继续诱导真实模型产出已废弃字段 | 两处改为只返回字段补丁、明写「评审与最终裁定由作者完成」；`card-designer` 版本由 `1.1.0` 升到 `1.1.1`（投影内容变化必须升版，ADR-0025），配套测试断言同步 |
 | P2 | 静态文档未完成归档：`manifest.json` 有 `package.json` 与卡牌 `runtime/system.md` 两处真实哈希漂移；`package.json.md` 未记录锚点校验步骤；`.agent-presets` 文档仍称卡牌 preset 为 `1.0.0` 且未接入；计划顶部仍写「整体不标记为已验收」 | 新增 `static-doc-manifest.mjs`（`--check` / `--write`）并把 `node static-doc-manifest.mjs --check` 接入 `npm run check`：逐条比对源文件 SHA-256、文档路径存在性、`counts` 与状态统计、重复条目与越界路径；据此重算全部哈希；四处文档按实际状态改写 |
+| P2 补 | 校验器在条目缺少 `sha256` 时先记 `MANIFEST_INVALID` 仍继续比较，`entry.sha256.slice()` 抛 `TypeError`，与「只返回稳定诊断」的契约不符；测试未覆盖缺失/非字符串哈希 | 结构非法即停止该条目的哈希比较（`--write` 也不补写缺失字段）；诊断改用 `shortHash` 安全格式化；补「缺失 `sha256`」「非字符串 `sha256`」「`shortHash` 安全格式化」三组回归用例；用真实清单删一条 `sha256` 实测：只输出 1 条 `MANIFEST_INVALID`、退出码 1、无异常 |
 
 > P2 的根因是门禁缺口：此前 `npm run check` 只校验文档锚点，不校验清单哈希，因此真实漂移不会让测试变红。现在两条门禁并列（锚点唯一命中、清单哈希一致），任何一方不一致都会失败。
 
@@ -842,7 +843,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | preset 扩大工具权限 | 数据越界或写入 | 工具策略只映射服务端白名单；硬上限不可由 preset 修改 |
 | Docker 与本机 preset 不一致 | 部署行为漂移 | 显式打包 + 哈希一致性测试 |
 | 约束重复膨胀提示词 | 降低有效指令权重 | 固定分层，测试关键约束出现次数 |
-| 卡牌 Agent 被误解为已平衡 | 设计决策失真 | 强制 `untested`、静态评审措辞和 UI 提示 |
+| 卡牌 Agent 被误解为已平衡 | 设计决策失真 | 强制 `untested`、**作者评审提示**（评审由作者完成）和 UI 提示 |
 
 ## 17. 作者裁定项
 

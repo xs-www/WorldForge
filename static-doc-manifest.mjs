@@ -23,6 +23,11 @@ export function hashBytes(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+/** 诊断里只显示短哈希；非字符串也安全格式化，避免结构损坏时抛 TypeError。 */
+export function shortHash(value) {
+  return typeof value === 'string' ? `${value.slice(0, 12)}…` : `（非字符串：${typeof value}）`;
+}
+
 function unsafePath(path) {
   if (typeof path !== 'string' || !path.trim()) return true;
   if (isAbsolute(path) || /^[A-Za-z]:/.test(path) || path.startsWith('/') || path.startsWith('\\')) return true;
@@ -64,11 +69,13 @@ export function verifyManifest({ manifest, contents, rewrite = false } = {}) {
     const body = lookup.get(entry.source);
     if (body === undefined || body === null) {
       errors.push({ code: 'FILE_MISSING', message: `${entry.source} 在仓库中不存在（清单仍列着它）` });
+    } else if (typeof entry.sha256 !== 'string') {
+      // 结构已坏：不再比较哈希（上面已记 MANIFEST_INVALID）。`--write` 也不修，缺失字段属于需要人工确认的问题。
     } else {
       const actual = hashBytes(Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8'));
       if (actual !== entry.sha256) {
         if (rewrite) updates.push({ source: entry.source, sha256: actual });
-        else errors.push({ code: 'HASH_MISMATCH', message: `${entry.source} 哈希漂移：清单 ${entry.sha256.slice(0, 12)}… → 实际 ${actual.slice(0, 12)}…` });
+        else errors.push({ code: 'HASH_MISMATCH', message: `${entry.source} 哈希漂移：清单 ${shortHash(entry.sha256)} → 实际 ${shortHash(actual)}` });
       }
     }
     if (!(lookup.get(entry.doc) !== undefined && lookup.get(entry.doc) !== null)) {

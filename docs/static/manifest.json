@@ -168,7 +168,7 @@
       "source": "static-doc-manifest.mjs",
       "doc": "docs/static/static-doc-manifest.mjs.md",
       "status": "documented",
-      "sha256": "f65b02ea3bdb92021d2188cec1077bb50973fa5f1bfccaeaf6da52a1b39b7db0"
+      "sha256": "b5eac3e0c6182bf5c75351ce31d70947151c1222d5a694db648cc4ff3f2a7ce3"
     },
     {
       "source": "tests/card-agent.test.mjs",
@@ -822,7 +822,7 @@
       "source": "tests/static-doc-manifest.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "fe8ce321684422a339d2644272d2188c219723147e201eff7a2f273da3fb2761"
+      "sha256": "58a56c6acdc2094faa84b40ad1cb447f02b221bdfaab2b043d4115614c4ecf55"
     },
     {
       "source": "tests/storage.test.mjs",
