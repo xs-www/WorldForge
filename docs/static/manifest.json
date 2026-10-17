@@ -294,7 +294,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "cc2d9ca0b1a468f15b7564647d12ede738bb13ca8a6f07a1dfbbe043afef0a87"
+      "sha256": "704ef99f980be971ff42374677345b0fe410eff7d09bca77d58b1590d550c6cd"
     },
     {
       "source": "dist/macro.js",
@@ -342,7 +342,7 @@
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "c675f58eb8dd7a0c27039fe83bc01c75f63356e4232bf462a8d3c8542944b289"
+      "sha256": "d70d393fc69d588b873dcfdf1b13dc1260926f32835815badeacfac4565ea619"
     },
     {
       "source": "prompt-settings.mjs",
@@ -564,7 +564,7 @@
       "source": "tests/agent-profile-registry.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "8efec2d070036b098777c065c7b49526af32fb7810a2570d116b1741f033f1e9"
+      "sha256": "2e8c3e84021015411eefbca8edbb97a8545f50f35989e13dbe8d2039a06afb64"
     },
     {
       "source": "tests/agent-prompt-layers.test.mjs",

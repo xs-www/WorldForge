@@ -2,7 +2,7 @@
 
 原创多世界神性宇宙与策略卡牌内容设计仓库。
 
-当前版本：**0.2.1**（2026-10-17）。该版本把三个 DSH Agent preset 接入设定助手、自由创作与卡牌三个入口，并配套回滚开关、分入口设置、静态文档双门禁与容器化；世界设定与卡牌数值仍为草案 / `untested`，不代表规则定稿。
+当前版本：**0.2.2**（2026-10-17）。该版本把三个 DSH Agent preset 接入设定助手、自由创作与卡牌三个入口，并配套回滚开关、分入口设置、静态文档双门禁与容器化；世界设定与卡牌数值仍为草案 / `untested`，不代表规则定稿。
 
 仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。每个 preset 额外携带 WorldForge 产品侧的只读投影：`worldforge.runtime.json`（契约见 [`docs/schemas/agent-runtime.schema.json`](docs/schemas/agent-runtime.schema.json)）与 `runtime/system.md`。产品只读这两个纯数据文件，永不解析或执行含 `!!js` 的 `agent.cordis.yml`，该边界由 [ADR-0029](docs/adr/ADR-0029-agent-profile-runtime-projection.md) 固定。
 

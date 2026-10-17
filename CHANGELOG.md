@@ -2,6 +2,15 @@
 
 本文件记录 Worldforge 的重要变更。日期采用 `YYYY-MM-DD`。
 
+## [0.2.2] - 2026-10-17
+
+修复 0.2.1 之后 CI 仍红的第二个原因：测试里有一条**只在 Windows 成立**的断言。
+
+### Fixed
+- `tests/agent-profile-registry.test.mjs` 的「presets root 解析」用例原先把 `AGENT_RUNTIME_SCHEMA_PATH` 断言成 Windows 盘符形式（`/[A-Za-z]:\\/`），在 ubuntu-24.04 上必然失败（路径是 `/home/runner/…`）。改为平台中立的断言：路径必须是 `isAbsolute`，且对外视图不得泄露 schema 绝对路径或本机仓库根路径。
+- `IMAGE`/审阅链路补强：CI 的 `check` 关此前失败时无法在未登录状态下诊断（日志下载 403），现在把失败用例与错误上下文写成 check-run 注解，可直接经 API 读取；这条能力保留在 0.2.2。
+- 版本号升至 `0.2.2`（`package.json`、页面 meta、`README`、`PROJECT_DESIGN` 同步）。0.2.1 的内容（跨平台内容哈希）不变。
+
 ## [0.2.1] - 2026-10-17
 
 修复 0.2.0 的首个 CI：静文档门禁在 GitHub Actions（Linux 检出 LF）上必然变红。
