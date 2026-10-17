@@ -4,6 +4,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { applyContentMigrations, CONTENT_SCHEMA_VERSION } from './storage-migrations.mjs';
 
 const MAX_ITEMS = 10000;
+// 与 dist/lore-groups.js 的 MAX_GROUPS 保持一致：自定义资料组的上限。
+const MAX_GROUPS = 40;
 
 export class ContentConflictError extends Error {
   constructor(message = '内容已被其他页面更新，请刷新后重试') {
@@ -20,8 +22,8 @@ function plainObject(value, label) {
 
 function stringField(value, fallback = '') { return typeof value === 'string' ? value : fallback; }
 
-function validateItems(value, label) {
-  if (!Array.isArray(value) || value.length > MAX_ITEMS) throw new Error(`${label} 必须是数组且不得超过 ${MAX_ITEMS} 项`);
+function validateItems(value, label, maximum = MAX_ITEMS) {
+  if (!Array.isArray(value) || value.length > maximum) throw new Error(`${label} 必须是数组且不得超过 ${maximum} 项`);
   const ids = new Set();
   return value.map((raw, index) => {
     const item = plainObject(raw, `${label}[${index}]`);
@@ -47,6 +49,8 @@ export function validateContentSnapshot(value) {
     loreEntries: validateItems(payload.loreEntries || [], 'loreEntries'),
     cardDrafts: validateItems(payload.cardDrafts || [], 'cardDrafts'),
     keywords: validateItems(payload.keywords || [], 'keywords'),
+    // 自定义资料组：五项固定组由代码提供，不落库；这里只是作者新建的组，数量上限很小。
+    loreGroups: validateItems(payload.loreGroups || [], 'loreGroups', MAX_GROUPS),
     notes: safeNotes
   };
 }
@@ -73,10 +77,12 @@ export function createContentStore(databasePath) {
   const selectCards = db.prepare('SELECT payload_json FROM card_drafts ORDER BY position, id');
   const selectKeywords = db.prepare('SELECT payload_json FROM keywords ORDER BY position, id');
   const selectNotes = db.prepare('SELECT note_key, body FROM notes ORDER BY note_key');
+  const selectLoreGroups = db.prepare('SELECT payload_json FROM lore_groups ORDER BY position, id');
   const insertLore = db.prepare('INSERT INTO lore_entries(id, position, name, type, status, truth_scope, world_id, payload_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const insertCard = db.prepare('INSERT INTO card_drafts(id, position, name, card_type, status, world_id, payload_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
   const insertKeyword = db.prepare('INSERT INTO keywords(id, position, name, status, definition, payload_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const insertNote = db.prepare('INSERT INTO notes(note_key, body, updated_at) VALUES (?, ?, ?)');
+  const insertLoreGroup = db.prepare('INSERT INTO lore_groups(id, position, label, form, payload_json, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
   const selectArtAssets = db.prepare('SELECT metadata_json FROM art_assets ORDER BY created_at DESC, id');
   const selectArtAsset = db.prepare('SELECT metadata_json FROM art_assets WHERE id = ?');
   const insertArtAsset = db.prepare('INSERT INTO art_assets(id, card_id, prompt, model, size, mime_type, file_name, status, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
@@ -95,7 +101,8 @@ export function createContentStore(databasePath) {
       loreEntries: selectLore.all().map(row => JSON.parse(row.payload_json)),
       cardDrafts: selectCards.all().map(row => JSON.parse(row.payload_json)),
       keywords: selectKeywords.all().map(row => JSON.parse(row.payload_json)),
-      notes: Object.fromEntries(selectNotes.all().map(row => [row.note_key, row.body]))
+      notes: Object.fromEntries(selectNotes.all().map(row => [row.note_key, row.body])),
+      loreGroups: selectLoreGroups.all().map(row => JSON.parse(row.payload_json))
     };
   }
 
@@ -107,11 +114,12 @@ export function createContentStore(databasePath) {
     try {
       const revision = Number(meta('revision', '0'));
       if (expectedRevision !== undefined && Number(expectedRevision) !== revision) throw new ContentConflictError();
-      db.exec('DELETE FROM lore_entries; DELETE FROM card_drafts; DELETE FROM keywords; DELETE FROM notes;');
+      db.exec('DELETE FROM lore_entries; DELETE FROM card_drafts; DELETE FROM keywords; DELETE FROM notes; DELETE FROM lore_groups;');
       snapshot.loreEntries.forEach((item, position) => insertLore.run(item.id, position, stringField(item.name), stringField(item.type, 'world'), stringField(item.status, 'proposed'), stringField(item.truthScope, 'objective'), stringField(item.worldId), JSON.stringify(item), stringField(item.updatedAt, now)));
       snapshot.cardDrafts.forEach((item, position) => insertCard.run(item.id, position, stringField(item.name), stringField(item.type, 'unit'), stringField(item.status, 'proposed'), stringField(item.worldId), JSON.stringify(item), now));
       snapshot.keywords.forEach((item, position) => insertKeyword.run(item.id, position, stringField(item.name), stringField(item.status, 'proposed'), stringField(item.definition), JSON.stringify(item), now));
       for (const [key, body] of Object.entries(snapshot.notes)) insertNote.run(key, body, now);
+      snapshot.loreGroups.forEach((item, position) => insertLoreGroup.run(item.id, position, stringField(item.label, item.id), stringField(item.form, 'generic'), JSON.stringify(item), now));
       putMeta.run('initialized', '1');
       putMeta.run('revision', String(revision + 1));
       putMeta.run('updated_at', now);
@@ -155,9 +163,12 @@ export function createContentStore(databasePath) {
   function createArtAsset(value) {
     const asset = plainObject(value, '美术资源');
     const normalized=normalizeArtAsset(asset);
-    for (const field of ['id', 'targetId', 'prompt', 'model', 'size', 'mimeType', 'fileName', 'status', 'createdAt']) {
+    // 未绑定（unbound）的资产本来就没有 targetId；只有绑定态才要求目标非空，
+    // 否则导入一份含「未使用原画」的库会整批注册失败。
+    for (const field of ['id', 'prompt', 'model', 'size', 'mimeType', 'fileName', 'status', 'createdAt']) {
       if (!stringField(normalized[field]).trim()) throw new Error(`美术资源缺少 ${field}`);
     }
+    if (!normalized.unbound && !stringField(normalized.targetId).trim()) throw new Error('美术资源缺少 targetId');
     if (!/^ART-[A-F0-9-]+$/i.test(normalized.id) || !/^[A-Za-z0-9._-]+$/.test(normalized.fileName)) throw new Error('美术资源 ID 或文件名无效');
     const safe = normalized;
     insertArtAsset.run(safe.id, safe.targetId, safe.prompt, safe.model, safe.size, safe.mimeType, safe.fileName, safe.status, safe.createdAt, JSON.stringify(safe));

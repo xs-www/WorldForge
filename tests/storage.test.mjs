@@ -81,7 +81,7 @@ test('SQLite content store applies ordered migrations and reports them', async (
   const health = store.health();
   assert.equal(health.schemaVersion, CONTENT_SCHEMA_VERSION);
   assert.equal(health.migration.startingVersion, 0);
-  assert.deepEqual(health.migration.applied.map(item => item.version), [1, 2]);
+  assert.deepEqual(health.migration.applied.map(item => item.version), [1, 2, 3]);
 }));
 
 test('SQLite content store upgrades a version 1 database without losing content', async () => {
@@ -106,7 +106,7 @@ test('SQLite content store upgrades a version 1 database without losing content'
     store = createContentStore(databasePath);
     assert.equal(store.read().loreEntries[0].id, 'W01');
     assert.equal(store.health().migration.startingVersion, 1);
-    assert.deepEqual(store.health().migration.applied.map(item => item.version), [2]);
+    assert.deepEqual(store.health().migration.applied.map(item => item.version), [2, 3]);
     assert.deepEqual(store.listArtAssets(), []);
   } finally {
     store?.close();

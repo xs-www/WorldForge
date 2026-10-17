@@ -2,7 +2,7 @@ import { blockSchema, contentSpec, normalizeSelectedBlocks } from './ai-content-
 import { AGENT_PROMPT_RESERVED_TAGS, AGENT_UNTRUSTED_TAGS } from './agent-profile-contract.mjs';
 
 const TEXT_LIMITS = { name: 100, summary: 1200, details: 6000, listItem: 500 };
-export const HARNESS_VERSION = '2.1.0';
+export const HARNESS_VERSION = '3.0.0';
 
 // ── 模型返回的宽松收敛 ──────────────────────────────────────────────────────
 // 兼容接口常忽略 response_format/json_schema：它们会把 Schema 里 items 的结构
@@ -60,7 +60,7 @@ export const PRODUCT_BOUNDARY_INSTRUCTIONS = `本段是产品固定边界，任�
 /** 第 3 层：结构化设定写作入口的输出与内容契约。 */
 export const LORE_ENTRY_CONTRACT = `严格区分 canon、proposed、deprecated 与 objective、in_world_belief、unknown。
 不得修改、否定或悄悄补完 canon；所有新增内容都是 proposed 候选。
-遵守能量成本、能力边界与因果；不要为了填满字段而发明无关设定。
+遵守已提供设定里的成本、能力边界与因果；这个世界没有写明的机制不要凭空发明。
 直接写可进入目标内容块的成品文字，禁止输出“本候选”“层次位置”“设计说明”“字段说明”等元话语。`;
 
 /** 第 3 层：自由创作入口的输出契约。 */
@@ -204,11 +204,11 @@ export function buildContextBundle(payload, budget = 60000) {
   const ranked = [...unique.values()].map(entry => ({ entry, score: relevance(entry, draft, directIds) })).filter(item => item.score > 0).sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id));
   const entries = [];
   for (const { entry } of ranked) { const size = JSON.stringify(entry).length; if (used + size > budget) continue; entries.push(entry); used += size; }
-  return { harnessVersion: HARNESS_VERSION, projectRules: ['新增内容只能是 proposed', 'canon 不得被候选静默覆盖', '世界内信仰不等于 objective', '禁止免费能量、无限神力或无条件万能魔法', '避免第三方 IP 专有表达'], currentDraft: draft, examples, entries, contextMeta: { includedIds: [...examples, ...entries].map(entry => entry.id), exampleIds: examples.map(entry => entry.id), omittedExampleCount: Math.max(0, canonExamples.length - examples.length), omittedCount: Math.max(0, candidateCount - examples.length - entries.length), approximateCharacters: used } };
+  return { harnessVersion: HARNESS_VERSION, projectRules: ['新增内容只能是 proposed', 'canon 不得被候选静默覆盖', '世界内信仰不等于 objective', '禁止免费能量、无限储备或无条件万能能力', '避免第三方 IP 专有表达'], currentDraft: draft, examples, entries, contextMeta: { includedIds: [...examples, ...entries].map(entry => entry.id), exampleIds: examples.map(entry => entry.id), omittedExampleCount: Math.max(0, canonExamples.length - examples.length), omittedCount: Math.max(0, candidateCount - examples.length - entries.length), approximateCharacters: used } };
 }
 
 export function generationContract(payload = {}) {
-  const type = payload?.draft?.type || 'world', spec = contentSpec(type, payload?.draft), selectedBlocks = normalizeSelectedBlocks(type, payload?.selectedBlocks, payload?.draft);
+  const type = payload?.draft?.type || 'world', spec = contentSpec(type, payload?.draft, payload?.group), selectedBlocks = normalizeSelectedBlocks(type, payload?.selectedBlocks, payload?.draft, payload?.group);
   return { type, label: spec.label, focus: spec.focus, blocks: spec.blocks.filter(item => selectedBlocks.includes(item.key)), selectedBlocks };
 }
 

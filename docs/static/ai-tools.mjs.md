@@ -15,7 +15,7 @@
 ## 工具契约（名称 → 作用 → 只读边界 → 参数上限）
 | 工具 | 作用 | 只读边界 | 参数上限 |
 | --- | --- | --- | --- |
-| `search_lore` | 在快照上按 `query`+筛选条件检索，返回编号/类型/名称/状态/事实层次/摘要 | 不返回 `details` 正文 | `query` ≤200 字符，`limit` 默认 8、夹到 1–12；`total` 是**过滤后且被 `limit` 截断后**的条数 |
+| `search_lore` | 在快照上按 `query`+筛选条件检索，返回编号/资料组/名称/状态/事实层次/摘要 | 不返回 `details` 正文 | `query` ≤200 字符，`limit` 默认 8、夹到 1–12；`total` 是**过滤后且被 `limit` 截断后**的条数 |
 | `get_lore_entry` | 按稳定 ID 读完整条目（含 `details`/`constraints`/`openQuestions`/`relationIds`） | 返回 `includePrivateNotes: false` 固定；不存在的 ID 进 `missing` 而非报错 | `ids` 1–5 个，单个 ID ≤100 字符 |
 | `list_lore` | 列出索引（编号/类型/名称/状态/世界），可按类型、世界、状态过滤 | 不含摘要与正文 | `limit` 默认 20、夹到 1–30；返回 `total` 与 `returned` |
 | `list_art_assets` | 列出美术资产元数据索引 | 不含 `prompt` 与原图 | `limit` 默认 20、夹到 1–30；`targetType` 枚举只有 `lore`/`card` |
@@ -24,6 +24,7 @@
 ## 重点逻辑
 
 ### `runToolCall(name, args, library, artAssets = [])`
+- 工具参数的 `type` 字段是**资料组 id**（固定五组或作者自定义组），`worldId` 是世界编号；两者都只做精确匹配，传未知值只会得到空结果。
 - 名称不在白名单时返回 `ok: false` 且 `content` 里列出 `available`，不抛异常。
 - 非对象 `args` 归一为 `{}`；`searchLore` 走 `clampLimit`，`getLoreEntry`/`getArtAsset` 对空 `ids` 内部抛错，被外层 `catch` 转成 `ok: false` 的错误文本，交回模型自行修正。
 - 所有成功结果都经 `clip`：`JSON.stringify` 超过 6000 字符时改写为 `{truncated, note, preview}`，此时**结构失效**、只剩前 6000 字符字符串，调用方不能再按原字段解析。

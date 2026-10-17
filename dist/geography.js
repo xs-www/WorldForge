@@ -20,13 +20,15 @@
   const nextKinds = { continent: 'country', country: 'region', region: 'area', area: 'city', city: 'site' };
   const normalizeKind = kind => kinds[kind] ? kind : kind === 'place' ? 'site' : 'region';
   const allowedParentKinds = kind => parentKinds[normalizeKind(kind)] || [];
-  const canParent = (parent, childKind, worldId) => Boolean(parent && parent.type === 'location' && parent.worldId === worldId && allowedParentKinds(childKind).includes(normalizeKind(parent.location?.kind)));
+  // `types` 是当前资料库里被作者设为「地理层级」表单的资料组集合；缺省时退回旧的单一
+  // location 类型，保证既有测试与旧调用不需要改签名。
+  const canParent = (parent, childKind, worldId, types) => Boolean(parent && (types ? types.has(parent.type) : parent.type === 'location') && parent.worldId === worldId && allowedParentKinds(childKind).includes(normalizeKind(parent.location?.kind)));
   const sortEntries = entries => [...entries].sort((a, b) => {
     const rank = kinds[normalizeKind(a.location?.kind)].rank - kinds[normalizeKind(b.location?.kind)].rank;
     return rank || String(a.name).localeCompare(String(b.name), 'zh-CN');
   });
-  function buildTree(entries, query = '') {
-    const locations = entries.filter(entry => entry.type === 'location');
+  function buildTree(entries, query = '', types = null) {
+    const locations = entries.filter(entry => types ? types.has(entry.type) : entry.type === 'location');
     const byId = new Map(locations.map(entry => [entry.id, entry]));
     const children = new Map();
     const roots = [];
@@ -36,7 +38,7 @@
       const parentId = String(entry.location?.parentId || '');
       if (kind === 'continent' && !parentId) return roots.push(entry);
       const parent = byId.get(parentId);
-      if (!canParent(parent, kind, entry.worldId)) return orphans.push(entry);
+      if (!canParent(parent, kind, entry.worldId, types)) return orphans.push(entry);
       if (!children.has(parentId)) children.set(parentId, []);
       children.get(parentId).push(entry);
     });

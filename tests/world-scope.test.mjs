@@ -28,19 +28,28 @@ test('a worldId without a world entry becomes an unassigned group instead of van
   assert.equal(orphan.total,1);
 });
 
-test('entries without worldId fall back to the default world',()=>{
-  assert.equal(scope.worldIdOf({id:'X',type:'faction'}),'W01');
-  const groups=scope.groups([{id:'X',type:'faction'}]);
-  assert.equal(groups[0].worldId,'W01');
+test('entries without worldId stay unassigned instead of joining a default world',()=>{
+  assert.equal(scope.worldIdOf({id:'X',type:'faction'}),'');
+  const groups=scope.groups([entry('W01','world','W01'),{id:'X',type:'faction'}]);
+  const orphan=groups.find(group=>group.worldId==='');
+  assert.equal(orphan.assigned,false);
+  assert.equal(orphan.title,scope.UNASSIGNED_WORLD_TITLE);
+  assert.equal(orphan.total,1);
+  // 未归属桶固定排在真实世界之后，不会抢在世界前成为默认入口。
+  assert.equal(groups.at(-1).worldId,'');
 });
 
-test('loreOfWorld returns only the requested world and copies when unscoped',()=>{
-  const all=[entry('W01','world','W01'),entry('FAC-W01-001','faction','W01'),entry('FAC-W02-001','faction','W02')];
+test('loreOfWorld scopes by world, keeps the unassigned bucket addressable and copies when unscoped',()=>{
+  const all=[entry('W01','world','W01'),entry('FAC-W01-001','faction','W01'),entry('FAC-W02-001','faction','W02'),{id:'ORPHAN',type:'faction'}];
   assert.deepEqual(scope.loreOfWorld(all,'W01').map(item=>item.id),['W01','FAC-W01-001']);
   assert.deepEqual(scope.loreOfWorld(all,'W02').map(item=>item.id),['FAC-W02-001']);
-  const copy=scope.loreOfWorld(all,'');
-  assert.equal(copy.length,3);
+  // 显式传空串表示「未归属桶」，而不是「全部」；不传参才是全部。
+  assert.deepEqual(scope.loreOfWorld(all,'').map(item=>item.id),['ORPHAN']);
+  const copy=scope.loreOfWorld(all);
+  assert.equal(copy.length,4);
   assert.notEqual(copy,all);
+  // 未归属资料可以被搬运进真实世界。
+  assert.equal(scope.reassign(all,'','W01').moved,1);
 });
 
 test('nextWorldId allocates the lowest free two-digit world id',()=>{

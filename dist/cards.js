@@ -4,21 +4,39 @@
   const legacyTypes={unit:'minion',action:'spell',asset:'equipment'};
   const cardableLoreTypes=new Set(['character','species','faction','item','technology','magic','event','location']);
   const loreTypeDefaults={character:'minion',species:'minion',faction:'minion',item:'equipment',technology:'equipment',location:'equipment',magic:'spell',event:'spell'};
-  const minionTribes=[{id:'human',name:'人类',status:'proposed'},{id:'construct',name:'构装体',status:'proposed'},{id:'machine',name:'蒸汽机械',status:'proposed'},{id:'undead',name:'亡灵',status:'proposed'},{id:'beast',name:'野兽',status:'proposed'}];
-  const spellSchools=[{id:'fire',name:'火',tier:'basic',status:'canon'},{id:'water',name:'水',tier:'basic',status:'canon'},{id:'earth',name:'土',tier:'basic',status:'canon'},{id:'wind',name:'风',tier:'basic',status:'canon'},{id:'lightning',name:'电',tier:'basic',status:'canon'},{id:'light',name:'光明',tier:'advanced',status:'canon'},{id:'dark',name:'黑暗',tier:'advanced',status:'canon'},{id:'life',name:'生命',tier:'advanced',status:'canon'},{id:'death',name:'死亡',tier:'advanced',status:'canon'},{id:'time',name:'时间',tier:'higher',status:'canon'},{id:'space',name:'空间',tier:'higher',status:'canon'}];
-  const schoolTierLabels={basic:'基础',advanced:'高阶',higher:'更高层'};
+  // 随从种族与法术派系是**世界内**的分类，不属于产品常量：每个世界可以完全不同，
+  // 可以没有魔法也没有机械。卡牌只存作者写下的名称，候选项按当前世界的资料与已有卡牌派生。
+  // 下表只为早期草案里的稳定 ID 保留展示名称，不构成可选集合，也不限制新值。
+  const legacySubtypeLabels=Object.freeze({human:'人类',construct:'构装体',machine:'机械',undead:'亡灵',beast:'野兽',fire:'火',water:'水',earth:'土',wind:'风',lightning:'电',light:'光明',dark:'黑暗',life:'生命',death:'死亡',time:'时间',space:'空间'});
+  const SUBTYPE_LIMIT=60;
+  const subtypeLoreTypes={minion:'species',spell:'magic'};
+  const subtypeField={minion:'tribeId',spell:'spellSchoolId'};
+  function subtypeValue(value){return String(value||'').trim().slice(0,SUBTYPE_LIMIT)}
   function normalizeSubtype(type,card){
-    const tribeId=String(card.tribeId||''),spellSchoolId=String(card.spellSchoolId||'');
-    if(type==='minion')return{tribeId:minionTribes.some(item=>item.id===tribeId)?tribeId:'',spellSchoolId:''};
-    if(type==='spell')return{tribeId:'',spellSchoolId:spellSchools.some(item=>item.id===spellSchoolId)?spellSchoolId:''};
+    const tribeId=subtypeValue(card.tribeId),spellSchoolId=subtypeValue(card.spellSchoolId);
+    if(type==='minion')return{tribeId,spellSchoolId:''};
+    if(type==='spell')return{tribeId:'',spellSchoolId};
     return{tribeId:'',spellSchoolId:''};
   }
-  function tribeName(id){return minionTribes.find(item=>item.id===id)?.name||''}
-  function spellSchoolName(id){return spellSchools.find(item=>item.id===id)?.name||''}
+  /** 展示用文本：卡牌里存的就是作者写的名称；早期草案的稳定 ID 用旧名称兼容。 */
   function subtypeText(card={}){
-    if(card.type==='minion')return tribeName(card.tribeId);
-    if(card.type==='spell')return spellSchoolName(card.spellSchoolId);
-    return'';
+    const type=normalizeType(card.type);
+    if(type!=='minion'&&type!=='spell')return'';
+    const value=subtypeValue(card[subtypeField[type]]);
+    return value?(legacySubtypeLabels[value]||value):'';
+  }
+  /**
+   * 当前世界的子类型候选：已有卡牌里的写法 + 同世界资料（随从取种族、法术取力量体系）。
+   * 只是补全建议，作者仍可输入任意名称；跨世界的词不会混进来。
+   */
+  function subtypeOptions(options={}){
+    const type=normalizeType(options.type),worldId=String(options.worldId||'').trim(),field=subtypeField[type],loreType=subtypeLoreTypes[type];
+    if(!field)return[];
+    const found=new Map();
+    const push=value=>{const text=subtypeValue(value);if(text&&!found.has(text))found.set(text,legacySubtypeLabels[text]||text)};
+    (Array.isArray(options.cards)?options.cards:[]).forEach(card=>{if(card&&normalizeType(card.type)===type&&String(card.worldId||'').trim()===worldId)push(card[field])});
+    (Array.isArray(options.lore)?options.lore:[]).forEach(entry=>{if(entry&&entry.type===loreType&&String(entry.worldId||'').trim()===worldId)push(entry.name)});
+    return [...found].map(([value,label])=>({value,label}));
   }
   function normalizeType(value){const type=legacyTypes[value]||value;return typeLabels[type]?type:'minion'}
   function normalizeRarity(value){return rarityLabels[value]?value:'common'}
@@ -63,7 +81,7 @@
     const raw=Array.isArray(card.keywordUsages)?card.keywordUsages:(card.keywordIds||[]).map(keywordId=>({keywordId,detail:''}));
     const usages=[...new Map(raw.filter(item=>item?.keywordId).map(item=>[item.keywordId,{keywordId:item.keywordId,detail:String(item.detail||'')}])).values()];
     const crop=card.artCrop&&typeof card.artCrop==='object'?card.artCrop:{},type=normalizeType(card.type),stats=normalizeStats(type,card),subtype=normalizeSubtype(type,card);
-    return{id:String(card.id||'').trim(),name:String(card.name||'未命名卡牌').trim()||'未命名卡牌',status:'proposed',worldId:String(card.worldId||'W01').trim()||'W01',type,rarity:normalizeRarity(card.rarity),cost:Math.max(0,Number(card.cost)||0),...stats,...subtype,keywordIds:usages.map(item=>item.keywordId),keywordUsages:usages,loreRefs:normalizeLoreRefs(card.loreRefs),referenceAssetIds:normalizeLoreRefs(card.referenceAssetIds).slice(0,10),artAssetId:String(card.artAssetId||''),artCrop:{x:boundedNumber(crop.x,50,0,100),y:boundedNumber(crop.y,50,0,100),zoom:boundedNumber(crop.zoom,1,1,2.5)},rulesText:String(card.rulesText||''),flavorText:String(card.flavorText||''),balanceStatus:'untested'};
+    return{id:String(card.id||'').trim(),name:String(card.name||'未命名卡牌').trim()||'未命名卡牌',status:'proposed',worldId:String(card.worldId||'').trim(),type,rarity:normalizeRarity(card.rarity),cost:Math.max(0,Number(card.cost)||0),...stats,...subtype,keywordIds:usages.map(item=>item.keywordId),keywordUsages:usages,loreRefs:normalizeLoreRefs(card.loreRefs),referenceAssetIds:normalizeLoreRefs(card.referenceAssetIds).slice(0,10),artAssetId:String(card.artAssetId||''),artCrop:{x:boundedNumber(crop.x,50,0,100),y:boundedNumber(crop.y,50,0,100),zoom:boundedNumber(crop.zoom,1,1,2.5)},rulesText:String(card.rulesText||''),flavorText:String(card.flavorText||''),balanceStatus:'untested'};
   }
-  return{typeLabels,rarityLabels,legacyTypes,minionTribes,spellSchools,schoolTierLabels,normalizeType,normalizeRarity,normalizeLoreRefs,isCardableLore,defaultTypeForLore,normalizeStats,normalizeSubtype,tribeName,spellSchoolName,subtypeText,parseRichText,compileDescription,normalize};
+  return{typeLabels,rarityLabels,legacyTypes,legacySubtypeLabels,SUBTYPE_LIMIT,subtypeValue,subtypeOptions,normalizeType,normalizeRarity,normalizeLoreRefs,isCardableLore,defaultTypeForLore,normalizeStats,normalizeSubtype,subtypeText,parseRichText,compileDescription,normalize};
 });

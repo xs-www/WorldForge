@@ -11,9 +11,9 @@
 | `nextKinds` | 新建子项时的默认下一层（`route` 未列入，故路线无默认子层） | `L20` |
 | `normalizeKind(kind)` | 未知值回落 `region`，旧值 `place` 映射为 `site` | `L21` |
 | `allowedParentKinds(kind)` | 父级候选取值（给下拉框用） | `L22` |
-| `canParent(parent,childKind,worldId)` | 父级必须是 `type==='location'`、同 `worldId`、且层级在 `allowedParentKinds` 内 | `L23` |
+| `canParent(parent,childKind,worldId,types)` | 父级必须属于地理组集合（`types` 缺省时退回 `type==='location'`）、同 `worldId`、且层级在 `allowedParentKinds` 内 | `L25` |
 | `sortEntries(entries)` | 先按层级 `rank`，同层按 `name` 中文排序 | `L24–L27` |
-| `buildTree(entries,query)` | 输出 `{roots, orphans, children, visibleIds, hasQuery}` | `L28–L58` |
+| `buildTree(entries,query,types)` | 输出 `{roots, orphans, children, visibleIds, hasQuery}`；`types` 是当前被设为「地理层级」表单的资料组 id 集合 | `L30–L60` |
 
 ## 重点逻辑
 
@@ -24,4 +24,5 @@
 ## 重要约束
 
 - 层级合法性以 `canParent` 为唯一判据；保存与渲染都应在同一份规则下判断，否则会出现“保存成功但树里看不到”的孤儿条目。
+- `types` 让地理树不再写死 `location` 类型：作者把任意资料组设成 `form:'geography'` 后，该组的条目会自动进入同一棵树；不传 `types` 时行为与旧版完全一致。
 - `kinds` 的 `rank` 决定排序，新增层级必须同时给 `kinds`/`parentKinds` 补齐，否则 `normalizeKind` 会把它降级成 `region`。

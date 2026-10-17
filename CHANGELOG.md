@@ -2,6 +2,34 @@
 
 本文件记录 Worldforge 的重要变更。日期采用 `YYYY-MM-DD`。
 
+## [0.4.0] - 2026-10-20
+
+多世界化改造：资料类型从固定十三类改为「五项固定资料组 + 作者自定义组」，删除内置默认世界与题材种子，新增服务端整库导入/导出，并让作者资料库支持 PostgreSQL（ADR-0031、ADR-0032）。
+
+### Added
+- `dist/lore-groups.js` + `lore-groups.mjs`：资料组的唯一真源。五项固定组（世界、世界信息、角色、编年史、背景故事）+ 作者自定义组，按 `form`（generic / story / chronicle / geography）决定表单与树视图；浏览器与服务端共用同一张表。
+- `lore_groups` 表与内容库 schema v3：自定义组随整库一起读写；SQLite（`storage-migrations.mjs`）与 PostgreSQL（`storage-postgres.mjs`）两套 DDL 逐列对齐。
+- 资料组管理对话框：新建、改名、改表单形态与三个属性名、删除空组；固定组不可修改。
+- `storage-postgres.mjs`：PostgreSQL 驱动的作者资料库，与 SQLite 版本同一套 API（async）、同一套迁移版本号；写操作在事务内取 advisory lock，复刻 SQLite `BEGIN IMMEDIATE` 的并发语义；`health()` 只暴露脱敏后的 `host:port/database`。
+- `data-transfer.mjs` + `GET /api/export` + `POST /api/import`：整库交换格式（资料组、资料、卡牌、关键词、备注、美术元数据，可选内嵌 base64 图片）；导入支持 `dryRun` 预检与 `merge` / `replace` 两种模式，美术资产只补不删。
+- 设置页「数据管理」面板：导出完整 JSON、导出并内嵌图片、导入预检与确认导入。
+- 启动时按 `WORLDFORGE_DB_DRIVER` / `WORLDFORGE_DATABASE_URL` 选择资料库后端；纯 SQLite 部署仍然不需要任何第三方依赖（`pg` 只在 postgres 驱动下动态加载）。
+- 新增测试：`lore-groups`、`data-transfer`（纯函数）、`data-transfer-api`（端到端）、`storage-postgres`（含可选真库往返）、`frontend-dom-contract`（元素 id 与脚本加载顺序契约）。
+
+### Changed
+- 资料类型：删除 `LORE_TYPES`、`AI_CONTENT_BLOCKS` 两份静态表，改由资料组派生；旧九类（世界地图、势力、种族、文化、宗教、力量体系、技术体系、物品、事件）按原 ID 自动迁移成自定义组，不改写任何资料数据。
+- 提示词：`PROMPT_TYPE_KEYS` 收敛到五个固定档位；旧十三类的作者提示词原样保留但不再参与生成；`ai-content-specs` 对未知类型不再回落到 `world`。
+- 出厂提示词、入口契约与生图提示不再假设题材：移除「魔法 / 法术 / 蒸汽 / 工业 / 神力 / 以太」等世界专属词，`projectRules` 改为「禁止免费能量、无限储备或无条件万能能力」。
+- 卡牌子类型：删除全局随从种族表与「W01 canon 的十一种魔法派系」，候选按当前世界的资料与已有卡牌派生，作者可自由输入；`normalizeSubtype` 不再清空不在词表里的值。
+- 世界归属：删除浏览器端 `W01_SEED`；`worldIdOf` 不再把缺失的世界归属算进 `W01`，而是显示为「未归属资料」桶；`normalizeLore` 不再把空 `worldId` 改写为 `W01`；`readLore()` 会清掉历史 `seeded` 残留。
+- 文案：界面与 `dist/index.html` 里的 `W01` 占位、题材示例（魔导工业、以太、工业感）与「不会修改 W01 正史」类表述全部改成中性说法；W98/W99 实验场不再以真实世界编号自居。
+- `Dockerfile` 增加 `npm install --omit=dev`（仅为 `pg`），`.dockerignore` 排除 `node_modules`；`compose*.yaml` 透传两个数据库环境变量。
+- 静态文档：新增 `data-transfer.mjs.md`、`lore-groups.mjs.md`、`storage-postgres.mjs.md`、`dist/lore-groups.js.md`，并更新受影响模块与清单计数（155 个条目）。
+
+### Fixed
+- 导入一份含「未使用原画」的库不再整批失败：`createArtAsset` 只在绑定态要求 `targetId`（SQLite 与 PostgreSQL 两版同步）。
+- 生成请求的分类提示词改为「资料真实 type 精确命中 → 否则收敛到 info 档」，升级分组方式不会让作者已有提示词失效。
+
 ## [0.3.0] - 2026-10-18
 
 为 Tailscale Funnel 公网发布增加本机账号体系（ADR-0030），应用从「无鉴权的单用户本机工具」变为「可公网部署的多人工作区」。

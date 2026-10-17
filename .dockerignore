@@ -2,6 +2,7 @@
 .gitignore
 .github
 .env.local
+node_modules
 .openai
 docs
 universe

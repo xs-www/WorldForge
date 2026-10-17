@@ -1,4 +1,4 @@
-export const CONTENT_SCHEMA_VERSION = 2;
+export const CONTENT_SCHEMA_VERSION = 3;
 
 export class UnsupportedContentSchemaError extends Error {
   constructor(foundVersion) {
@@ -78,6 +78,25 @@ const CONTENT_MIGRATIONS = [
           metadata_json TEXT NOT NULL CHECK (json_valid(metadata_json))
         ) STRICT;
         CREATE INDEX IF NOT EXISTS art_assets_card_idx ON art_assets(card_id, created_at);
+      `);
+    }
+  },
+  {
+    // 资料组：五项固定组不再落库（由代码提供），这里只存作者自定义的组。
+    // 独立成表而不是塞进 metadata，是因为导入/导出要按组粒度合并，且组数有独立上限。
+    version: 3,
+    name: 'lore-groups',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lore_groups (
+          id TEXT PRIMARY KEY,
+          position INTEGER NOT NULL,
+          label TEXT NOT NULL,
+          form TEXT NOT NULL,
+          payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+          updated_at TEXT NOT NULL
+        ) STRICT;
+        CREATE INDEX IF NOT EXISTS lore_groups_position_idx ON lore_groups(position, id);
       `);
     }
   }

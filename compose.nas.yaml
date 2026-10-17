@@ -26,6 +26,13 @@ services:
       WORLDFORGE_ASSETS_PATH: /data/assets/cards
       WORLDFORGE_COMFY_WORKFLOW_PATH: /data/comfyui-workflow.json
       WORLDFORGE_PROMPT_SETTINGS_PATH: /data/prompt-settings.json
+      # 作者资料库后端：默认 SQLite（零依赖，数据在 WORLDFORGE_DATA_DIR）。
+      # 要用 PostgreSQL 时在 NAS 的 compose 环境里设置：
+      #   WORLDFORGE_DB_DRIVER=postgres
+      #   WORLDFORGE_DATABASE_URL=postgres://user:password@host:5432/database
+      # 模拟存档仍使用 /data 下的 SQLite 文件。
+      WORLDFORGE_DB_DRIVER: ${WORLDFORGE_DB_DRIVER:-}
+      WORLDFORGE_DATABASE_URL: ${WORLDFORGE_DATABASE_URL:-}
       # 公网发布必须开启账号：缺失或损坏的 users.json 会让容器拒绝启动，而不是裸奔。
       WORLDFORGE_REQUIRE_AUTH: "1"
       WORLDFORGE_AUTH_USERS_PATH: /data/users.json

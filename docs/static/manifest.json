@@ -6,11 +6,11 @@
   "docRoot": "docs/static",
   "baseCommit": "2533c8ba4f358d23b945875f6cde16b26f9551f6",
   "baseCommitDate": "2026-10-17",
-  "generatedAt": "2026-10-17",
+  "generatedAt": "2026-10-17T13:59:24.942Z",
   "counts": {
-    "sources": 146,
-    "documented": 64,
-    "aggregated": 81,
+    "sources": 155,
+    "documented": 68,
+    "aggregated": 86,
     "config": 1
   },
   "files": [
@@ -132,13 +132,13 @@
       "source": ".dockerignore",
       "doc": "docs/static/.dockerignore.md",
       "status": "documented",
-      "sha256": "a653b8201b1bf1aff841881ec387bd4ed20fe85a3715765b30c3115f796082ec"
+      "sha256": "40ecd93229be77a888b71635ee4e1f220cdb63e1ce02ac042f752f34c542fe04"
     },
     {
       "source": ".env.example",
       "doc": "docs/static/.env.example.md",
       "status": "documented",
-      "sha256": "ab212cee7775f5d9e6f447f2fc394093af5629e977bdfdb4f77c647c7248efaf"
+      "sha256": "68a51d35932ba3e366cc1aa4bee052816d4a6ec2445ec40776b89b0d0ff6781f"
     },
     {
       "source": ".github/workflows/ci.yml",
@@ -165,30 +165,6 @@
       "sha256": "357bffe94e973960f8b8e17bb72863fa218b1c4a13a75b96a7bbde97af6f3de2"
     },
     {
-      "source": "static-doc-manifest.mjs",
-      "doc": "docs/static/static-doc-manifest.mjs.md",
-      "status": "documented",
-      "sha256": "171f7ff7c8580933c72b1fe230aee1ad33eb34356fcc9cdf215faf7a254ccf6e"
-    },
-    {
-      "source": "tests/card-agent.test.mjs",
-      "doc": "docs/static/tests/README.md",
-      "status": "aggregated",
-      "sha256": "76028005d0c079cdc23e2775febdfb4026fa958347de892e3aa6549eed6071d3"
-    },
-    {
-      "source": "card-agent.mjs",
-      "doc": "docs/static/card-agent.mjs.md",
-      "status": "documented",
-      "sha256": "6079c79a8ebdd40aaefa18e47b11b514b71e873f7a396b4581a67a8f3f9a8154"
-    },
-    {
-      "source": "agent-settings.mjs",
-      "doc": "docs/static/agent-settings.mjs.md",
-      "status": "documented",
-      "sha256": "1a09f1367199db9064b1d7ccb5e91f3381067614e713ab81e8157abdb8f1b4a2"
-    },
-    {
       "source": "agent-profile-registry.mjs",
       "doc": "docs/static/agent-profile-registry.mjs.md",
       "status": "documented",
@@ -201,6 +177,12 @@
       "sha256": "fc28a6eba2008b2e9125d905d17fecee75d8ec1d8b861ceb766eade76d43f178"
     },
     {
+      "source": "agent-settings.mjs",
+      "doc": "docs/static/agent-settings.mjs.md",
+      "status": "documented",
+      "sha256": "1a09f1367199db9064b1d7ccb5e91f3381067614e713ab81e8157abdb8f1b4a2"
+    },
+    {
       "source": "ai-agent.mjs",
       "doc": "docs/static/ai-agent.mjs.md",
       "status": "documented",
@@ -210,19 +192,31 @@
       "source": "ai-content-specs.mjs",
       "doc": "docs/static/ai-content-specs.mjs.md",
       "status": "documented",
-      "sha256": "d5f7d1ab8c0381793397c6013120f8ec8c8511eccb71d06338adca89b7c60463"
+      "sha256": "45f6a0dd30c7aa41ecd19289abad2c67c528b4eeeb54d37e9c9c156d720ca501"
     },
     {
       "source": "ai-harness.mjs",
       "doc": "docs/static/ai-harness.mjs.md",
       "status": "documented",
-      "sha256": "a54abae83354fbd1adb0e3086757c7f6654905b10208cd804c859269cc3ab926"
+      "sha256": "5fd18fa3be14d4230f3dc464f3ae0a24c381097c9c1c376633a2e332dee1ebc7"
     },
     {
       "source": "ai-tools.mjs",
       "doc": "docs/static/ai-tools.mjs.md",
       "status": "documented",
-      "sha256": "2ddc27a1a7b157b6a5293f0df5b5342ea8af28cef606563c7cac8c1da2065abc"
+      "sha256": "6c3c60306eb4ed1d01d0a23fda7493bdcf0bc79fb8daf612c0fea6c037227b87"
+    },
+    {
+      "source": "auth.mjs",
+      "doc": "docs/static/auth.mjs.md",
+      "status": "documented",
+      "sha256": "e4f148b57b23b822c1ed852b34732bc9b64077ef82a4602b4e8489faeedb0572"
+    },
+    {
+      "source": "card-agent.mjs",
+      "doc": "docs/static/card-agent.mjs.md",
+      "status": "documented",
+      "sha256": "6079c79a8ebdd40aaefa18e47b11b514b71e873f7a396b4581a67a8f3f9a8154"
     },
     {
       "source": "cards/schema/card.schema.json",
@@ -240,31 +234,25 @@
       "source": "compose.nas.yaml",
       "doc": "docs/static/compose.nas.yaml.md",
       "status": "documented",
-      "sha256": "612faaa62eb5cdf975d1d32e1dbf3d1cee9249ad567272049170b02c279c9ff1"
+      "sha256": "3d34c73e48f8f8ecb6a78fb5cbbc2c4d27bb06acb109f31d79d4c248fe53fed9"
     },
     {
       "source": "compose.yaml",
       "doc": "docs/static/compose.yaml.md",
       "status": "documented",
-      "sha256": "ffe1ea2f30f698f0908719e97607d9775beec4ef2e3cc88a3864e657da10f243"
+      "sha256": "036e9a83e0fac540a681d7846b5afa7a23770b03e662d13df9189ea99b94b3eb"
     },
     {
-      "source": "dist/card-agent-apply.js",
-      "doc": "docs/static/dist/card-agent-apply.js.md",
+      "source": "data-transfer.mjs",
+      "doc": "docs/static/data-transfer.mjs.md",
       "status": "documented",
-      "sha256": "8168fe54dc5adeca54b75098b49d0f72748a6c23ff8f0e91bc83a7b64d4e3e5f"
+      "sha256": "814b88a655c95a746cee205ca12c8c8a026b61ddc54170a0e76e6828ee0e2dfb"
     },
     {
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "4867c3b70180e2edcf722486a11686014c13ff4bc728933d3506d94a3b5aab49"
-    },
-    {
-      "source": "dist/battle.js",
-      "doc": "docs/static/dist/battle.js.md",
-      "status": "documented",
-      "sha256": "12637a2a37f72c988d16b04155f4ec7feaf928d557df8cb59597e407812cd712"
+      "sha256": "c2160e033fa9b9082cc101a0f6d4df57cba7da4dd2b361f0998d7c21924b01fd"
     },
     {
       "source": "dist/battle-ui.js",
@@ -273,28 +261,58 @@
       "sha256": "731f8671b29a1618c4846fa23ce243cecabd71a90a80e3eb7ac6cbf32dd62717"
     },
     {
+      "source": "dist/battle.js",
+      "doc": "docs/static/dist/battle.js.md",
+      "status": "documented",
+      "sha256": "12637a2a37f72c988d16b04155f4ec7feaf928d557df8cb59597e407812cd712"
+    },
+    {
+      "source": "dist/card-agent-apply.js",
+      "doc": "docs/static/dist/card-agent-apply.js.md",
+      "status": "documented",
+      "sha256": "8168fe54dc5adeca54b75098b49d0f72748a6c23ff8f0e91bc83a7b64d4e3e5f"
+    },
+    {
       "source": "dist/cards.js",
       "doc": "docs/static/dist/cards.js.md",
       "status": "documented",
-      "sha256": "574571c38b4a745335f27fdde6184484c7e31e39e7245ddab67d5dfa412c4b6b"
+      "sha256": "f497980c77996c868d597c66fe7a4f3b4985cc33229ed621be261dcae9e7986c"
     },
     {
       "source": "dist/chronicle.js",
       "doc": "docs/static/dist/chronicle.js.md",
       "status": "documented",
-      "sha256": "d6084281cd14b43663e35eceb8a8a906b19dac7b3f15ff5ab80f2a81f7b96757"
+      "sha256": "bcc4753967e40a833867dd54600c3bbe4480760b40cc98061f1fb7c57d8cf208"
     },
     {
       "source": "dist/geography.js",
       "doc": "docs/static/dist/geography.js.md",
       "status": "documented",
-      "sha256": "2710a6c3e783e144cbb17a4d9ad436d58a974965034ec29bf00a20a206aebc60"
+      "sha256": "d523eee508871abab7e757db86fc8f0eb4bc354b412e7d4641d1abe403e4cbcc"
     },
     {
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "87660920361f4edecd4bad7fa17d42b4b63b6031528a07759e9344d42b5bd758"
+      "sha256": "68602b04e62dcab9258477246ffffaaf5511d54e4a3a56e6fc29338bf5f69f93"
+    },
+    {
+      "source": "dist/login.html",
+      "doc": "docs/static/dist/login.html.md",
+      "status": "documented",
+      "sha256": "54ac2619590f9de767c0bc1c1fb39014f34a0847b03d4577bcff580e13679d44"
+    },
+    {
+      "source": "dist/login.js",
+      "doc": "docs/static/dist/login.js.md",
+      "status": "documented",
+      "sha256": "16f9843e676e52e01ad2e18309c16b54fe519972277fe30e1ae9501771a4e73a"
+    },
+    {
+      "source": "dist/lore-groups.js",
+      "doc": "docs/static/dist/lore-groups.js.md",
+      "status": "documented",
+      "sha256": "2d22ec98654a888efc3ff796f1bdaa0d64bfce7d446011e6d9f0c4ccae4ec45c"
     },
     {
       "source": "dist/macro.js",
@@ -306,19 +324,19 @@
       "source": "dist/relation-picker.js",
       "doc": "docs/static/dist/relation-picker.js.md",
       "status": "documented",
-      "sha256": "e4d269afe82a8e433bddab4292b49a20e2c1a30cdf13fe56eb4a83e5a7e6a5c6"
+      "sha256": "2c4b07b90cf3bd1bc6a6b08028f4075bafa83bb5f145d5296449eeb4b247d2ae"
     },
     {
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "0bf2f33f9a3bc1e19225643820568c00bbdea094eaf31b87c36743ae257da057"
+      "sha256": "c07b8d9c81b0586e9439debaecc687b173139cb51a2648183b30b928a82723a8"
     },
     {
       "source": "dist/world-scope.js",
       "doc": "docs/static/dist/world-scope.js.md",
       "status": "documented",
-      "sha256": "fe9e8513a80d050735727b2d48b250d4380a313f1ed0c3deb9b400427ad4b405"
+      "sha256": "110ea27d72834050e5b6804c37edb4b5762a88c842bd655bc65703aaafe179b2"
     },
     {
       "source": "docker/nginx.conf",
@@ -330,31 +348,49 @@
       "source": "Dockerfile",
       "doc": "docs/static/Dockerfile.md",
       "status": "documented",
-      "sha256": "63d4031e79dde4589960d9d780a30ca567c8486fc5dfdfde9dffbb8e954b2bea"
+      "sha256": "d11b87118e1f6d52876cb31c9ac0c3456ccf00ced6e7eac364aa87b2c1b97e49"
+    },
+    {
+      "source": "docs/static/anchors.json",
+      "doc": "docs/static/server.mjs.md",
+      "status": "config",
+      "sha256": "e89cbed38de2896b75fedb575283eceff1f6d3a4d41b32d99b35935655ea8f32"
     },
     {
       "source": "image-context.mjs",
       "doc": "docs/static/image-context.mjs.md",
       "status": "documented",
-      "sha256": "143acefafc2c069a1d78a16c43b28d6222e32c7234297dcf36a93b8547de1fd7"
+      "sha256": "a24b0dacb49c41e9b692b974e4ce1fbddb9eb6ddf29d615683f7b2a4cdd553fc"
+    },
+    {
+      "source": "lore-groups.mjs",
+      "doc": "docs/static/lore-groups.mjs.md",
+      "status": "documented",
+      "sha256": "4431d3fd38b047d5ee9fba92681e580c5ce80807696b40755d3b3272e436b8dc"
     },
     {
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "1cdbcb88f45b00e36a1883cfda5f33876d62e13ca42d6adf2c0fa54cf4e1da9c"
+      "sha256": "1cf434ec9b9807b0dd12f43dcb4cd73b95f44931277b421200458237b21a0a1b"
     },
     {
       "source": "prompt-settings.mjs",
       "doc": "docs/static/prompt-settings.mjs.md",
       "status": "documented",
-      "sha256": "23b72e17e3db9a678d417c73e61261f29335733b9271813f32f3286a45c14466"
+      "sha256": "3724dd0903de2bc5d0ce291b623e23c5c3c0ea45409133c03472201ec7c25754"
     },
     {
       "source": "reference-assets.mjs",
       "doc": "docs/static/reference-assets.mjs.md",
       "status": "documented",
       "sha256": "c8298282d90fe52eaf775778d64afe55a4383294c39563a2f344b46cca4877ac"
+    },
+    {
+      "source": "scripts/auth-cli.mjs",
+      "doc": "docs/static/scripts/auth-cli.mjs.md",
+      "status": "documented",
+      "sha256": "fe0374c4166791aa776c6b2a80ebec0bec6f85a8e40c1e8f8090f30ddd42a297"
     },
     {
       "source": "scripts/ci/smoke-container.mjs",
@@ -375,22 +411,10 @@
       "sha256": "68aab7a9f7fd94657d240b7c2d330ce2ebf3791850d35a18b5d73c834d048127"
     },
     {
-      "source": "docs/static/anchors.json",
-      "doc": "docs/static/server.mjs.md",
-      "status": "config",
-      "sha256": "c58dec96688a0dff947fdaf4ff79663accd494aa3c424677963cbd962235b676"
-    },
-    {
-      "source": "static-doc-anchors.mjs",
-      "doc": "docs/static/static-doc-anchors.mjs.md",
-      "status": "documented",
-      "sha256": "6401c25f744716154aa65ff2200dc48e549e6008df3d18fa28eeab95756c2054"
-    },
-    {
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "a5cf9c58cc60d33f6914cb4597aed02db9d39c7326463d68bedd9991d80256a8"
+      "sha256": "bfea2596dd0cd4ed0f4d44fd5f000249a9435281051a4420b3509066e21a097b"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -525,16 +549,34 @@
       "sha256": "6d86451d27f328ceac1fa652324a33b1914ec0544d1128c4cb34dae78cbbb572"
     },
     {
-      "source": "storage.mjs",
-      "doc": "docs/static/storage.mjs.md",
+      "source": "static-doc-anchors.mjs",
+      "doc": "docs/static/static-doc-anchors.mjs.md",
       "status": "documented",
-      "sha256": "f543af6aefb281668bec57d71561855e3cbbbde6af28615100c4555a746b8d0c"
+      "sha256": "6401c25f744716154aa65ff2200dc48e549e6008df3d18fa28eeab95756c2054"
+    },
+    {
+      "source": "static-doc-manifest.mjs",
+      "doc": "docs/static/static-doc-manifest.mjs.md",
+      "status": "documented",
+      "sha256": "171f7ff7c8580933c72b1fe230aee1ad33eb34356fcc9cdf215faf7a254ccf6e"
     },
     {
       "source": "storage-migrations.mjs",
       "doc": "docs/static/storage-migrations.mjs.md",
       "status": "documented",
-      "sha256": "fcd670d830792a99d007753657a7ee197be108cb1339a9603e2adba0507a2210"
+      "sha256": "131798f06e2cce7424ed652db6dcb1a5d7cf2ded0dbfac8f8494bf41672b9acc"
+    },
+    {
+      "source": "storage-postgres.mjs",
+      "doc": "docs/static/storage-postgres.mjs.md",
+      "status": "documented",
+      "sha256": "fcc1c76839dbe809b6d424573c73843d3595383e64a4ad1f439af8a71079a5ed"
+    },
+    {
+      "source": "storage.mjs",
+      "doc": "docs/static/storage.mjs.md",
+      "status": "documented",
+      "sha256": "db6311954cd496d08db597d922df4420a370496fec1bd1fa1d4a14f2b774acd4"
     },
     {
       "source": "tests/agent-loop.test.mjs",
@@ -570,19 +612,19 @@
       "source": "tests/agent-prompt-layers.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "6d6784ee2627e73c08262a49c7fa08f7392a0081346edbda9633822505ad8bc0"
-    },
-    {
-      "source": "tests/agent-settings-ui.test.mjs",
-      "doc": "docs/static/tests/README.md",
-      "status": "aggregated",
-      "sha256": "cdb32eee543e0eddf74c2226e376ab2cf4a53ff3a0b3a3e4de3277aeec00c50e"
+      "sha256": "8c591b34a8e1e0ec2be3911d9eeac60c5310cf9d862e7cb3f0647598ddefb148"
     },
     {
       "source": "tests/agent-settings-api.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
       "sha256": "84ea8d32cf2d898b999002ef6e8233cd8bcef956777428d61c52a77e23124f61"
+    },
+    {
+      "source": "tests/agent-settings-ui.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "cdb32eee543e0eddf74c2226e376ab2cf4a53ff3a0b3a3e4de3277aeec00c50e"
     },
     {
       "source": "tests/agent-surface-integration.test.mjs",
@@ -600,7 +642,31 @@
       "source": "tests/ai-harness.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "11ca485992a55c798107790a3885eccf3d3a8d92d0a1ff77f03ad0bd84dc756f"
+      "sha256": "3eba55ac7cb8cda2199e3b41509727a7646be87c02c710a67288471295cb0e48"
+    },
+    {
+      "source": "tests/auth-api.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "23857df41168bf002c28795bee0427bccf9950264f69878b94ca6e6e314f2a0b"
+    },
+    {
+      "source": "tests/auth-ui.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "06827bfd3c4c1095620a16b3328e6a00158ea5dc75005a76cb1fb32a69c130d5"
+    },
+    {
+      "source": "tests/auth.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "c9abf054c200498880b4868501a3a6760065679193b055a6575b3b61091f5b8f"
+    },
+    {
+      "source": "tests/card-agent.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "76028005d0c079cdc23e2775febdfb4026fa958347de892e3aa6549eed6071d3"
     },
     {
       "source": "tests/card-battle.test.mjs",
@@ -612,7 +678,7 @@
       "source": "tests/cards.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "6e38991d77f37aaea4742850c59db6318f1474ee59baf6b9e86471670846abae"
+      "sha256": "1a4061f5a2feef575f88e1f65994696b1b39d2eeeebdda92e72323ad5e2144b8"
     },
     {
       "source": "tests/chronicle.test.mjs",
@@ -625,6 +691,18 @@
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
       "sha256": "f27b1138dc93d08f0acc7aacccc2c17180d88d65e9eb11dbfc05a4ad4749522c"
+    },
+    {
+      "source": "tests/data-transfer-api.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "a2eef84c68f430ea6d6bba235b0331ce7300513bd105372d241bd3e78bf4208d"
+    },
+    {
+      "source": "tests/data-transfer.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "66a65d1d8090ebbc72354cf72c0620cb96cee5cdeb9d9b5594348f793ba2f609"
     },
     {
       "source": "tests/docker-packaging.test.mjs",
@@ -753,6 +831,12 @@
       "sha256": "95b613909c2a1e10d9dc6c6843da4927b93833cebb9f9669bab4f6466cf77346"
     },
     {
+      "source": "tests/frontend-dom-contract.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "e75217c8a046fed21d47e5edce4ad0bd1a998404e461f7b6e704c970b2012325"
+    },
+    {
       "source": "tests/geography.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
@@ -765,6 +849,12 @@
       "sha256": "ecd9a3696d11a366aa83af43fec887ede683281099f997361caba3f64073e968"
     },
     {
+      "source": "tests/lore-groups.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "74de9c43ce166036be5c1003c9a0ee68c684ff627f06b96535742ca9f9da233d"
+    },
+    {
       "source": "tests/macro-simulation.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
@@ -774,7 +864,7 @@
       "source": "tests/prompt-settings.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "ec5b103f94878d30e5c694fa3c10188122c37c49546633fc9ae4d3bd730f1dce"
+      "sha256": "7063ad72075bc6f89904ecf7c5d5462d9afcae848327753c94843ff1ad020dbb"
     },
     {
       "source": "tests/README.md",
@@ -825,16 +915,22 @@
       "sha256": "bc3c14795003aff723c94bc207563a7ec60d880ad558a72884a606308b2b1510"
     },
     {
+      "source": "tests/storage-postgres.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "2019b559139bc35deb6bf20d4cd9495fa80f63e5360e6123c39b085ee1128809"
+    },
+    {
       "source": "tests/storage.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "916e8bcdd193730d412726b6b3bb4655b8050c216295eb331c0dc854c998e2ef"
+      "sha256": "8022bf5a52a6260378c16c99bb63023358493761a3a2b51c19c657942f0a2368"
     },
     {
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "121b986313ce202645f7ccbd4526cb93483dc0ca9d9901ebca320808c179546d"
+      "sha256": "6fa48a4353ce7f7495d1db2d61d23d4b4b52de229df1e359ff1a24216697690c"
     },
     {
       "source": "tests/world-package.test.mjs",
@@ -846,49 +942,7 @@
       "source": "tests/world-scope.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "2711be8d537399f8baac0fc8ee8936d56fb8af985e522bfecda66a3772855709"
-    },
-    {
-      "source": "auth.mjs",
-      "doc": "docs/static/auth.mjs.md",
-      "status": "documented",
-      "sha256": "e4f148b57b23b822c1ed852b34732bc9b64077ef82a4602b4e8489faeedb0572"
-    },
-    {
-      "source": "scripts/auth-cli.mjs",
-      "doc": "docs/static/scripts/auth-cli.mjs.md",
-      "status": "documented",
-      "sha256": "fe0374c4166791aa776c6b2a80ebec0bec6f85a8e40c1e8f8090f30ddd42a297"
-    },
-    {
-      "source": "dist/login.html",
-      "doc": "docs/static/dist/login.html.md",
-      "status": "documented",
-      "sha256": "54ac2619590f9de767c0bc1c1fb39014f34a0847b03d4577bcff580e13679d44"
-    },
-    {
-      "source": "dist/login.js",
-      "doc": "docs/static/dist/login.js.md",
-      "status": "documented",
-      "sha256": "16f9843e676e52e01ad2e18309c16b54fe519972277fe30e1ae9501771a4e73a"
-    },
-    {
-      "source": "tests/auth.test.mjs",
-      "doc": "docs/static/tests/README.md",
-      "status": "aggregated",
-      "sha256": "c9abf054c200498880b4868501a3a6760065679193b055a6575b3b61091f5b8f"
-    },
-    {
-      "source": "tests/auth-api.test.mjs",
-      "doc": "docs/static/tests/README.md",
-      "status": "aggregated",
-      "sha256": "23857df41168bf002c28795bee0427bccf9950264f69878b94ca6e6e314f2a0b"
-    },
-    {
-      "source": "tests/auth-ui.test.mjs",
-      "doc": "docs/static/tests/README.md",
-      "status": "aggregated",
-      "sha256": "06827bfd3c4c1095620a16b3328e6a00158ea5dc75005a76cb1fb32a69c130d5"
+      "sha256": "bf37da97340b9143f3cb479aaecdb788aa687becb7d661f5a250734b681732ec"
     }
   ],
   "aggregates": [

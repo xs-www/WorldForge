@@ -80,25 +80,35 @@ test('minion tribe and spell school stay exclusive to their card type',()=>{
   assert.equal(weapon.spellSchoolId,'');
 });
 
-test('unknown tribe and school ids are dropped instead of stored',()=>{
-  assert.equal(cards.normalize({type:'minion',tribeId:'murloc'}).tribeId,'');
-  assert.equal(cards.normalize({type:'spell',spellSchoolId:'arcane'}).spellSchoolId,'');
+test('subtype values are author text and are never dropped by a built-in vocabulary',()=>{
+  assert.equal(cards.normalize({type:'minion',tribeId:'murloc'}).tribeId,'murloc');
+  assert.equal(cards.normalize({type:'spell',spellSchoolId:'潮汐派'}).spellSchoolId,'潮汐派');
   assert.equal(cards.normalize({type:'minion'}).tribeId,'');
+  assert.equal(cards.normalize({type:'minion',tribeId:'   '}).tribeId,'');
+  assert.equal(cards.normalize({type:'minion',tribeId:'x'.repeat(120)}).tribeId.length,cards.SUBTYPE_LIMIT);
+  // 内置常量表已经不存在：词表必须按世界派生，不能是产品级清单。
+  assert.equal(cards.minionTribes,undefined);
+  assert.equal(cards.spellSchools,undefined);
+  assert.equal(cards.schoolTierLabels,undefined);
 });
 
-test('subtype text resolves for search and rendering but never crosses types',()=>{
+test('subtype text resolves legacy ids and keeps author-written names',()=>{
   assert.equal(cards.subtypeText({type:'minion',tribeId:'construct'}),'构装体');
   assert.equal(cards.subtypeText({type:'spell',spellSchoolId:'space'}),'空间');
+  assert.equal(cards.subtypeText({type:'minion',tribeId:'潮汐族'}),'潮汐族');
   assert.equal(cards.subtypeText({type:'equipment',tribeId:'human'}),'');
-  assert.equal(cards.subtypeText({type:'minion',tribeId:'unknown'}),'');
-  assert.equal(cards.tribeName('beast'),'野兽');
-  assert.equal(cards.spellSchoolName('death'),'死亡');
+  assert.equal(cards.subtypeText({type:'spell',tribeId:'human'}),'');
 });
 
-test('spell school vocabulary matches the canon eleven schools in three tiers',()=>{
-  assert.equal(cards.spellSchools.length,11);
-  const tiers=cards.spellSchools.reduce((map,item)=>{map[item.tier]=(map[item.tier]||0)+1;return map},{});
-  assert.deepEqual(tiers,{basic:5,advanced:4,higher:2});
-  assert.equal(cards.spellSchools.every(item=>item.status==='canon'),true);
-  assert.equal(cards.minionTribes.every(item=>item.status==='proposed'),true);
+test('subtype options are derived per world from existing cards and lore',()=>{
+  const lore=[
+    {id:'SPC-W01-001',type:'species',name:'潮汐族',worldId:'W01'},
+    {id:'SPC-W02-001',type:'species',name:'岩民',worldId:'W02'},
+    {id:'MAG-W01-001',type:'magic',name:'潮汐术式',worldId:'W01'}
+  ];
+  const drafts=[{type:'minion',tribeId:'人类',worldId:'W01'},{type:'minion',tribeId:'岩民',worldId:'W02'}];
+  assert.deepEqual(cards.subtypeOptions({cards:drafts,lore,worldId:'W01',type:'minion'}).map(item=>item.value),['人类','潮汐族']);
+  assert.deepEqual(cards.subtypeOptions({cards:drafts,lore,worldId:'W02',type:'minion'}).map(item=>item.value),['岩民']);
+  assert.deepEqual(cards.subtypeOptions({cards:drafts,lore,worldId:'W01',type:'spell'}).map(item=>item.value),['潮汐术式']);
+  assert.deepEqual(cards.subtypeOptions({cards:drafts,lore,worldId:'W01',type:'equipment'}),[]);
 });

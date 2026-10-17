@@ -25,18 +25,21 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 | 生图通道 | [`seedream.mjs.md`](seedream.mjs.md)、[`comfyui.mjs.md`](comfyui.mjs.md) | 外部生图 API 边界：固定参数、占位符替换、超时与失败上报 |
 | 模拟内核 | [`world-package.mjs.md`](simulation/compiler/world-package.mjs.md)、[`instance-store.mjs.md`](simulation/storage/instance-store.mjs.md)、[`simulation-runtime.mjs.md`](simulation/runtime/simulation-runtime.mjs.md)、[`mechanic-runtime.mjs.md`](simulation/rules/mechanic-runtime.mjs.md)、[`schemas/README.md`](simulation/schemas/README.md) | 编译 → 实例化 → 确定性 Tick → 快照/重放；规则权威、LLM 只提案 |
 | 前端 | [`dist/README.md`](dist/README.md)、[`dist/login.html.md`](dist/login.html.md)、[`dist/login.js.md`](dist/login.js.md) | 零构建的全局脚本装配、视图渲染、浏览器侧缓存与首次迁移；登录页是独立文档，未登录时不加载应用外壳 |
+| 数据搬运与资料组 | [`data-transfer.mjs.md`](data-transfer.mjs.md)、[`lore-groups.mjs.md`](lore-groups.mjs.md)、[`dist/lore-groups.js.md`](dist/lore-groups.js.md)、[`storage-postgres.mjs.md`](storage-postgres.mjs.md) | 导出/导入交换格式与合并策略；五项固定组 + 作者自定义组（跨端同一份表）；PostgreSQL 驱动的迁移、事务写锁与连接脱敏 |
 | 交付与验证 | [`Dockerfile.md`](Dockerfile.md)、[`compose.yaml.md`](compose.yaml.md)、[`compose.nas.yaml.md`](compose.nas.yaml.md)、[`.github/workflows/ci.yml.md`](.github/workflows/ci.yml.md)、[`scripts/ci/smoke-container.mjs.md`](scripts/ci/smoke-container.mjs.md)、[`static-doc-anchors.mjs.md`](static-doc-anchors.mjs.md)、[`static-doc-manifest.mjs.md`](static-doc-manifest.mjs.md) | 镜像白名单 COPY 闭包、CI 三道关、容器冒烟；两道静态文档门禁（`L###` 锚点唯一命中、清单哈希与磁盘一致） |
 
 ## 主要数据流
 
-1. **作者编辑**：`dist/*.js` 从 `document.currentScript` 解析出 `api/` 前缀 → `fetch` 到 `server.mjs` 的 `/api/content` → `storage.mjs` 写入 SQLite（`WORLDFORGE_DATA_DIR`，默认 `.data/`）。浏览器 `localStorage` 只作缓存与旧数据迁移来源，不是真值。
+1. **作者编辑**：`dist/*.js` 从 `document.currentScript` 解析出 `api/` 前缀 → `fetch` 到 `server.mjs` 的 `/api/content` → `storage.mjs`（SQLite）或 `storage-postgres.mjs`（PostgreSQL）写入内容库。浏览器 `localStorage` 只作缓存与旧数据迁移来源，不是真值。资料组（含自定义组）随整库一起读写。
 2. **账号与访问控制**：存在 `users.json` 时，`server.mjs` 在所有 API 之前校验 `wf_session` 会话；登录页（`dist/login.html` + `login.js`）提交到 `/api/auth/login`，`auth.mjs` 用 scrypt 校验口令并签发 HMAC 会话；`admin` 才能改设置与账号，成员按 UTC 日配额调用 AI/生图，内容保存记录 `lastSavedBy`。
 3. **AI 生成**：入口（设定助手 / 自由创作 / 卡牌 Agent）→ `server.mjs` 解析 preset 并拼三层指令 + 用户侧 `<untrusted_context>` → `ai-agent.mjs` 调用外部模型（轮次与工具硬上限）→ 逐候选校验 → 回填表单；候选不会自动晋升 `canon`。
 4. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID；连接中断只按请求 ID 找回，不自动重发付费请求。
-5. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
+5. **数据搬运**：`GET /api/export`（可选内嵌图片）→ 交换格式 JSON；`POST /api/import` → `data-transfer.mjs` 解析/合并 → 同一个内容库 → 图片落盘并登记美术元数据。预检与真实导入共用校验。
+6. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
 
 ## 全局不变量（跨模块）
 
+- **没有默认世界**：新装实例不含任何世界或题材种子；缺失的世界归属显示为「未归属资料」桶，而不是算进某个默认世界。
 - **作者主权**：`canon` / `proposed` / `deprecated` 与 `objective` / `in_world_belief` / `unknown` 由作者裁定；代码只在 `proposed` 一侧生成候选。
 - **模拟域隔离**：模拟只读 Git 投影出的 JSON 发布清单，不写作者内容表；W97/W98/W99 是合成实验，不是正史。
 - **不可信内容不上指令层**：作者笔记、资料库正文、示例只能出现在用户消息侧；preset 伪造分层标记会被注册表拒绝加载。
@@ -49,15 +52,15 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 
 ## 覆盖与清单
 
-- 当前 64 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
-- [`manifest.json`](manifest.json) 记录 146 个源/配置/清单文件：64 个 `documented`、81 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
+- 当前 68 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
+- [`manifest.json`](manifest.json) 记录 155 个源/配置/清单文件：68 个 `documented`、86 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
 - 清单哈希由 `node static-doc-manifest.mjs --check` 强制（已接入 `npm run check`）：任何条目与磁盘不一致都会以 `HASH_MISMATCH` 失败，改源码后必须 `--write` 重算。
 - 未收录（只在本文引用）：设计/ADR 文档 [`../../docs/PROJECT_DESIGN.md`](../../docs/PROJECT_DESIGN.md)、[`../../docs/WorldForge_2.0_Design_Document_V1.0.md`](../../docs/WorldForge_2.0_Design_Document_V1.0.md)、[`../../docs/adr/README.md`](../../docs/adr/README.md)；模拟模块关系 [`../../simulation/README.md`](../../simulation/README.md)；设定内容目录 `universe/`、`worlds/`、`mechanics/`、`cards/`、`templates/`；运行时数据库 `.data/*.sqlite*`；二进制素材 `dist/assets/`。
 - [`html-product.md`](html-product.md) 是 2026-10-17 之前逐次交付的追加式归档（含当时的验证/未验证结论），保留原貌，不作为当前实现索引。
 
 ## 更新方式
 
-1. 改源码后重跑对应文件文档；文件名变更时同步改文档名。
+1. 改源码后重跑对应文件文档；文件名变更时同步改文档名。新增源码文件要同时补 `manifest.json` 条目（`documented` 或 `aggregated`）与 `counts`，否则 `static-doc-manifest.mjs --check` 会以 `COUNT_MISMATCH` 失败。
 2. 用 `manifest.json` 比对源码 SHA-256：哈希未变且规则版本未变则跳过；新增文件补记录，删除或改名文件删文档。
 3. 行号随源码变化，更新时必须重新解析；符号覆盖不等于符号详情，只为复杂/关键函数写 L2。
 4. 目录级汇档（`tests/`、`simulation/schemas/`、`.agent-presets/`）在 manifest 中标记为 `aggregated`，新增成员只需补一行，不必新建文件。

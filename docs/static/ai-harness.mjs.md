@@ -19,7 +19,7 @@
 ## 关键符号
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `HARNESS_VERSION` | `'2.1.0'`，随 `context` 一起进入提示与 `contextMeta` | `L5` |
+| `HARNESS_VERSION` | `'3.0.0'`（资料组重构：任意 type + 自定义组契约），随 `context` 一起进入提示与 `contextMeta` | `L5` |
 | `previewOf(value, max = 240)` | 诊断用的单行模型原文片段（压平空白并截断） | `L13` |
 | `parseLooseJson(text)` | 去 ``` 围栏、必要时按最外层 `{}`/`[]` 切片后解析；失败返回 `undefined` | `L19` |
 | `coerceVariants(value, discriminators)` | 把数组 / `{variants}` / 裸候选对象收敛为 `{variants:[…]}`；`discriminators` 判定裸候选（卡牌 `patch`，设定 `content`） | `L36` |
@@ -30,7 +30,7 @@
 | `attachUntrustedContext(messages, blocks)` | 把不可信块拼到**最后一条**消息的 `content` 末尾，返回新数组 | `L163` |
 | `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS` | 无 preset 时的固定回滚基线（计划 §12.4）；分别 = 边界+`LORE_ENTRY_CONTRACT` / 边界+`FREE_ENTRY_CONTRACT` | `L174` / `L175` |
 | `buildContextBundle(payload, budget)` | 资料库清洗、排序、按字符预算装入 examples 与 entries | `L196` |
-| `generationContract(payload)` | 由 `type` + `selectedBlocks` 解析出实际内容块，是 Schema 与校验的共同真值 | `L210` |
+| `generationContract(payload)` | 由 `type` + `selectedBlocks` + `payload.group` 解析出实际内容块，是 Schema、提示词与校验的共同真值 | `L211` |
 | `createLoreResponseSchema(payload)` | 由 `blockSchema` 生成 `{variants:[{key,content}]}` 的 strict JSON Schema | `L215` |
 | `lorePromptSections(payload, bundle)` | 内部分段函数，返回 `{authorPrompts, taskRequest, untrusted}`，初次与补生成共用 | `L227` |
 | `buildPrompt(payload, bundle)` | 由 `lorePromptSections` 拼出第 4→6 层文本 | `L244` |
@@ -49,6 +49,8 @@
 - 依次校验三层：第 1 层常量自检 → preset 先过 `assertPresetPromptPortable` 再过 `assertInstructionLayerClean` → `entryContract` 与 `extraContracts` 逐个校验、`trim` 后去空。
 - 顺序固定为 `product_boundary` → `agent_preset` → `entry_contract`，层间以空行连接；preset 或契约全空时对应整段不输出。
 - 不接收第 4–6 层：注释与函数签名都排除作者提示、任务要求与不可信上下文。
+- 第 3 层 `LORE_ENTRY_CONTRACT` 的成本/因果约束写成「遵守已提供设定里的成本、能力边界与因果」，不再假设「能量」是通用货币——没有魔法或能源设定的世界同样成立。
+- `generationContract(payload)` 把 `payload.group`（客户端提交、已清洗）传给 `contentSpec`，因此自定义资料组的三个属性名会同时出现在第 5 层提示词与 JSON Schema 里；未提供 group 时按 `type` 回落（固定组 → 旧类型 → `info`），**不会**再回落到 `world`。
 
 ### `attachUntrustedContext(messages, blocks)`
 - `blocks` 去空后拼接；内容为空时**原样返回**入参（非数组时返回 `[]`）。
@@ -75,6 +77,7 @@
 - 同世界同类型的 `canon` 条目优先作为 examples：最多 4 条，且此阶段预算为 `min(budget, 16000)`。
 - `relevance` 加权：直接关联 +1000、同世界 canon +500、同世界 +80、同类型 +40、命中标签每个 +25、关联重合 +10；跨世界且非直接关联直接返回 0 被过滤。
 - `used` 以 `JSON.stringify` 长度累计，装不下的条目跳过而非中断；`contextMeta` 记录 `includedIds`、`exampleIds`、`omittedExampleCount`、`omittedCount`、`approximateCharacters`。
+- `projectRules` 是跨世界的写作纪律（`proposed` 优先、canon 不可静默覆盖、信仰不等于 objective、禁止免费能量/无限储备/无条件万能能力、避免第三方 IP），不得写进任何具体题材的物理设定。
 
 ### `validateAiResponse` / `inspectAiResponse` / `completeAiVariants`
 - 校验层：`variants` 必须 1–5 条；`key` 唯一且 1–80 字符；`content` 的键集合必须**恰好等于**已选内容块（多或少都抛错）。

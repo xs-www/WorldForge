@@ -1,3 +1,5 @@
+import { promptKeyOf } from './lore-groups.mjs';
+
 const text=(value,limit=1600)=>String(value??'').trim().slice(0,limit);
 
 function entryText(entry){
@@ -31,8 +33,8 @@ export function selectVisualLore(payload={}){
 
 export function imagePromptKey(payload={}){
   if(payload.targetType!=='lore')return'card';
-  const type=String(payload.target?.type||payload.loreType||'other');
-  return ['world','location','faction','character','species','culture','religion','magic','technology','item','event','timeline','story'].includes(type)?type:'other';
+  // 资料组可能由作者自定义，生图档位统一收敛到五个固定档（未知组用 info 档）。
+  return promptKeyOf(String(payload.target?.type||payload.loreType||'info'));
 }
 
 export function composeImagePrompt(payload={},settings={}){

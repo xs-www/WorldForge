@@ -52,8 +52,8 @@ export const FREE_AGENT_TOOLS = [
       additionalProperties: false,
       properties: {
         query: { type: 'string', description: '关键词；会在名称、编号、摘要、正文与标签中匹配' },
-        type: { type: 'string', description: '限定资料类型，例如 world / faction / character / magic / technology / event / timeline / story' },
-        worldId: { type: 'string', description: '限定世界编号，例如 W01' },
+        type: { type: 'string', description: '限定资料组编号，例如 world / info / character / timeline / story，或作者自定义的组' },
+        worldId: { type: 'string', description: '限定世界编号，例如 W01；不同的世界互不共享设定' },
         status: { type: 'string', enum: STATUS_VALUES, description: '限定状态' },
         limit: { type: 'integer', minimum: 1, maximum: AGENT_LIMITS.searchLimit, description: '返回条数上限' }
       },
@@ -74,7 +74,7 @@ export const FREE_AGENT_TOOLS = [
   },
   {
     name: 'list_lore',
-    description: '列出资料库条目索引（编号、类型、名称、状态、世界），可按类型、世界或状态过滤。适合先了解资料库结构再决定读哪些条目。',
+    description: '列出资料库条目索引（编号、资料组、名称、状态、世界），可按资料组、世界或状态过滤。适合先了解资料库结构再决定读哪些条目。',
     parameters: {
       type: 'object',
       additionalProperties: false,

@@ -245,7 +245,7 @@
     },
     "content-store": {
       "lines": [
-        "const contentStore = createContentStore"
+        "const contentStore = databaseDriver"
       ]
     },
     "sim-dashboard": {
@@ -427,7 +427,7 @@
     },
     "client-request-id-reuse": {
       "lines": [
-        "contentStore.listArtAssets().find(asset => asset.clientRequestId"
+        "(await contentStore.listArtAssets()).find(asset => asset.clientRequestId"
       ]
     },
     "resolve-reference-images": {
@@ -451,10 +451,8 @@
     },
     "asset-unlink": {
       "lines": [
-        "await unlink("
-      ],
-      "count": 3,
-      "nth": 3
+        "catch (error) { await unlink(file).catch(() => {}); throw error; }"
+      ]
     },
     "init-structured": {
       "lines": [
@@ -731,6 +729,58 @@
       "lines": [
         "req.method === 'POST'",
         "'/api/users'"
+      ]
+    },
+    "storage-driver": {
+      "lines": [
+        "const databaseDriver = requestedDriver"
+      ]
+    },
+    "export-images": {
+      "lines": [
+        "async function collectExportImages(artAssets)"
+      ]
+    },
+    "run-import": {
+      "lines": [
+        "async function runImport(body"
+      ]
+    },
+    "file-exists": {
+      "lines": [
+        "async function fileExists(path)"
+      ]
+    },
+    "GET /api/export": {
+      "lines": [
+        "req.method === 'GET'",
+        "pathname === '/api/export'"
+      ]
+    },
+    "POST /api/import": {
+      "lines": [
+        "req.method === 'POST'",
+        "pathname === '/api/import'"
+      ]
+    },
+    "import-route": {
+      "lines": [
+        "req.headers['x-worldforge-import'] !== '1'"
+      ]
+    },
+    "export-route": {
+      "lines": [
+        "const includeImages = requestUrl.searchParams.get"
+      ]
+    },
+    "prompt-type-key": {
+      "lines": [
+        "const typePrompt = promptSettings.typePrompts"
+      ]
+    },
+    "card-context-world": {
+      "lines": [
+        "worldId: text(draft.worldId, 30)"
       ]
     }
   }

@@ -30,5 +30,7 @@
 - [ADR-0028：以 W97 合成套牌建立实验对战纵切](ADR-0028-experimental-card-battle.md) — canon（技术边界），对战规则与关键词仍为 experimental
 - [ADR-0029：产品内 Agent Profile 使用只读产品投影，不执行 DSH 组装](ADR-0029-agent-profile-runtime-projection.md) — canon（技术边界），§10 五项已由作者逐条签字接受
 - [ADR-0030：以本机账号体系支撑 Tailscale Funnel 公网发布](ADR-0030-local-accounts-and-public-funnel.md) — canon（技术边界），共享工作区 + admin/member + 每人每日配额
+- [ADR-0031：以「五项固定资料组 + 作者自定义组」取代十三类固定类型](ADR-0031-lore-groups-and-no-default-world.md) — canon（产品接口），同时移除默认世界种子
+- [ADR-0032：作者资料库支持 PostgreSQL，并提供整库导入/导出](ADR-0032-postgres-content-store-and-data-transfer.md) — canon（技术边界），pg 仅在 postgres 驱动下动态加载
 
 新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0031` 开始。

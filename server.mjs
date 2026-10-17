@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { attachUntrustedContext, buildCardPrompt, buildContextBundle, buildPrompt, buildSupplementPrompt, CARD_ENTRY_CONTRACT, completeAiVariants, composeAgentSystemPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_TOOL_GUIDE, FREE_ENTRY_CONTRACT, HARNESS_VERSION, LORE_ENTRY_CONTRACT, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
@@ -8,7 +8,7 @@ import { CARD_ACTIONS, CARD_FIELDS, completeCardVariants, createCardResponseSche
 import { AGENT_LIMITS, FREE_AGENT_TOOLS, prepareArtAssets, prepareLibrary, runToolCall } from './ai-tools.mjs';
 import { createToolCaller, runAgentLoop } from './ai-agent.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
-import { createContentStore } from './storage.mjs';
+import { createContentStore, validateContentSnapshot } from './storage.mjs';
 import { composeImagePrompt } from './image-context.mjs';
 import { generateSeedreamImage, seedreamConfig, validateImageRequest, validateSeedreamSettings } from './seedream.mjs';
 import { normalizeReferenceAssetIds, parseReferenceUpload, toReferenceDataUrl } from './reference-assets.mjs';
@@ -17,6 +17,8 @@ import { asAgentProfileError, loadAgentProfiles, publicRegistryView, registryHea
 import { LEGACY_PROMPTS_ENV, LEGACY_PROMPT_SOURCE, legacyDefaults, legacyPresetsView, legacyProfile, legacyPromptsEnabled, legacyRegistryHealth } from './agent-legacy.mjs';
 import { AGENT_SETTINGS_ENV, AGENT_SETTINGS_FILENAME, loadAgentSettings, publicAgentSelections, saveAgentSettings, validateAgentSelectionPatch } from './agent-settings.mjs';
 import { AUTH_DEFAULT_QUOTA, AUTH_REQUIRE_ENV, AUTH_USERS_ENV, clearSessionCookie, cookieSecureMode, isSecureRequest, openAuthStore, sessionCookie } from './auth.mjs';
+import { buildExportBundle, extensionForMimeType, parseImportBundle, planArtAssetImport, planImport } from './data-transfer.mjs';
+import { promptKeyOf } from './lore-groups.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
 import { buildMacroProposalPrompt, MACRO_PROPOSAL_SCHEMA } from './simulation/llm/macro-proposal.mjs';
@@ -50,7 +52,25 @@ async function loadLocalEnv() {
 await loadLocalEnv();
 const databasePath = process.env.WORLDFORGE_DB_PATH || join(root, '.data', 'worldforge.sqlite');
 const assetsPath = process.env.WORLDFORGE_ASSETS_PATH || join(dirname(databasePath), 'assets', 'cards');
-const contentStore = createContentStore(databasePath);
+// 作者资料库可以跑在 SQLite（默认，零依赖）或 PostgreSQL 上。选 pg 时按需动态导入驱动，
+// 因此纯 SQLite 部署不需要安装任何第三方包。模拟存档仍固定使用独立的 SQLite 文件。
+const DATABASE_DRIVER_ENV = 'WORLDFORGE_DB_DRIVER';
+const DATABASE_URL_ENV = 'WORLDFORGE_DATABASE_URL';
+const requestedDriver = String(process.env[DATABASE_DRIVER_ENV] || '').trim().toLowerCase();
+const databaseUrl = String(process.env[DATABASE_URL_ENV] || '').trim();
+const databaseDriver = requestedDriver || (databaseUrl ? 'postgres' : 'sqlite');
+if (!['sqlite', 'postgres'].includes(databaseDriver)) {
+  console.error(`[storage] ${DATABASE_DRIVER_ENV}=${databaseDriver} 不受支持；可选 sqlite 或 postgres。`);
+  process.exit(1);
+}
+if (databaseDriver === 'postgres' && !databaseUrl) {
+  console.error(`[storage] 选择 ${databaseDriver} 时必须设置 ${DATABASE_URL_ENV}（postgres://user:password@host:port/database）。`);
+  process.exit(1);
+}
+const contentStore = databaseDriver === 'postgres'
+  ? await import('./storage-postgres.mjs').then(module => module.createPostgresContentStore({ connectionString: databaseUrl }))
+  : createContentStore(databasePath);
+console.log(`[storage] 作者资料库驱动：${databaseDriver}`);
 const simulationDatabasePath = process.env.WORLDFORGE_SIM_DB_PATH || join(dirname(databasePath), 'worldforge-simulation.sqlite');
 const simulationDashboard = createSimulationDashboardService(simulationDatabasePath);
 const macroSimulation = createMacroSimulationService(simulationDatabasePath);
@@ -122,6 +142,8 @@ function apiNeedsSession(method, pathname) {
 function apiNeedsAdmin(method, pathname) {
   if (!auth) return false;
   if (pathname === '/api/settings' && (method === 'GET' || method === 'POST')) return true;
+  // 导入会整库覆盖作者资料，属于管理员操作；导出只是读取，普通成员也可用。
+  if (pathname === '/api/import' && method === 'POST') return true;
   return pathname === '/api/users' || pathname.startsWith('/api/users/');
 }
 function sessionOf(req) { return auth ? auth.sessionFromRequest(req) : null; }
@@ -146,7 +168,8 @@ async function chargeQuota(kind, session) {
 // `/api/health` 是公开端点（Docker HEALTHCHECK 也用它）：去掉绝对路径，避免向匿名访客
 // 暴露 NAS/容器内的数据目录结构。内部诊断仍可通过文件系统日志获得。
 function publicHealth(health) {
-  const { databasePath, ...rest } = health || {};
+  // `target`（PostgreSQL 的 host/database）同样属于部署拓扑，和绝对路径一样不对外暴露。
+  const { databasePath, target, ...rest } = health || {};
   return rest;
 }
 
@@ -280,12 +303,12 @@ async function createReferenceAsset(payload) {
   await writeFile(temporary, upload.bytes, { mode: 0o600 });
   await rename(temporary, file);
   const asset={id,targetType:upload.targetType,targetId:upload.targetId,cardId:upload.targetType==='card'?upload.targetId:'',purpose:'reference',prompt:'用户上传参考图',model:'user-upload',size:'reference',mimeType:upload.mimeType,fileName,status:'proposed',provenance:'user_reference',provider:'local-upload',originalName:upload.originalName,createdAt:new Date().toISOString()};
-  try{return contentStore.createArtAsset(asset)}catch(error){await unlink(file).catch(()=>{});throw error}
+  try{return await contentStore.createArtAsset(asset)}catch(error){await unlink(file).catch(()=>{});throw error}
 }
 
 async function resolveReferenceImages(value, maximum = 10) {
   const ids=normalizeReferenceAssetIds(value).slice(0,maximum),images=[];
-  for(const id of ids){const asset=contentStore.getArtAsset(id);if(!asset)throw new Error(`参考图不存在：${id}`);const file=join(assetsPath,asset.fileName);if(!file.startsWith(assetsPath))throw new Error('参考图路径无效');images.push(toReferenceDataUrl(asset,await readFile(file)))}
+  for(const id of ids){const asset=await contentStore.getArtAsset(id);if(!asset)throw new Error(`参考图不存在：${id}`);const file=join(assetsPath,asset.fileName);if(!file.startsWith(assetsPath))throw new Error('参考图路径无效');images.push(toReferenceDataUrl(asset,await readFile(file)))}
   return{ids,images};
 }
 
@@ -296,7 +319,7 @@ async function resolveAgentImages(value, maximum = AGENT_LIMITS.maxImages) {
   for (const raw of wanted) {
     const id = String(raw || '').trim();
     if (!/^ART-[A-Fa-f0-9-]+$/.test(id)) { missing.push(id || '(空编号)'); continue; }
-    const asset = contentStore.getArtAsset(id);
+    const asset = await contentStore.getArtAsset(id);
     if (!asset) { missing.push(id); continue; }
     const file = join(assetsPath, asset.fileName);
     if (!file.startsWith(assetsPath)) { missing.push(id); continue; }
@@ -314,7 +337,7 @@ async function createArtAsset(payload) {
   const clientRequestId = String(payload?.clientRequestId || '').trim();
   if (clientRequestId && !/^[A-Za-z0-9-]{8,80}$/.test(clientRequestId)) throw new Error('图片请求 ID 无效');
   if (clientRequestId) {
-    const existing = contentStore.listArtAssets().find(asset => asset.clientRequestId === clientRequestId);
+    const existing = (await contentStore.listArtAssets()).find(asset => asset.clientRequestId === clientRequestId);
     if (existing) return existing;
   }
   const composed=composeImagePrompt(payload,await loadPromptSettings());
@@ -359,12 +382,12 @@ async function createArtAsset(payload) {
     providerMetadata: generated.providerMetadata,
     createdAt: new Date().toISOString()
   };
-  try { return contentStore.createArtAsset(asset); }
+  try { return await contentStore.createArtAsset(asset); }
   catch (error) { await unlink(file).catch(() => {}); throw error; }
 }
 
 async function serveArtAsset(id, res, download = false) {
-  const asset = contentStore.getArtAsset(id);
+  const asset = await contentStore.getArtAsset(id);
   if (!asset) return json(res, 404, { error: '美术资源不存在' });
   const file = join(assetsPath, asset.fileName);
   if (!file.startsWith(assetsPath)) return json(res, 403, { error: '禁止访问' });
@@ -461,7 +484,11 @@ async function callAi(payload) {
   const promptSettings = await loadPromptSettings();
   // promptPayload 已注入服务端作者提示（第 4 层），初次与补生成必须共用它，
   // 否则补生成会退回「无额外分类提示/无额外统一风格要求」。
-  const promptPayload = { ...payload, typePrompt: promptSettings.typePrompts[payload?.draft?.type] || '', personalizedPrompt: promptSettings.personalizedPrompt };
+  // 自定义资料组没有独立提示词档位，统一落到「世界信息」档（promptKeyOf 负责收敛）。
+  // 但作者以前按旧类型保存过的提示词仍然优先：magic / faction 等旧键会先被精确命中，
+  // 这样升级分组方式不会让已有的分类提示词变成无效设置。
+  const typePrompt = promptSettings.typePrompts[payload?.draft?.type] ?? promptSettings.typePrompts[promptKeyOf(payload?.draft?.type)] ?? '';
+  const promptPayload = { ...payload, typePrompt, personalizedPrompt: promptSettings.personalizedPrompt };
   const prompt = buildPrompt(promptPayload, bundle);
   const validationPayload = { ...payload, allowedRelationIds: [...bundle.examples, ...bundle.entries].map(entry => entry.id) };
   const expectedCount = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3));
@@ -585,6 +612,9 @@ function buildCardContext(payload) {
   const text = (value, limit) => String(value ?? '').trim().slice(0, limit);
   const ids = (value, limit) => (Array.isArray(value) ? [...new Set(value.map(item => text(item, 100)).filter(Boolean))].slice(0, limit) : []);
   const sanitized = {
+    // worldId 必须进上下文：否则卡牌 Agent 无法判断该用哪个世界的 canon / proposed 资料。
+    worldId: text(draft.worldId, 30),
+    group: text(draft.group, 40),
     name: text(draft.name, 100),
     type: ['minion', 'spell', 'equipment'].includes(draft.type) ? draft.type : 'minion',
     rarity: ['common', 'rare', 'epic', 'legendary'].includes(draft.rarity) ? draft.rarity : 'common',
@@ -604,6 +634,7 @@ function buildCardContext(payload) {
   const loreEntries = (Array.isArray(payload?.loreRefs) ? payload.loreRefs : []).filter(entry => referencedLoreIds.has(text(entry?.id, 100))).slice(0, 20).map(entry => ({
     id: text(entry?.id, 100),
     name: text(entry?.name, 160),
+    worldId: text(entry?.worldId, 30),
     type: text(entry?.type, 40),
     status: text(entry?.status, 20),
     truthScope: text(entry?.truthScope, 30),
@@ -620,7 +651,8 @@ function buildCardContext(payload) {
     loreIds: loreEntries.map(entry => entry.id),
     keywordIds: ids(payload?.allowedKeywordIds, 50),
     mechanicIds: ids(payload?.allowedMechanicIds, 50),
-    rules: { combat: 'W97 实验对战（experimental / untested）；基础对战规则尚未裁定', keywords }
+    // 基础对战规则尚未裁定，这里只声明状态，不把 W97 之类的实验世界当成产品设定。
+    rules: { combat: '基础对战规则尚未裁定（内置对战沙箱为 experimental / untested，只读，不是任何世界的正史）', keywords }
   };
 }
 
@@ -705,8 +737,65 @@ async function callMacroProposal(payload) {
   }
 }
 
-async function serveStatic(req, res, session) {
-  const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+// ── 数据导入 / 导出 ─────────────────────────────────────────────────────────
+// 导出与导入都以「服务端内容库」为真值，而不是浏览器缓存；这样换机、换数据库
+// （SQLite ↔ PostgreSQL）与多用户协作都能得到同一份完整快照。
+
+async function fileExists(path) {
+  try { await access(path); return true; } catch { return false; }
+}
+
+/** 读取美术资产文件并转成 base64；文件缺失时只导出元数据，不阻止整包导出。 */
+async function collectExportImages(artAssets) {
+  const images = [];
+  for (const asset of Array.isArray(artAssets) ? artAssets : []) {
+    const fileName = String(asset?.fileName || '');
+    if (!/^[A-Za-z0-9._-]+$/.test(fileName)) continue;
+    try {
+      const bytes = await readFile(join(assetsPath, fileName));
+      images.push({ id: asset.id, fileName, mimeType: asset.mimeType, dataBase64: bytes.toString('base64') });
+    } catch { /* 文件缺失：导出的元数据仍然有效 */ }
+  }
+  return images;
+}
+
+async function runImport(body, { actor = '' } = {}) {
+  const parsed = parseImportBundle(body?.payload ?? body);
+  const mode = body?.mode === 'replace' ? 'replace' : 'merge';
+  const dryRun = body?.dryRun === true;
+  const current = await contentStore.read();
+  // dryRun 与真实导入共用同一套结构校验，预检结果才可信。
+  const validated = validateContentSnapshot(parsed.content);
+  const plan = planImport(current, validated, mode);
+  const artPlan = planArtAssetImport(await contentStore.listArtAssets(), parsed.artAssets);
+  const summary = { ...plan.summary, artAssets: { ...artPlan.summary, registered: 0 }, images: { written: 0, existing: 0, failed: 0 } };
+  if (dryRun) return { dryRun: true, summary, meta: parsed.meta, revision: current.revision };
+  const saved = await contentStore.replace({ ...plan.content, expectedRevision: body?.expectedRevision }, { actor });
+  // 内容提交后再落图片：内容失败时不会留下半套资产。
+  const pending = new Map(artPlan.added.map(asset => [asset.id, asset]));
+  for (const image of parsed.images) {
+    const asset = pending.get(image.id);
+    const fileName = String((asset && asset.fileName) || image.fileName || '');
+    if (!asset || !/^[A-Za-z0-9._-]+$/.test(fileName)) { summary.images.failed += 1; continue; }
+    const file = join(assetsPath, fileName);
+    if (await fileExists(file)) { summary.images.existing += 1; continue; }
+    const stagedFile = `${file}.import`;
+    try {
+      await writeFile(stagedFile, Buffer.from(image.dataBase64, 'base64'), { mode: 0o600 });
+      await rename(stagedFile, file);
+      summary.images.written += 1;
+    } catch {
+      await unlink(stagedFile).catch(() => {});
+      summary.images.failed += 1;
+    }
+  }
+  for (const asset of artPlan.added) {
+    try { await contentStore.createArtAsset(asset); summary.artAssets.registered += 1; } catch { /* 元数据不完整时跳过；文件仍保留在磁盘上 */ }
+  }
+  return { dryRun: false, summary, meta: parsed.meta, revision: saved.revision, lastSavedBy: saved.lastSavedBy };
+}
+
+async function serveStatic(req, res, session) {  const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
   // 未登录时把无扩展名的导航（`/`、`/worldforge/`）直接换成登录页：
   // 应用外壳与 API 都不发给匿名访客。带扩展名的静态资源本身不含数据，允许匿名取用。
   if (auth && !session && (!extname(pathname) || /\/index\.html$/.test(pathname))) {
@@ -733,7 +822,7 @@ createServer(async (req, res) => {
     const session = sessionOf(req);
     if (apiNeedsSession(req.method, pathname) && !session) return json(res, 401, { error: '需要登录后再访问', code: 'AUTH_REQUIRED' });
     if (apiNeedsAdmin(req.method, pathname) && session?.role !== 'admin') return json(res, 403, { error: '仅管理员可访问', code: 'AUTH_FORBIDDEN' });
-    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', version: PRODUCT_VERSION, harnessVersion: HARNESS_VERSION, auth: auth ? auth.health() : { mode: 'anonymous', users: 0, requireAuth }, database: publicHealth(contentStore.health()), simulation: publicHealth(simulationDashboard.health()), macroSimulation: publicHealth(macroSimulation.health()), agentProfiles: agentRegistryHealth() });
+    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', version: PRODUCT_VERSION, harnessVersion: HARNESS_VERSION, auth: auth ? auth.health() : { mode: 'anonymous', users: 0, requireAuth }, database: publicHealth(await contentStore.health()), simulation: publicHealth(simulationDashboard.health()), macroSimulation: publicHealth(macroSimulation.health()), agentProfiles: agentRegistryHealth() });
     if (req.method === 'GET' && req.url === '/api/auth/session') return json(res, 200, sessionView(session));
     if (req.method === 'POST' && req.url === '/api/auth/login') {
       if (req.headers['x-worldforge-auth'] !== '1') return json(res, 403, { error: '缺少登录请求标记', code: 'AUTH_HEADER_REQUIRED' });
@@ -789,14 +878,38 @@ createServer(async (req, res) => {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
       return json(res, 200, simulationDashboard.reset(await readBody(req)));
     }
-    if (req.method === 'GET' && req.url === '/api/content') return json(res, 200, contentStore.read());
+    if (req.method === 'GET' && req.url === '/api/content') return json(res, 200, await contentStore.read());
     if (req.method === 'PUT' && req.url === '/api/content') {
       if (req.headers['x-worldforge-content'] !== '1') return json(res, 403, { error: '缺少内容保存请求标记' });
-      const saved = contentStore.replace(await readBody(req), { actor: session?.username || 'anonymous' });
+      const saved = await contentStore.replace(await readBody(req), { actor: session?.username || 'anonymous' });
       if (auth) await auth.audit({ actor: session?.username || 'anonymous', action: 'content.save', detail: { revision: saved.revision, lore: saved.loreEntries.length, cards: saved.cardDrafts.length, keywords: saved.keywords.length, notes: Object.keys(saved.notes).length } });
       return json(res, 200, saved);
     }
-    if (req.method === 'GET' && req.url === '/api/art-assets') return json(res, 200, { assets: contentStore.listArtAssets() });
+    // 导出 / 导入：导出是普通成员可用的读取；导入会整库覆盖，路由前已由 apiNeedsAdmin 限制为管理员。
+    if (req.method === 'GET' && pathname === '/api/export') {
+      const includeImages = requestUrl.searchParams.get('images') === '1';
+      const content = await contentStore.read(), artAssets = await contentStore.listArtAssets();
+      const bundle = buildExportBundle({ content, artAssets, images: includeImages ? await collectExportImages(artAssets) : [], productVersion: PRODUCT_VERSION });
+      const fileName = `worldforge-export-${String(bundle.exportedAt).slice(0, 10)}.json`;
+      res.writeHead(200, { ...securityHeaders, 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="${fileName}"`, 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(bundle));
+    }
+    if (req.method === 'POST' && pathname === '/api/import') {
+      if (req.headers['x-worldforge-import'] !== '1') return json(res, 403, { error: '缺少数据导入请求标记' });
+      const body = await readBody(req, 160 * 1024 * 1024);
+      let result;
+      try {
+        result = await runImport(body, { actor: session?.username || 'anonymous' });
+      } catch (error) {
+        // 导入文件不合格属于可预期的用户输入问题，返回 400 而不是 500；
+        // 版本冲突（ContentConflictError）自带 409，保持原样。
+        if (!error.status) error.status = 400;
+        throw error;
+      }
+      if (!result.dryRun && auth) await auth.audit({ actor: session?.username || 'anonymous', action: 'content.import', detail: { mode: result.summary.mode, lore: result.summary.loreEntries.total, revision: result.revision } });
+      return json(res, 200, result);
+    }
+    if (req.method === 'GET' && req.url === '/api/art-assets') return json(res, 200, { assets: await contentStore.listArtAssets() });
     if (req.method === 'POST' && req.url === '/api/reference-assets') {
       if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少图片上传请求标记' });
       return json(res, 201, { asset: await createReferenceAsset(await readBody(req, 12 * 1024 * 1024)) });
@@ -806,7 +919,7 @@ createServer(async (req, res) => {
     const artUnbindMatch = pathname.match(/^\/api\/art-assets\/(ART-[A-F0-9-]+)\/unbind$/i);
     if (req.method === 'POST' && artUnbindMatch) {
       if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少美术资产操作请求标记' });
-      const asset = contentStore.setArtAssetTarget(artUnbindMatch[1], null);
+      const asset = await contentStore.setArtAssetTarget(artUnbindMatch[1], null);
       if (!asset) return json(res, 404, { error: '美术资产不存在' });
       return json(res, 200, { asset });
     }

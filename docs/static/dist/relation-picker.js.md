@@ -6,7 +6,7 @@
 
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| 工厂依赖 | 优先用 `root.WorldforgeWorldScope.worldIdOf`，缺失时退回本地实现（默认 `W01`） | `L6` |
+| 工厂依赖 | 优先用 `root.WorldforgeWorldScope.worldIdOf`，缺失时退回本地实现（空串即未归属，不再回落默认世界） | `L6` |
 | `haystack(entry)` | 搜索语料：`name`/`id`/`summary`/`details`/`tags` 拼接后小写 | `L7` |
 | `filter(entries,options)` | 组合筛选（见下） | `L8–L26` |
 | `toggle(ids,id)` / `remove(ids,id)` | 不可变多选切换/移除，返回新数组；空 id 时原样拷贝 | `L27–L35` |

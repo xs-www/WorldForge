@@ -1,13 +1,18 @@
 {
   "name": "worldforge",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
     "auth": "node scripts/auth-cli.mjs",
     "compile:world": "node scripts/compile-world-package.mjs",
-    "check": "node --check server.mjs && node --check auth.mjs && node --check agent-profile-contract.mjs && node --check agent-profile-registry.mjs && node --check reference-assets.mjs && node --check storage.mjs && node --check storage-migrations.mjs && node --check simulation/compiler/world-package.mjs && node --check simulation/agents/rule-agent.mjs && node --check simulation/dashboard-service.mjs && node --check simulation/macro-simulation-service.mjs && node --check simulation/llm/macro-proposal.mjs && node --check simulation/rules/macro-world-engine.mjs && node --check simulation/rules/mechanic-runtime.mjs && node --check simulation/rules/energy-crisis-mechanic.mjs && node --check simulation/runtime/knowledge-view.mjs && node --check simulation/runtime/simulation-runtime.mjs && node --check simulation/scenarios/m1-energy-crisis.mjs && node --check simulation/scenarios/m2-macro-continent.mjs && node --check simulation/storage/instance-store.mjs && node --check scripts/compile-world-package.mjs && node --check scripts/auth-cli.mjs && node --check scripts/ci/smoke-container.mjs && node --check ai-content-specs.mjs && node --check static-doc-anchors.mjs && node static-doc-anchors.mjs --check && node --check static-doc-manifest.mjs && node static-doc-manifest.mjs --check && node --check ai-harness.mjs && node --check ai-tools.mjs && node --check ai-agent.mjs && node --check prompt-settings.mjs && node --check image-context.mjs && node --check dist/geography.js && node --check dist/chronicle.js && node --check dist/world-scope.js && node --check dist/relation-picker.js && node --check dist/cards.js && node --check dist/battle.js && node --check dist/battle-ui.js && node --check dist/macro.js && node --check dist/login.js && node --check dist/app.js && node --test tests/*.test.mjs"
+    "check": "node --check server.mjs && node --check auth.mjs && node --check agent-profile-contract.mjs && node --check agent-profile-registry.mjs && node --check reference-assets.mjs && node --check storage.mjs && node --check storage-migrations.mjs && node --check storage-postgres.mjs && node --check lore-groups.mjs && node --check data-transfer.mjs && node --check simulation/compiler/world-package.mjs && node --check simulation/agents/rule-agent.mjs && node --check simulation/dashboard-service.mjs && node --check simulation/macro-simulation-service.mjs && node --check simulation/llm/macro-proposal.mjs && node --check simulation/rules/macro-world-engine.mjs && node --check simulation/rules/mechanic-runtime.mjs && node --check simulation/rules/energy-crisis-mechanic.mjs && node --check simulation/runtime/knowledge-view.mjs && node --check simulation/runtime/simulation-runtime.mjs && node --check simulation/scenarios/m1-energy-crisis.mjs && node --check simulation/scenarios/m2-macro-continent.mjs && node --check simulation/storage/instance-store.mjs && node --check scripts/compile-world-package.mjs && node --check scripts/auth-cli.mjs && node --check scripts/ci/smoke-container.mjs && node --check ai-content-specs.mjs && node --check static-doc-anchors.mjs && node static-doc-anchors.mjs --check && node --check static-doc-manifest.mjs && node static-doc-manifest.mjs --check && node --check ai-harness.mjs && node --check ai-tools.mjs && node --check ai-agent.mjs && node --check prompt-settings.mjs && node --check image-context.mjs && node --check dist/geography.js && node --check dist/chronicle.js && node --check dist/world-scope.js && node --check dist/lore-groups.js && node --check dist/relation-picker.js && node --check dist/cards.js && node --check dist/battle.js && node --check dist/battle-ui.js && node --check dist/macro.js && node --check dist/login.js && node --check dist/app.js && node --test tests/*.test.mjs"
   },
-  "engines": { "node": ">=22.5" }
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
 }

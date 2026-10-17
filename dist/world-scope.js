@@ -1,7 +1,11 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.WorldforgeWorldScope=api})(typeof globalThis!=='undefined'?globalThis:this,function(){
+  // 世界编号是排版约定（W + 两位数字），不是内容前提：新装实例没有默认世界，
+  // 第一条世界由作者建立并获得 W01。`UNASSIGNED_WORLD_ID` 表示「没有世界归属」，
+  // 用来把历史数据、导入数据或字段缺失的资料聚成一类，而不是悄悄算进某个世界。
   const worldIdPattern=/^W\d{2}$/;
-  const DEFAULT_WORLD_ID='W01';
-  function worldIdOf(entry){return String(entry?.worldId||'').trim()||DEFAULT_WORLD_ID}
+  const UNASSIGNED_WORLD_ID='';
+  const UNASSIGNED_WORLD_TITLE='未归属资料';
+  function worldIdOf(entry){return String(entry?.worldId||'').trim()}
   function nextWorldId(entries){
     const used=new Set();
     (Array.isArray(entries)?entries:[]).forEach(entry=>{
@@ -28,13 +32,28 @@
     });
     return [...byId.values()].map(group=>{
       const others=group.entries.filter(entry=>!(entry.type==='world'&&entry.id===group.worldId));
-      return{worldId:group.worldId,world:group.world,entries:group.entries,others,counts:countByType(others),total:others.length,title:group.world?.name||`未命名世界（${group.worldId}）`,assigned:Boolean(group.world)};
-    }).sort((a,b)=>a.worldId.localeCompare(b.worldId));
+      return{
+        worldId:group.worldId,
+        world:group.world,
+        entries:group.entries,
+        others,
+        counts:countByType(others),
+        total:others.length,
+        title:group.world?.name||(group.worldId?`未命名世界（${group.worldId}）`:UNASSIGNED_WORLD_TITLE),
+        assigned:Boolean(group.world)
+      };
+    }).sort((a,b)=>{
+      // 未归属桶固定排最后，避免它抢在真实世界前面成为默认入口。
+      const aUnassigned=!a.worldId,bUnassigned=!b.worldId;
+      if(aUnassigned!==bUnassigned)return aUnassigned?1:-1;
+      return a.worldId.localeCompare(b.worldId);
+    });
   }
   function loreOfWorld(entries,worldId){
     const list=Array.isArray(entries)?entries:[];
-    const target=String(worldId||'').trim();
-    return target?list.filter(entry=>worldIdOf(entry)===target):[...list];
+    if(worldId===undefined||worldId===null)return[...list];
+    const target=String(worldId).trim();
+    return list.filter(entry=>worldIdOf(entry)===target);
   }
   function searchWorlds(groups_,query){
     const z=String(query||'').trim().toLowerCase();
@@ -42,9 +61,9 @@
     return groups_.filter(group=>`${group.title} ${group.worldId} ${group.world?.summary||''} ${group.world?.details||''}`.toLowerCase().includes(z));
   }
   function reassign(entries,sourceWorldId,targetWorldId){
-    const source=String(sourceWorldId||'').trim(),target=String(targetWorldId||'').trim();
+    const source=String(sourceWorldId??'').trim(),target=String(targetWorldId??'').trim();
     const list=Array.isArray(entries)?entries:[];
-    if(!source||!target||source===target)return{entries:[...list],moved:0};
+    if(source===target)return{entries:[...list],moved:0};
     let moved=0;
     const next=list.map(entry=>{
       if(entry?.type==='world'||worldIdOf(entry)!==source)return entry;
@@ -53,5 +72,5 @@
     });
     return{entries:next,moved};
   }
-  return{worldIdPattern,DEFAULT_WORLD_ID,worldIdOf,nextWorldId,countByType,groups,loreOfWorld,searchWorlds,reassign};
+  return{worldIdPattern,UNASSIGNED_WORLD_ID,UNASSIGNED_WORLD_TITLE,worldIdOf,nextWorldId,countByType,groups,loreOfWorld,searchWorlds,reassign};
 });

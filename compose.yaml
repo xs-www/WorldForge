@@ -16,6 +16,9 @@ services:
       WORLDFORGE_ASSETS_PATH: /data/assets/cards
       WORLDFORGE_COMFY_WORKFLOW_PATH: /data/comfyui-workflow.json
       WORLDFORGE_PROMPT_SETTINGS_PATH: /data/prompt-settings.json
+      # 作者资料库后端：留空走 SQLite；设为 postgres 时必须同时提供 WORLDFORGE_DATABASE_URL。
+      WORLDFORGE_DB_DRIVER: ${WORLDFORGE_DB_DRIVER:-}
+      WORLDFORGE_DATABASE_URL: ${WORLDFORGE_DATABASE_URL:-}
     restart: unless-stopped
     read_only: true
     tmpfs:

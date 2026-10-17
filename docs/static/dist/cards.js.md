@@ -7,10 +7,11 @@
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
 | `typeLabels` / `rarityLabels` / `legacyTypes` | 类型与稀有度文案；遗留类型映射 `unit→minion`、`action→spell`、`asset→equipment` | `L2`–`L4` |
-| `cardableLoreTypes` / `loreTypeDefaults` | 可生成卡牌的资料类型（8 类）及其默认卡牌类型 | `L5`–`L6` |
-| `minionTribes` / `spellSchools` / `schoolTierLabels` | 随从种族 5 项（均 `proposed`）、法术派系 11 项（`basic`/`advanced`/`higher`，均 `canon`） | `L7`–`L9` |
-| `normalizeSubtype(type,card)` | 随从只保留合法 `tribeId`，法术只保留合法 `spellSchoolId`，武器两者清空 | `L10` |
-| `tribeName` / `spellSchoolName` / `subtypeText` | 子类型显示名；`subtypeText` 供卡面底部中央一行使用 | `L16`–`L18` |
+| `cardableLoreTypes` / `loreTypeDefaults` | 可生成卡牌的资料组及其默认卡牌类型 | `L5`–`L6` |
+| `legacySubtypeLabels` / `SUBTYPE_LIMIT` | 早期草案里稳定 ID 的展示名（仅为兼容，不构成可选集合）与 60 字符上限 | `L10` |
+| `normalizeSubtype(type,card)` | 随从只保留 `tribeId`，法术只保留 `spellSchoolId`，武器两者清空；**不再校验内置词表** | `L14` |
+| `subtypeOptions({cards,lore,worldId,type})` | 按当前世界派生候选：已有卡牌里的写法 + 同世界资料（随从取种族组、法术取力量体系组） | `L27` |
+| `subtypeText(card)` | 子类型显示名：卡里存的就是作者写的名称，旧 ID 用 `legacySubtypeLabels` 兼容 | `L19` |
 | `normalizeType` / `normalizeRarity` / `normalizeLoreRefs` | 非法值回落（`minion`/`common`）；引用 ID 去空、去重、转字符串 | `L23`–`L25` |
 | `boundedNumber(value,fallback,min,max)` | 数值钳制；非有限数用 fallback | `L26` |
 | `isCardableLore` / `defaultTypeForLore` | 资料能否生成卡牌、生成时默认卡牌类型 | `L27`–`L28` |
@@ -32,7 +33,7 @@
 - 关键词 ID 在 `keywords`（Map 或数组）中不存在时静默丢弃，不报错。
 
 ### `normalize(card)`（`L62`–`L66`）
-- `status` 固定 `proposed`、`balanceStatus` 固定 `untested`；`worldId` 默认 `W01`。
+- `status` 固定 `proposed`、`balanceStatus` 固定 `untested`；`worldId` 缺省为**空串**（未归属），不再回落到某个默认世界。
 - `keywordUsages` 以 ID 去重（后写覆盖先写），并同步派生出 `keywordIds`；旧字段 `keywordIds` 会被升级成空 `detail`。
 - `artCrop` 钳制为 `x/y ∈ [0,100]`、`zoom ∈ [1,2.5]`（默认 `50/50/1`）；`referenceAssetIds` 去重后截断为 10 个。
 
@@ -40,4 +41,4 @@
 
 - 卡面子类型与属性随类型互斥：`normalizeSubtype` 与 `normalizeStats` 都按 `type` 三分支返回，跨类型残留字段会被清空，因此 UI 不必手动清理。
 - 富文本能力就是上述六种标记，新增标记需同时改 `parseRichText` 与 `app.js` 的 DOM 预览（`L147`）和 Canvas 绘制（`L119`–`L129`）。
-- 种族/派系表硬编码在本文件；新增种族或派系需同时确认 `app.js` 的子类型下拉填充与已存卡牌的 `tribeId`/`spellSchoolId` 兼容性。
+- 随从种族与法术派系**不是产品常量**：候选按世界由 `subtypeOptions` 派生，作者可输入任意名称。早期草案里的稳定 ID（`human`、`fire`…）只通过 `legacySubtypeLabels` 保留展示名，不限制新值，也不会在保存时被清空。

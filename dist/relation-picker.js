@@ -3,7 +3,7 @@
   if(typeof module==='object'&&module.exports)module.exports=api;
   else root.WorldforgeRelationPicker=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(worldScope){
-  const worldIdOf=worldScope?worldScope.worldIdOf:(entry=>String(entry?.worldId||'').trim()||'W01');
+  const worldIdOf=worldScope?worldScope.worldIdOf:(entry=>String(entry?.worldId||'').trim());
   function haystack(entry){return`${entry?.name||''} ${entry?.id||''} ${entry?.summary||''} ${entry?.details||''} ${Array.isArray(entry?.tags)?entry.tags.join(' '):''}`.toLowerCase()}
   function filter(entries,options={}){
     const list=Array.isArray(entries)?entries:[],query=String(options.query||'').trim().toLowerCase(),exclude=String(options.excludeId||'').trim(),

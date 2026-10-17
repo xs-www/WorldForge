@@ -16,14 +16,15 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=53/);
+  assert.match(htmlSource, /app\.js\?v=54/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=40/);
-  assert.match(htmlSource, /cards\.js\?v=6/);
-  assert.match(htmlSource, /world-scope\.js\?v=1/);
-  assert.match(htmlSource, /relation-picker\.js\?v=1/);
+  assert.match(htmlSource, /styles\.css\?v=41/);
+  assert.match(htmlSource, /cards\.js\?v=7/);
+  assert.match(htmlSource, /world-scope\.js\?v=2/);
+  assert.match(htmlSource, /relation-picker\.js\?v=2/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
+  assert.match(htmlSource, /lore-groups\.js\?v=1/);
 });
 
 test('the header shows the running version and flags a stale page', () => {
@@ -43,7 +44,7 @@ test('the header shows the running version and flags a stale page', () => {
 test('macro simulator exposes a map-first UI and subpath-safe local proposal flow', () => {
   assert.match(htmlSource, /id="macroMap"/);
   assert.match(htmlSource, /id="macroAskLlm"/);
-  assert.match(htmlSource, /开发诊断：W99 Action \/ Knowledge \/ Replay/);
+  assert.match(htmlSource, /开发诊断：Action \/ Knowledge \/ Replay/);
   assert.match(macroSource, /const scriptRoot=new URL\('\.',document\.currentScript\.src\)/);
   for (const endpoint of ['macro/step', 'macro/run', 'macro/reset', 'macro/local-proposal']) assert.match(macroSource, new RegExp(`post\\('${endpoint.replace('/', '\\/')}'`));
   assert.match(styleSource, /\.macro-map/);
@@ -137,7 +138,7 @@ test('minion tribe and spell school share the bottom slot of the card face', () 
   assert.match(appSource, /function updateCardSubtypeLines\(type,value\)/);
   assert.match(appSource, /function drawCardSubtype\(ctx,card\)/);
   assert.match(appSource, /ctx\.fillText\(text,330,826\)/);
-  assert.match(appSource, /WorldforgeCards\.schoolTierLabels\[tier\]/);
+  assert.match(appSource, /WorldforgeCards\.subtypeOptions\(/);
   assert.match(appSource, /tribeId:type==='minion'\?q\('#cardSubtype'\)\.value:''/);
   assert.match(appSource, /spellSchoolId:type==='spell'\?q\('#cardSubtype'\)\.value:''/);
   assert.match(styleSource, /\.card-subtype-line\{position:absolute;left:78px;right:78px;bottom:37px/);
@@ -180,7 +181,7 @@ test('worldview module is a world list that scopes every entry to one world', ()
   assert.match(appSource, /function createWorld\(\)/);
   assert.match(appSource, /function adoptWorldGroup\(sourceId,targetId\)/);
   assert.match(appSource, /WorldforgeWorldScope\.loreOfWorld\(readLore\(\),activeWorldId\)/);
-  assert.match(appSource, /worldId:currentWorldId\(\)/);
+  assert.match(appSource, /worldId=activeLoreType==='world'\?id:currentWorldId\(\)/);
   assert.match(appSource, /if\(m==='world'\)leaveWorld\(\)/);
   assert.doesNotMatch(appSource, /q\('#loreWorldId'\)/);
   assert.match(styleSource, /\.world-grid\{/);
