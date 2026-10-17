@@ -359,7 +359,7 @@ let editingLoreGroupId='';
 // 组列表：一行一个组，说明它是预置组还是自定义组、作用范围，点一下就进入编辑。
 function renderLoreGroupPicker(){
   const list=q('#groupPickList');if(!list)return;
-  const groups=loreGroupsView().filter(group=>sharedGroupMode?(!group.worldId&&!group.fixed):true);
+  const groups=loreGroupsView().filter(group=>sharedGroupMode?(!group.worldId&&!group.fixed):(group.fixed||Boolean(group.worldId)));
   list.replaceChildren(...groups.map(group=>{
     const button=document.createElement('button'),main=document.createElement('span'),title=document.createElement('strong'),scope=document.createElement('small'),tail=document.createElement('span');
     button.type='button';button.className='group-pick-item';button.title='编辑这个组的字段与提示';
@@ -403,7 +403,8 @@ function fillLoreGroupDialog(mode='create',selection=''){
   q('#groupLabel').value=group?group.label:'';
   q('#groupFormType').value=group?group.form:'generic';
   q('#groupScopeRow').hidden=!sharedGroupMode;
-  q('#groupScope').value=sharedGroupMode?'__shared__':(group&&group.worldId?'__world__':'__shared__');
+  // 默认「仅当前世界」；只有从设置进入共享管理、或编辑一个本来就共享的组时才显示共享
+  q('#groupScope').value=sharedGroupMode||(!group||!group.worldId)?'__shared__':'__world__';
   q('#groupScope').disabled=Boolean(!sharedGroupMode);
   q('#groupPrompt').value=group?group.prompt||'':'';
   q('#deleteLoreGroup').hidden=!group||Boolean(group.fixed);
@@ -416,7 +417,7 @@ function openLoreGroupDialog(mode='create',selection=''){sharedGroupMode=false;f
 function openSharedGroupDialog(){sharedGroupMode=true;fillLoreGroupDialog('list');q('#groupDialog').showModal()}
 function saveLoreGroupFromDialog(){
   const label=q('#groupLabel').value.trim();if(!label)return q('#groupStatus').textContent='请填写组名';
-  const form=q('#groupFormType').value,worldId=sharedGroupMode?'':currentWorldId(),prompt=q('#groupPrompt').value,fields=readGroupFieldDraft();
+  const form=q('#groupFormType').value,worldId=editingLoreGroupId?(editingLoreGroupWorld||''):(sharedGroupMode?'':currentWorldId()),prompt=q('#groupPrompt').value,fields=readGroupFieldDraft();
   // 允许没有额外内容块：名称与详细设定是内置的，新组可以只有这两项
   const existing=loreGroupsView();
   let saved;

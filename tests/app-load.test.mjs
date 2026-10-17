@@ -131,3 +131,35 @@ test('资料组字段与旧字段回填在真实数据形态下可见', async ()
   assert.equal(values.summary, 's');
   assert.equal(values.attributeA, 'A');
 });
+
+test('默认新增组只属于当前世界；共享组只能在设置里建', async () => {
+  const { sandbox } = await boot();
+  const stored = () => JSON.parse(sandbox.localStorage.getItem('worldforge-lore-groups-v1') || '[]');
+  sandbox.enterWorld('W01');
+
+  // 世界内新建：默认写成本世界的组
+  sandbox.openLoreGroupDialog('create');
+  sandbox.document.querySelector('#groupLabel').value = '本世界势力';
+  sandbox.saveLoreGroupFromDialog();
+  const local = stored().find(group => group.label === '本世界势力');
+  assert.ok(local, '新组应写入内容库');
+  assert.equal(local.worldId, 'W01', '默认应属于当前世界');
+
+  // 世界内的列表不混入共享组
+  sandbox.openLoreGroupDialog('list');
+  assert.equal(sandbox.document.querySelector('#groupPickList').children.length >= 5, true, '列表至少有五个预置组');
+
+  // 从设置进入共享管理后新建：写共享组
+  sandbox.openSharedGroupDialog();
+  sandbox.fillLoreGroupDialog('create');
+  sandbox.document.querySelector('#groupLabel').value = '历法';
+  sandbox.saveLoreGroupFromDialog();
+  const shared = stored().find(group => group.label === '历法');
+  assert.ok(shared, '共享组应写入内容库');
+  assert.equal(shared.worldId, '', '共享组的 worldId 为空');
+
+  // 共享组在另一个世界也能看到，本世界的组不能
+  sandbox.enterWorld('W02');
+  assert.equal(sandbox.loreGroupsView().some(group => group.label === '历法'), true, '共享组跨世界可见');
+  assert.equal(sandbox.loreGroupsView().some(group => group.label === '本世界势力'), false, '本世界的组不外泄');
+});

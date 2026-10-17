@@ -69,7 +69,7 @@ const apiUrl = path => new URL(path, API_ROOT);
 - **富文本白名单**：卡面描述只识别 `<b>`/`</b>`/`<i>`/`</i>`/`**`/`*`（`cards.js L34–L51`），其余字符按纯文本收进 run；DOM 侧一律 `createElement` + `textContent` 渲染（`app.js L147`），`app.js` 中唯一的 `innerHTML` 是 `L167` 的静态空状态串。`battle-ui.js`、`macro.js` 使用模板字符串 `innerHTML`，其内容来自内置测试卡牌/服务端模拟数据，源码中未见转义。
 - **预览与 PNG 同源**：`renderCardKeywordPreview`（`app.js L147`）与 `compileCardPng`（`L129`，660×920 canvas，经 `drawCompiledDescription` L125）都消费 `WorldforgeCards.compileDescription()` 的 `runs`，因此排版随 run 列表变化，改其一必须同步改另一侧。
 - **付费生图不自动重试**：`requestGeneratedAsset`（`app.js L7`）为每次请求生成 `clientRequestId` 并只 POST 一次；仅在响应为空/非 JSON/网络中断时，通过轮询 `art-assets`（最多 8 次、间隔 1.5s）按 `clientRequestId` 找回已生成的资产（`L6`），失败时把请求 ID 写进错误文案。
-- **缓存版本耦合**：新增或改动任一脚本/样式后必须同步递增 `index.html`（以及登录页 `login.html`）中对应的 `?v=`（当前 `styles 45 / app 60 / cards 7 / macro 3 / geography 2 / battle 1 / battle-ui 1 / chronicle 1 / world-scope 2 / relation-picker 2 / lore-groups 1 / card-agent-apply 1 / login 1`），顺序不变，否则浏览器可能复用旧脚本并与新 DOM 契约错位。
+- **缓存版本耦合**：新增或改动任一脚本/样式后必须同步递增 `index.html`（以及登录页 `login.html`）中对应的 `?v=`（当前 `styles 45 / app 61 / cards 7 / macro 3 / geography 2 / battle 1 / battle-ui 1 / chronicle 1 / world-scope 2 / relation-picker 2 / lore-groups 1 / card-agent-apply 1 / login 1`），顺序不变，否则浏览器可能复用旧脚本并与新 DOM 契约错位。
 - **没有默认世界**：`readLore()` 会滤掉早期 `seeded` 的默认世界条目，`normalizeLore` 不再把缺失的 `worldId` 改写成 `W01`；世界由作者新建，第一条取 `nextWorldId()` 的最小可用编号。
 - **资料组驱动界面**：标签页、表单形态、AI 内容块与地理/编年史作用域全部来自资料组；固定组只有世界、世界信息、角色、编年史、背景故事五项。
 - **状态分级由前端强制**：`cards.js L66` 把卡牌 `status` 固定为 `proposed`、`balanceStatus` 固定为 `untested`；资料条目的 `canon` 只能在 UI 中人工选择（`index.html L99`）。

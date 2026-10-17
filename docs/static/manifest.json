@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "b9a249faf8a91e93bf1a5369621c2b8255f31446b7ca3ae6870fd673b33249ce"
+      "sha256": "8aaf7305917f84aec971b015125fb0f4215b90b8af1186075e7d033d37a742e3"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,7 +294,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "640b316ad58730ee568554a7150048175c044fe572585e79cd67c9f5473bfd25"
+      "sha256": "7ef6ed9acba30a9c32c6980f2a3ab143f5224caabfbe67dbc078a89c56ba87f0"
     },
     {
       "source": "dist/login.html",
@@ -930,7 +930,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "b9a44e3f4cdb681028eadc85d4a174ea9c114373adff43d24c8af3d4e59e60b3"
+      "sha256": "865a713a6fbaf29d4e69ddea5dff907e5c62d936e271621e8453ab094571ea29"
     },
     {
       "source": "tests/world-package.test.mjs",
