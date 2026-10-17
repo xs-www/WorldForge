@@ -5,12 +5,13 @@
 ## 三个 preset 的身份（`worldforge.runtime.json`）
 | id | version | surfaces | mode | toolPolicy | outputContract | statusPolicy |
 | --- | --- | --- | --- | --- | --- | --- |
-| `card-designer` | `1.0.0` | `["card"]` | `structured_card` | `none` | `card_patch_v1` | `proposed_or_untested` |
+| `card-designer` | `1.1.1` | `["card"]` | `structured_card` | `none` | `card_patch_v1` | `proposed_or_untested` |
 | `free-creator` | `1.1.0` | `["free"]` | `free_chat` | `free_lore_readonly` | `free_chat_v1` | `proposed_only` |
 | `lore-writer` | `1.1.0` | `["lore"]` | `structured_lore` | `none` | `lore_blocks_v2` | `proposed_only` |
 
 - 一 preset 一 surface：三个入口 `lore`/`free`/`card` 各至少需要一个可用 preset，删任意一个服务即拒绝启动。
-- `card-designer` 尚未接入产品入口（Sprint 4），故投影文本比另两个完整；`lore-writer`/`free-creator` 已按「第 2 层只写 persona 与写作方式」裁剪。
+- 三个 preset 均已接入产品入口（Sprint 4 起卡牌由卡牌编辑器面板使用）：投影文本都已按「第 2 层只写 persona 与写作方式」裁剪。
+- `card-designer` 的 persona 明确「评审与最终裁定由作者完成」，因此不再要求模型产出 `review`（2026-10-17 作者裁定；此前 `1.1.0` 要求「字段补丁与静态评审」）。
 - DSH 侧（`agent.cordis.yml`）只授内容设计需要的文件读写、检索、skills、规划、goal/todo、web、present；**不给 shell、后台任务、子代理、workflow**。`free-creator` 连 goal/todo/plan-mode 都没有，只读性由 persona 约束（权限层强制需另选 DSH 只读 permission preset）。
 
 ## 产品读取边界

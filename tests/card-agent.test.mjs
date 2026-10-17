@@ -205,7 +205,7 @@ test('POST /api/ai/card returns patches with an authoritative preset snapshot', 
   assert.equal(response.status, 200);
   const data = await response.json();
   const profile = registry.get('card-designer');
-  assert.deepEqual(data.agent, { presetId: profile.id, presetVersion: '1.1.0', presetHash: profile.hash, mode: 'structured_card' });
+  assert.deepEqual(data.agent, { presetId: profile.id, presetVersion: '1.1.1', presetHash: profile.hash, mode: 'structured_card' });
   assert.equal(data.variants.length, 1);
   assert.equal(data.variants[0].patch.notes[0], '数值未经测试（untested）');
   assert.equal(data.diagnostics.status, 'complete');

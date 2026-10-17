@@ -8,9 +8,9 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17",
   "counts": {
-    "sources": 137,
-    "documented": 59,
-    "aggregated": 77,
+    "sources": 139,
+    "documented": 60,
+    "aggregated": 78,
     "config": 1
   },
   "files": [
@@ -30,7 +30,7 @@
       "source": ".agent-presets/card-designer/runtime/system.md",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "39b91b15bb3a64b15cb78996dbdad68f19133f1632151e6be596a49904551470"
+      "sha256": "542c7a97acea723968cb5f610f86220f2fc0719875b6328e4c6e8973df03dacf"
     },
     {
       "source": ".agent-presets/card-designer/skills/worldforge-card-design/reference/card-fields.md",
@@ -54,7 +54,7 @@
       "source": ".agent-presets/card-designer/worldforge.runtime.json",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "0222056d935bed401b3cbe39c39278bfc5dae0bcf42e430d088d69e1c745fb06"
+      "sha256": "a01827cef1f4160fca3857affc48730c519409725d089d6fcd79d5863ff8dc4c"
     },
     {
       "source": ".agent-presets/free-creator/agent.cordis.yml",
@@ -126,7 +126,7 @@
       "source": ".agent-presets/README.md",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "e0590cd30d1849ec4f9a5b8f609277f719a1cc46002f472e65d1278485af9ae0"
+      "sha256": "e470df54e82e28694a2c83fae879b94240665476d86ab4a22bd46100f62efc11"
     },
     {
       "source": ".dockerignore",
@@ -165,10 +165,16 @@
       "sha256": "a7717d456e63c7b8df3bc139e278e1f10085f4bef802568956615c2954fc2dcf"
     },
     {
+      "source": "static-doc-manifest.mjs",
+      "doc": "docs/static/static-doc-manifest.mjs.md",
+      "status": "documented",
+      "sha256": "f65b02ea3bdb92021d2188cec1077bb50973fa5f1bfccaeaf6da52a1b39b7db0"
+    },
+    {
       "source": "tests/card-agent.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "638b1bbb46980f7c84afa970a9ab062bc1a8deac2af488c7ef8bfe65ea998812"
+      "sha256": "76028005d0c079cdc23e2775febdfb4026fa958347de892e3aa6549eed6071d3"
     },
     {
       "source": "card-agent.mjs",
@@ -336,7 +342,7 @@
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "d4d7864fbe7b955c3b0a3caa91c47b4120d53db2b8fc1387e20cbeefa5db1528"
+      "sha256": "6aa4ae8398a9e4031755134bb5852c5af93fa1bfd51c79e17f6699d2edbe8284"
     },
     {
       "source": "prompt-settings.mjs",
@@ -811,6 +817,12 @@
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
       "sha256": "3d348f6e137050ecb73ec5750279a504ce7b67ee5358e032da023d233182e246"
+    },
+    {
+      "source": "tests/static-doc-manifest.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "fe8ce321684422a339d2644272d2188c219723147e201eff7a2f273da3fb2761"
     },
     {
       "source": "tests/storage.test.mjs",

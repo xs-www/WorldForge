@@ -25,7 +25,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 | 生图通道 | [`seedream.mjs.md`](seedream.mjs.md)、[`comfyui.mjs.md`](comfyui.mjs.md) | 外部生图 API 边界：固定参数、占位符替换、超时与失败上报 |
 | 模拟内核 | [`world-package.mjs.md`](simulation/compiler/world-package.mjs.md)、[`instance-store.mjs.md`](simulation/storage/instance-store.mjs.md)、[`simulation-runtime.mjs.md`](simulation/runtime/simulation-runtime.mjs.md)、[`mechanic-runtime.mjs.md`](simulation/rules/mechanic-runtime.mjs.md)、[`schemas/README.md`](simulation/schemas/README.md) | 编译 → 实例化 → 确定性 Tick → 快照/重放；规则权威、LLM 只提案 |
 | 前端 | [`dist/README.md`](dist/README.md) | 零构建的全局脚本装配、视图渲染、浏览器侧缓存与首次迁移 |
-| 交付与验证 | [`Dockerfile.md`](Dockerfile.md)、[`compose.yaml.md`](compose.yaml.md)、[`compose.nas.yaml.md`](compose.nas.yaml.md)、[`.github/workflows/ci.yml.md`](.github/workflows/ci.yml.md)、[`scripts/ci/smoke-container.mjs.md`](scripts/ci/smoke-container.mjs.md) | 镜像白名单 COPY 闭包、CI 三道关、容器冒烟 |
+| 交付与验证 | [`Dockerfile.md`](Dockerfile.md)、[`compose.yaml.md`](compose.yaml.md)、[`compose.nas.yaml.md`](compose.nas.yaml.md)、[`.github/workflows/ci.yml.md`](.github/workflows/ci.yml.md)、[`scripts/ci/smoke-container.mjs.md`](scripts/ci/smoke-container.mjs.md)、[`static-doc-anchors.mjs.md`](static-doc-anchors.mjs.md)、[`static-doc-manifest.mjs.md`](static-doc-manifest.mjs.md) | 镜像白名单 COPY 闭包、CI 三道关、容器冒烟；两道静态文档门禁（`L###` 锚点唯一命中、清单哈希与磁盘一致） |
 
 ## 主要数据流
 
@@ -47,8 +47,9 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 
 ## 覆盖与清单
 
-- 当前 59 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
-- [`manifest.json`](manifest.json) 记录 137 个源/配置/清单文件：59 个 `documented`、77 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
+- 当前 60 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
+- [`manifest.json`](manifest.json) 记录 139 个源/配置/清单文件：60 个 `documented`、78 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
+- 清单哈希由 `node static-doc-manifest.mjs --check` 强制（已接入 `npm run check`）：任何条目与磁盘不一致都会以 `HASH_MISMATCH` 失败，改源码后必须 `--write` 重算。
 - 未收录（只在本文引用）：设计/ADR 文档 [`../../docs/PROJECT_DESIGN.md`](../../docs/PROJECT_DESIGN.md)、[`../../docs/WorldForge_2.0_Design_Document_V1.0.md`](../../docs/WorldForge_2.0_Design_Document_V1.0.md)、[`../../docs/adr/README.md`](../../docs/adr/README.md)；模拟模块关系 [`../../simulation/README.md`](../../simulation/README.md)；设定内容目录 `universe/`、`worlds/`、`mechanics/`、`cards/`、`templates/`；运行时数据库 `.data/*.sqlite*`；二进制素材 `dist/assets/`。
 - [`html-product.md`](html-product.md) 是 2026-10-17 之前逐次交付的追加式归档（含当时的验证/未验证结论），保留原貌，不作为当前实现索引。
 
