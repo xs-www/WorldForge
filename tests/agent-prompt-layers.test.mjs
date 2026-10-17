@@ -149,6 +149,29 @@ test('the supplement prompt follows the overridden variant count and keeps layer
   assert.ok(layer4(supplement).includes('分类提示') && layer4(supplement).includes('风格提示'));
 });
 
+test('the JSON requirement belongs to layer 5, never appended after layer 6', () => {
+  // P2 回归：非结构化降级曾把「严格只返回 JSON 对象」追加到以第 6 层结尾的 prompt 之后，
+  // 形成 4→5→6→5。现在它必须由 requireJson 放进第 5 层任务段。
+  const payload = { action: 'brainstorm', variantCount: 1, prompt: '要求', typePrompt: '分类提示', personalizedPrompt: '风格提示', draft: { type: 'magic', name: '甲', worldId: 'W01', tags: [] }, selectedBlocks: ['name', 'summary'] };
+  const bundle = buildContextBundle(payload);
+  const jsonInstruction = '严格只返回 JSON 对象。';
+
+  const plain = buildPrompt(payload, bundle);
+  assert.ok(!plain.includes(jsonInstruction), '结构化请求不需要 JSON 兜底指令');
+
+  const degraded = buildPrompt(payload, bundle, { requireJson: true });
+  assert.equal(degraded.split(jsonInstruction).length - 1, 1, 'JSON 指令只出现一次');
+  assert.ok(degraded.indexOf(jsonInstruction) < degraded.indexOf('<worldforge_examples>'), 'JSON 指令必须在第 6 层之前');
+  assert.ok(degraded.indexOf(jsonInstruction) > degraded.indexOf('目标模块：'), 'JSON 指令属于第 5 层');
+  assert.ok(degraded.trimEnd().endsWith('</worldforge_context>'), 'prompt 必须以第 6 层结尾，尾部不得再追加指令');
+
+  const supplement = buildSupplementPrompt({ ...payload, variantCount: 1 }, bundle, { missingCount: 1, acceptedVariants: [{ key: 'a', content: { name: '甲', summary: '乙' } }], issues: [], requireJson: true });
+  assert.equal(supplement.split(jsonInstruction).length - 1, 1, '补生成的 JSON 指令只出现一次');
+  assert.ok(supplement.indexOf(jsonInstruction) < supplement.indexOf('<worldforge_examples>'), '补生成的 JSON 指令必须在第 6 层之前');
+  assert.ok(supplement.indexOf(jsonInstruction) < supplement.indexOf('现在只补充缺少的'), 'JSON 指令与任务段同层');
+  assert.ok(supplement.trimEnd().endsWith('</validation_issues>'), '补生成 prompt 必须以第 6 层最后一块结尾');
+});
+
 test('the composed system plus prompt covers all six layers in order', () => {
   const payload = { action: 'polish', variantCount: 1, typePrompt: '分类提示', personalizedPrompt: '风格提示', draft: { type: 'character', name: '甲', worldId: 'W01', tags: [] }, selectedBlocks: ['name'] };
   const system = composeAgentSystemPrompt({ presetPrompt: 'preset persona', entryContract: LORE_ENTRY_CONTRACT });

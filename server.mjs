@@ -324,19 +324,21 @@ async function callAi(payload) {
   catch (error) {
     if (![400, 404, 422].includes(error.status)) throw error;
     structured = false;
-    try{raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, { structured: false, payload, ...modelOptions })}catch(fallbackError){if(vision.ids.length)fallbackError.message=`当前模型或兼容接口可能不支持图片输入：${fallbackError.message}`;throw fallbackError}
+    // 非结构化降级：JSON 要求由 buildPrompt 放进第 5 层，不能在 prompt 尾部追加，
+    // 否则 prompt 已以第 6 层结束时顺序会退回 4→5→6→5。
+    try{raw = await requestModel(config, buildPrompt(promptPayload, bundle, { requireJson: true }), { structured: false, payload, ...modelOptions })}catch(fallbackError){if(vision.ids.length)fallbackError.message=`当前模型或兼容接口可能不支持图片输入：${fallbackError.message}`;throw fallbackError}
   }
   const result = await completeAiVariants({ raw, payload: validationPayload, expectedCount, requestSupplement: async ({ missingCount, acceptedVariants, issues }) => {
     const supplementPayload = { ...promptPayload, variantCount: missingCount };
     // 补生成与初次请求共用同一 promptPayload（含第 4 层作者提示）与同一层结构（4 → 5 → 6）：
     // 数量要求、补生成指令与 Schema 都对齐 missingCount，不出现「严格返回 2 份」与「只补 1 份」并存。
-    const supplementPrompt = buildSupplementPrompt(supplementPayload, bundle, { missingCount, acceptedVariants, issues });
+    const supplementFor = requireJson => buildSupplementPrompt(supplementPayload, bundle, { missingCount, acceptedVariants, issues, requireJson });
     const supplementSchema = createLoreResponseSchema(supplementPayload);
-    if (!structured) return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload, ...modelOptions });
-    try { return await requestModel(config, supplementPrompt, { structured: true, schema: supplementSchema, payload: supplementPayload, ...modelOptions }); }
+    if (!structured) return requestModel(config, supplementFor(true), { structured: false, payload: supplementPayload, ...modelOptions });
+    try { return await requestModel(config, supplementFor(false), { structured: true, schema: supplementSchema, payload: supplementPayload, ...modelOptions }); }
     catch (error) {
       if (![400, 404, 422].includes(error.status)) throw error;
-      return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload, ...modelOptions });
+      return requestModel(config, supplementFor(true), { structured: false, payload: supplementPayload, ...modelOptions });
     }
   } });
   return { ...result, agent, harnessVersion: HARNESS_VERSION, contextMeta: {...bundle.contextMeta,visionAssetIds:vision.ids} };

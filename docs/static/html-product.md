@@ -1,5 +1,30 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 2 复审第五轮修正（JSON 降级指令的层位）
+
+复审指出三条降级分支仍把「严格只返回 JSON 对象」追加到以第 6 层结尾的 prompt 之后，重新形成 4→5→6→5：
+
+1. 初次请求结构化失败（HTTP 400/404/422）后的非结构化重试；
+2. 初次已降级后再做差额补生成；
+3. 补生成的结构化请求再次失败后的重试。
+
+修正：
+
+- `buildPrompt(payload, bundle, options)` 与 `buildSupplementPrompt(payload, bundle, { …, requireJson })` 新增 `requireJson` 选项，把该指令并入第 5 层任务段末尾（`lorePromptSections` 统一处理）。
+- `server.mjs` 三条分支改为重建请求：`buildPrompt(promptPayload, bundle, { requireJson: true })` 与 `supplementFor(true)`，不再是 `${prompt}\n严格只返回 JSON 对象。`。
+- 结果：降级请求仍以 `</worldforge_context>`（初次）或 `</validation_issues>`（补生成）结尾，JSON 指令始终位于第 5 层。
+
+`callMacroProposal`（W98 模拟提案）仍使用尾部追加，但它不属于 ADR-0029 的 Agent 入口、没有六层结构，本次不动。
+
+新增测试（本轮 200 项）：
+
+- `tests/agent-prompt-layers.test.mjs`（12 → 13 项）：`requireJson` 时指令恰好出现一次、早于所有第 6 层块、晚于第 5 层起点；初次 prompt 以 `</worldforge_context>` 结尾，补生成以 `</validation_issues>` 结尾；未加 `requireJson` 时不出现该指令。
+- `tests/agent-surface-integration.test.mjs`（8 → 10 项）：假模型对所有带 `response_format` 的请求返回 400，覆盖「降级初次 + 降级补生成」两次真实出站请求；另一条用例让初次结构化成功但少给一份、补生成结构化失败，覆盖第三条分支。两处都断言 JSON 指令位于第 5 层、prompt 以第 6 层块结尾、降级补生成第 4 层与初次一致。
+
+文档：ADR-0029 §7 补记「任务类指令含 JSON 兜底必须并入第 5 层」；Sprint 计划 §9.5 增加 S2-15；`ai-harness.mjs.md`、`server.mjs.md`、`tests/README.md` 与 `manifest.json` 哈希增量更新。
+
+验证：`npm run check` 全通过（200 项测试）。未验证项不变：真实付费模型端到端、Sprint 3 选择器、Sprint 4 卡牌 Agent。
+
 ## 2026-10-17 Sprint 2 复审第四轮修正（补生成请求快照）
 
 复审指出补生成使用了错误的 payload：`server.mjs` 虽已构造 `supplementPayload`，调用 `buildSupplementPrompt` 时仍传原始 `payload`。后果有两个：第 5 层出现「严格返回 2 份」与「只补 1 份」的相互矛盾指令（Schema 只接受 1 份），且第 4 层退回「无额外分类提示/无额外统一风格要求」，丢失第一次请求注入的服务端分类提示与个性化提示。

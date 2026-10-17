@@ -490,6 +490,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | S2-12 | 复审 P2：第 4、5 层顺序反转 | 完成：`buildPrompt` 重排为 `author_type_prompt` → `author_personalized_style` → 任务要求 → `worldforge_examples` → `worldforge_context`。新增测试分别断言 system 内 1→2→3 与 user prompt 内 4→5→6，并断言两条通道互不串层；另有完整六层顺序断言 |
 | S2-13 | 复审 P2：差额补生成再次破坏层序 | 完成：抽出 `lorePromptSections(payload, bundle)` 供初次与补生成共用；`buildSupplementPrompt(payload, bundle, { missingCount, acceptedVariants, issues })` 改为按层重排——补生成指令并入第 5 层，`<accepted_variants>` 与 `<validation_issues>` 作为第 6 层最后区块，不再追加到初次 prompt 尾部。新增单元断言与**第二次真实出站请求**的完整层序断言 |
 | S2-14 | 复审 P2：补生成未沿用完整请求快照 | 完成：`callAi` 先构造 `promptPayload = { ...payload, typePrompt, personalizedPrompt }`，初次与补生成共用；`supplementPayload = { ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`。测试断言两次请求第 4 层逐字一致且含作者分类/个性化提示，补生成数量要求为 missingCount 且与 Schema 的 `minItems/maxItems` 一致 |
+| S2-15 | 复审 P2：JSON 降级指令追加在第 6 层之后 | 完成：`buildPrompt` / `buildSupplementPrompt` 新增 `requireJson` 选项，把「严格只返回 JSON 对象」并入第 5 层任务段；`callAi` 的三条降级分支（初次非结构化、初次已降级后的补生成、补生成结构化失败）全部改用该选项，不再拼接 `${prompt}\n…`。新增单元断言（指令只出现一次、早于所有第 6 层块、prompt 以第 6 层结尾）与两条集成断言（假模型对带 `response_format` 的请求返回 400，覆盖降级初次 + 降级补生成、以及补生成结构化失败后的降级） |
 
 分层重构的取舍：
 

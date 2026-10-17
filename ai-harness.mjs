@@ -144,23 +144,26 @@ export function createLoreResponseSchema(payload = {}) {
 /**
  * 只产出第 4、5、6 层的三段文本，供初次请求与差额补生成共用。
  * 补生成必须复用同一结构，否则「原 prompt + 追加」会把新任务放到第 6 层之后。
+ * `requireJson` 时把「严格只返回 JSON 对象」并入第 5 层任务段，而不是在 prompt 尾部追加——
+ * 后者会让降级请求重新变成 4→5→6→5。
  */
-function lorePromptSections(payload, bundle) {
+function lorePromptSections(payload, bundle, { requireJson = false } = {}) {
   const count = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3)), contract = generationContract(payload);
   const blockGuide = contract.blocks.map(item => `- ${item.key}（${item.label}）：${item.instruction}`).join('\n');
   const actionGuide = ({ brainstorm: '提供彼此有实质差异的候选。', polish: '润色所选内容块，不改动未选择字段，也不新增上下文不支持的客观事实。', conflict_check: '在所选内容块内修正明显冲突与缺口，无法解决的内容不要伪装成确定事实。', relations: '强化所选正文中与既有资料有关的动机、影响和剧情钩子。', background_story: '创作彼此独立的背景故事候选。' })[payload?.action] || '提供彼此有实质差异的候选。';
   const examples = { canonSameType: bundle.examples || [], authorAdded: text(payload?.userExamples || '', 6000) };
   const context = { harnessVersion: bundle.harnessVersion, projectRules: bundle.projectRules, currentDraft: bundle.currentDraft, entries: bundle.entries, contextMeta: bundle.contextMeta };
   const authorPrompts = `<author_type_prompt>\n${text(payload?.typePrompt || '无额外分类提示', 8000)}\n</author_type_prompt>\n<author_personalized_style>\n${text(payload?.personalizedPrompt || '无额外统一风格要求', 8000)}\n</author_personalized_style>`;
-  const taskRequest = `目标模块：${contract.label}\n任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n只生成以下已勾选内容块，content 中不得出现其他键：\n${blockGuide}\n模块写作重点：${contract.focus}\n作者补充要求：${text(payload?.prompt || '无', 4000)}\n每个字段都直接输出可回填的成品内容；禁止输出“本候选”“层次位置”“设计说明”等元话语，也不要解释字段、Schema、候选策略或设计过程。关联建议不得使用上下文中不存在的 ID。`;
+  const jsonInstruction = requireJson ? '\n严格只返回 JSON 对象。' : '';
+  const taskRequest = `目标模块：${contract.label}\n任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n只生成以下已勾选内容块，content 中不得出现其他键：\n${blockGuide}\n模块写作重点：${contract.focus}\n作者补充要求：${text(payload?.prompt || '无', 4000)}\n每个字段都直接输出可回填的成品内容；禁止输出“本候选”“层次位置”“设计说明”等元话语，也不要解释字段、Schema、候选策略或设计过程。关联建议不得使用上下文中不存在的 ID。${jsonInstruction}`;
   const untrusted = `<worldforge_examples>\n${JSON.stringify(examples, null, 2)}\n</worldforge_examples>\n<worldforge_context>\n${JSON.stringify(context, null, 2)}\n</worldforge_context>`;
   return { authorPrompts, taskRequest, untrusted };
 }
 
-export function buildPrompt(payload, bundle) {
+export function buildPrompt(payload, bundle, options = {}) {
   // 第 4 层（作者提示）→ 第 5 层（本次任务要求）→ 第 6 层（不可信上下文）。
   // 顺序由 ADR-0029 §7 冻结，测试按出场位置断言。
-  const { authorPrompts, taskRequest, untrusted } = lorePromptSections(payload, bundle);
+  const { authorPrompts, taskRequest, untrusted } = lorePromptSections(payload, bundle, options);
   return `${authorPrompts}\n${taskRequest}\n${untrusted}`;
 }
 
@@ -232,9 +235,10 @@ export function inspectAiResponse(raw, payload = {}, stage = 'initial') {
  * 第 4 层作者提示 → 第 5 层任务（初始任务 + 补生成指令）→ 第 6 层不可信上下文
  * （示例/资料在前，模型已产出的候选与校验问题数据在最后）。
  * 不能把内容追加到已含第 6 层的 initialPrompt 之后，否则会形成 4→5→6→6→5。
+ * `requireJson` 与 `buildPrompt` 同义：JSON 要求属于第 5 层，不进尾部。
  */
-export function buildSupplementPrompt(payload, bundle, { missingCount = 1, acceptedVariants = [], issues = [] } = {}) {
-  const { authorPrompts, taskRequest, untrusted } = lorePromptSections(payload, bundle);
+export function buildSupplementPrompt(payload, bundle, { missingCount = 1, acceptedVariants = [], issues = [], requireJson = false } = {}) {
+  const { authorPrompts, taskRequest, untrusted } = lorePromptSections(payload, bundle, { requireJson });
   const issueSummary = issues.slice(0, 8).map(item => `- ${item.index === null ? '整体' : `第 ${item.index + 1} 条`}：${item.message}`).join('\n') || '- 返回条数不足';
   const supplementTask = `现在只补充缺少的 ${missingCount} 份新候选。严格返回恰好 ${missingCount} 份 variants，并使用与 accepted_variants 中已验收候选不同的 key 和实质内容；不要重写、复述或返回已验收候选。`;
   const supplementUntrusted = `<accepted_variants>\n${JSON.stringify(acceptedVariants, null, 2)}\n</accepted_variants>\n<validation_issues>\n${issueSummary}\n</validation_issues>`;

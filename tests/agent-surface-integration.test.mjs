@@ -205,6 +205,57 @@ test('supplement generation reuses the same preset snapshot', async () => {
   assert.equal(supplementSchema.properties.variants.maxItems, 1, '补生成 Schema 的 maxItems 应为 missingCount');
 });
 
+/** 断言一条出站 prompt 的 JSON 兜底指令位于第 5 层（早于所有第 6 层块），且不在尾部。 */
+function assertJsonInstructionInTaskLayer(prompt, { endsWith }) {
+  const instruction = '严格只返回 JSON 对象。';
+  assert.equal(prompt.split(instruction).length - 1, 1, 'JSON 指令应恰好出现一次');
+  const index = prompt.indexOf(instruction);
+  const firstUntrusted = Math.min(...['<worldforge_examples>', '<worldforge_context>', '<accepted_variants>', '<validation_issues>']
+    .map(tag => prompt.indexOf(tag))
+    .filter(index => index >= 0));
+  assert.ok(index > prompt.indexOf('目标模块：'), 'JSON 指令属于第 5 层');
+  assert.ok(index < firstUntrusted, 'JSON 指令必须早于所有第 6 层块');
+  assert.ok(prompt.trimEnd().endsWith(endsWith), `prompt 应以 ${endsWith} 结尾，尾部不得再追加指令`);
+}
+
+test('the initial non-structured fallback keeps the JSON requirement inside layer 5', async () => {
+  fakeModel.reset();
+  // 结构化请求一律 400（模拟不支持 response_format 的兼容接口），非结构化按候选数返回。
+  let nonStructured = 0;
+  fakeModel.setBehavior(body => {
+    if (body.response_format) return { status: 400, json: { error: { message: 'response_format unsupported' } } };
+    nonStructured += 1;
+    return loreReply({ name: `第${nonStructured}份`, summary: '摘要' }, `candidate-${nonStructured}`);
+  });
+  const data = await (await fetch(`${baseUrl}/api/ai`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loreBody({ variantCount: 2 })) })).json();
+  assert.equal(data.variants.length, 2);
+  assert.equal(fakeModel.requests.length, 3, '结构化失败 + 非结构化成功 + 非结构化补生成');
+
+  // 第二次（降级初次）与第三次（降级补生成）都必须保持 4→5→6。
+  assertJsonInstructionInTaskLayer(fakeModel.requests[1].body.messages.filter(item => item.role === 'user').at(-1).content, { endsWith: '</worldforge_context>' });
+  assertJsonInstructionInTaskLayer(fakeModel.requests[2].body.messages.filter(item => item.role === 'user').at(-1).content, { endsWith: '</validation_issues>' });
+  const layer4 = text => text.slice(text.indexOf('<author_type_prompt>'), text.indexOf('</author_personalized_style>') + '</author_personalized_style>'.length);
+  assert.equal(layer4(fakeModel.requests[2].body.messages.filter(item => item.role === 'user').at(-1).content), layer4(fakeModel.requests[1].body.messages.filter(item => item.role === 'user').at(-1).content), '降级补生成仍沿用同一第 4 层');
+});
+
+test('the supplement structured fallback keeps the JSON requirement inside layer 5', async () => {
+  fakeModel.reset();
+  let structuredCalls = 0;
+  fakeModel.setBehavior(body => {
+    if (body.response_format) {
+      structuredCalls += 1;
+      // 第一次结构化（初次）成功但少给一份，触发补生成；补生成的结构化请求失败 → 走降级。
+      if (structuredCalls === 1) return loreReply({ name: '第一份', summary: '摘要' }, 'candidate-a');
+      return { status: 400, json: { error: { message: 'response_format unsupported' } } };
+    }
+    return loreReply({ name: '第二份', summary: '摘要' }, 'candidate-b');
+  });
+  const data = await (await fetch(`${baseUrl}/api/ai`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loreBody({ variantCount: 2 })) })).json();
+  assert.equal(data.variants.length, 2);
+  assert.equal(fakeModel.requests.length, 3, '初次结构化 + 补生成结构化失败 + 补生成降级');
+  assertJsonInstructionInTaskLayer(fakeModel.requests[2].body.messages.filter(item => item.role === 'user').at(-1).content, { endsWith: '</validation_issues>' });
+});
+
 test('the free entry keeps untrusted content out of the system instructions', async () => {
   fakeModel.reset();
   fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '可以从三个方向展开。' } }] } }));
