@@ -65,7 +65,7 @@
 
 ## 重点逻辑
 
-- **资料组与多世界（v0.4.0）**：标签页、表单形态、AI 内容块与地理/编年史作用域全部由「资料组」驱动；固定组只有世界/世界信息/角色/编年史/背景故事五项。整库快照只提交**已保存**的组（`contentSnapshot` 用 `readCustomLoreGroups()`），派生组在各端按世界重算；`commitLoreGroups` 保存当前世界视图时保留其他世界的组。`readLore()` 会滤掉早期 `seeded` 的默认世界，`normalizeLore` 不再把缺失的 `worldId` 改写为 `W01`。
+- **资料组与多世界（v0.3.1）**：标签页、表单形态、AI 内容块与地理/编年史作用域全部由「资料组」驱动；固定组只有世界/世界信息/角色/编年史/背景故事五项。整库快照只提交**已保存**的组（`contentSnapshot` 用 `readCustomLoreGroups()`），派生组在各端按世界重算；`commitLoreGroups` 保存当前世界视图时保留其他世界的组。`readLore()` 会滤掉早期 `seeded` 的默认世界，`normalizeLore` 不再把缺失的 `worldId` 改写为 `W01`。
 - **数据同步与迁移（`L26`–`L27`）**：`persistContent` 用 `expectedRevision: contentRevision` 做乐观锁，成功后回写 `contentRevision` 并置 `MIGRATION_KEY`；`409` 时不再写库（`contentReady=false`），提示“先导出再刷新”，避免覆盖他端写入。`hydrateContent` 区分三种启动态（库未初始化/需迁移/已就绪），迁移前把本地快照存进 `BACKUP_KEY`。
 - **付费生图失败恢复（`L6`–`L7`）**：只有空响应、非 JSON、读取失败或 `TypeError`（网络）才进入找回流程；HTTP 语义错误（如 4xx）直接抛出，不找回也不重试。
 - **卡面一致性（`L129` + `L146`）**：预览与 PNG 都从 `WorldforgeCards.compileDescription()` 的 `runs` 出发，字体随字数降档（`L125`：>95 字 21px 起，最多 7 行），裁剪由 `artRect(type)` 按卡牌类型给出画框。

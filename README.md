@@ -2,7 +2,7 @@
 
 原创多世界神性宇宙与策略卡牌内容设计仓库。
 
-当前版本：**0.4.0**（2026-10-20）。该版本把资料类型从固定十三类改为「五项固定资料组 + 作者自定义组」，删除了内置的默认世界与题材种子，新增服务端整库导入/导出，并让作者资料库可以跑在 PostgreSQL 上（模拟存档仍为独立 SQLite）；提示词与界面文案同步清洗为不假设任何世界题材。0.3.0 加入公网发布所需的账号体系：scrypt 口令、HMAC 签名会话 Cookie、admin/member 两级权限、设置页账号管理面板、每人每日 AI/生图配额与审计（ADR-0030）；世界设定与卡牌数值仍为草案 / `untested`，不代表规则定稿。0.2.2 把三个 DSH Agent preset 接入设定助手、自由创作与卡牌三个入口，并配套回滚开关、分入口设置、静态文档双门禁与容器化。
+当前版本：**0.3.1**（2026-10-20）。该版本把资料类型从固定十三类改为「五项固定资料组 + 作者自定义组」，删除了内置的默认世界与题材种子，新增服务端整库导入/导出，并让作者资料库可以跑在 PostgreSQL 上（模拟存档仍为独立 SQLite）；提示词与界面文案同步清洗为不假设任何世界题材。0.3.0 加入公网发布所需的账号体系：scrypt 口令、HMAC 签名会话 Cookie、admin/member 两级权限、设置页账号管理面板、每人每日 AI/生图配额与审计（ADR-0030）；世界设定与卡牌数值仍为草案 / `untested`，不代表规则定稿。0.2.2 把三个 DSH Agent preset 接入设定助手、自由创作与卡牌三个入口，并配套回滚开关、分入口设置、静态文档双门禁与容器化。
 
 仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。每个 preset 额外携带 WorldForge 产品侧的只读投影：`worldforge.runtime.json`（契约见 [`docs/schemas/agent-runtime.schema.json`](docs/schemas/agent-runtime.schema.json)）与 `runtime/system.md`。产品只读这两个纯数据文件，永不解析或执行含 `!!js` 的 `agent.cordis.yml`，该边界由 [ADR-0029](docs/adr/ADR-0029-agent-profile-runtime-projection.md) 固定。
 

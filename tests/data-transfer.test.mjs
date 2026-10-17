@@ -20,10 +20,10 @@ const content = () => ({
 const asset = (id) => ({ id, targetType: 'lore', targetId: 'W01', purpose: 'portrait', prompt: '提示词', model: 'seedream', size: '2K', mimeType: 'image/png', fileName: `${id}.png`, status: 'proposed', createdAt: '2026-10-20T00:00:00.000Z' });
 
 test('导出的整包带上格式标识、资料组与美术元数据', () => {
-  const bundle = buildExportBundle({ content: content(), artAssets: [asset('ART-0001')], productVersion: '0.4.0' });
+  const bundle = buildExportBundle({ content: content(), artAssets: [asset('ART-0001')], productVersion: '0.3.1' });
   assert.equal(bundle.format, EXPORT_FORMAT);
   assert.equal(bundle.formatVersion, EXPORT_FORMAT_VERSION);
-  assert.equal(bundle.productVersion, '0.4.0');
+  assert.equal(bundle.productVersion, '0.3.1');
   assert.equal(bundle.revision, 7);
   assert.equal(bundle.lastSavedBy, 'alice');
   assert.deepEqual(Object.keys(bundle.content).sort(), ['cardDrafts', 'keywords', 'loreEntries', 'loreGroups', 'notes']);

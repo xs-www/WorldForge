@@ -46,7 +46,7 @@ const apiUrl = path => new URL(path, API_ROOT);
 - **会话快照决定可见性**：`bootstrap()` 先 `loadSession()`（`L263`，请求 `auth/session`），账号模式下没有会话就直接返回；`applySessionUi()` 按 `sessionMode` / `currentUser` 隐藏成员不可用的入口（`#openSettings`、`#settingsUsersTab`），并驱动页头用户名、改口令与退出按钮（`L261–L284`）。
 - **账号面板**：设置里的 `data-settings-panel="users"` 由 `refreshUsers` / `userRow` / `patchUser` / `createUserFromForm` / `resetUserPassword` / `removeUser` 驱动（`L271–L276`）；创建与重置返回的一次性口令只写入 `#userSecret`，刷新列表即清空。
 - **自助改口令**：页头「改口令」打开 `#passwordDialog`，提交到 `auth/password`；成功后服务端换发 Cookie，其他设备因 `sessionVersion` 变更失效。
-- **登录页资源**：`login.js` 只使用 `SCRIPT_ROOT` / `API_ROOT` 相对路径；`styles.css?v=42` 同时服务两个页面，改样式要同时递增两处 `?v=`（0.4.0 之前 login.html 曾停在 `?v=40` 与 index.html 不一致，已统一）。
+- **登录页资源**：`login.js` 只使用 `SCRIPT_ROOT` / `API_ROOT` 相对路径；`styles.css?v=42` 同时服务两个页面，改样式要同时递增两处 `?v=`（0.3.1 之前 login.html 曾停在 `?v=40` 与 index.html 不一致，已统一）。
 
 ## 数据边界：SQLite 为真值，localStorage 仅缓存/迁移
 

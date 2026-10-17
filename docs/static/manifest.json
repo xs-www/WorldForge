@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "c83a4d0078eae866621077494f651b3a4caf900aaa0f6b231268b7d18a4d3665"
+      "sha256": "94943c96e968c8bcd2bcc0919c9fdc3487f584297d4b879dfd49971e28d02ca7"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,7 +294,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "e0216d9d16f2dfd650613a88b7d7e8f02854381353108d6dad09cac473b4fe07"
+      "sha256": "df0d72037e83fcbf9b0ace831fb23286dd28dd5d23037855cb099576c6e82e73"
     },
     {
       "source": "dist/login.html",
@@ -312,7 +312,7 @@
       "source": "dist/lore-groups.js",
       "doc": "docs/static/dist/lore-groups.js.md",
       "status": "documented",
-      "sha256": "21d9506dc6a496ae4bc9da60123d1fa732eed6f55bcb1ec222144e1f88444378"
+      "sha256": "0d3cded74b1826cdff782f2829987033919c31dce8d2855753ad66fcfac7ea4d"
     },
     {
       "source": "dist/macro.js",
@@ -372,7 +372,7 @@
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "1cf434ec9b9807b0dd12f43dcb4cd73b95f44931277b421200458237b21a0a1b"
+      "sha256": "274c790139a197a59e16d13f4c51d94bedd9c0cd2f92ca59af6b3af89f3b0fc1"
     },
     {
       "source": "prompt-settings.mjs",
@@ -702,7 +702,7 @@
       "source": "tests/data-transfer.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "66a65d1d8090ebbc72354cf72c0620cb96cee5cdeb9d9b5594348f793ba2f609"
+      "sha256": "99f7502f71f2cd424e073264624bd77b5351574f9f88965b6b9fea25b09d710d"
     },
     {
       "source": "tests/docker-packaging.test.mjs",
