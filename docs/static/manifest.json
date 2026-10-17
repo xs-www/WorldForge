@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "10c16f2b9524a8630214301c20cf82df1c4519e16ac842c3c9137f32cbe0d2a0"
+      "sha256": "081cf3efc14a2773d26feefc0ac9ef47e0168d7e592166ea80ab676bfb5fdfb4"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,13 +294,13 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "5b4b41cce1d081a62a885488e2dcb0bf6a1db648bd3b1679288a153debf4b793"
+      "sha256": "9fc44a4e827d16cbb3d56809a79959b46add3bc25a8ccb7e130c70c5fbcf0d77"
     },
     {
       "source": "dist/login.html",
       "doc": "docs/static/dist/login.html.md",
       "status": "documented",
-      "sha256": "85fdff22f3baf071a1a036cc8f13b62026df2fe57a7fd4654926303836ffe1af"
+      "sha256": "69eaf94519bfe4ff2e2c3c948aab6c6018defedeab92e3eb9db685053eda5b82"
     },
     {
       "source": "dist/login.js",
@@ -330,7 +330,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "76997cb910615e587334eb76c02f480b998312fb0848143285df4f48fd962408"
+      "sha256": "e2a1b6bb89b6e0d727df57041208b46b3a11338255d033e3454e0edf3c6fb0bd"
     },
     {
       "source": "dist/world-scope.js",
@@ -834,7 +834,7 @@
       "source": "tests/frontend-dom-contract.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "e451722b6b142cc9dde0fdfb236bda02666dcc4e1ebce34b08aaf240771db02d"
+      "sha256": "57258a0594841d39ebc946398c0abcf2b7305449d78f98b6c39109d943c423ca"
     },
     {
       "source": "tests/geography.test.mjs",
@@ -930,7 +930,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "a4d1db2b8a67e63bd0d4cbc43f56795b39192a89f5615d62f97639197d483919"
+      "sha256": "5def90a66f2df5d4cf140e05a9e0b5d54062a51cc44b8cdd5c397391f1671002"
     },
     {
       "source": "tests/world-package.test.mjs",

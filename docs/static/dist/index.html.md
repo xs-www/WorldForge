@@ -16,7 +16,7 @@
 | `section#battleModule[data-page=battle]` | 对战台 + 侧栏（关键词说明、`#battleLog`） | `L243–L265` |
 | `section#freeModule[data-page=free]` | 对话区 + 工具区（名称生成器） | `L267–L298` |
 | `section#simulationModule[data-page=simulation]` | W98 宏观面板；底部 `<details class="simulation-diagnostics">` 折叠 W99 诊断区（默认折叠，减少主视图噪音） | `L300–L393` |
-| 资料组对话框 | `#groupDialog`：新建模式没有选择器，编辑模式才有 `#groupPickRow`/`#groupSelect`；另有 `#groupLabel`、`#groupFormType`、`#groupScope`、字段编辑器 `#groupFieldRows` + `#addGroupField` + `#restoreGroupFields`、`#groupPrompt`、返回 JSON 约束预览 `#groupSchemaPreview` | `L418` |
+| 资料组对话框 | `#groupDialog` 三态：列表（`#groupPickRow` + `#groupPickList`，每行一个组、点进去编辑）、新建、编辑（`#groupFormBody`）。编辑态有 `#groupBackRow`/`#groupBack` 回到列表；表单含 `#groupLabel`、`#groupFormType`、`#groupScope`、字段编辑器 `#groupFieldRows` + `#addGroupField` + `#restoreGroupFields`、`#groupPrompt`、返回 JSON 约束预览 `#groupSchemaPreview` | `L418` |
 | `dialog` × 7 | `#noteDialog`、`#keywordDialog`、`#relationDialog`、`#groupDialog`（资料组管理）、`#settingsDialog`、`#passwordDialog`（自助改口令）、`#imageViewer`，均为 `form method="dialog"` | `L396–L452` |
 | 设置对话框的数据面板 | `#settingsExport`（完整 JSON）、`#settingsExportImages`（内嵌图片）、`#importFile` / `#importMode` / `#importPreview` / `#importApply` / `#importStatus`：服务端导出与「先预检、再确认」的导入 | `L447` |
 | 设置对话框的账号面板 | 仅管理员可见的 `[data-settings-tab="users"]` / `[data-settings-panel="users"]`：`#userList`、`#userStatus`、`#userSecret`、`#newUserName` / `#newUserRole` / `#newUserPassword`、`#createUser` | `L441–L449` |
@@ -26,8 +26,8 @@
 
 ## 脚本装配顺序与缓存版本
 
-`<head>`：`styles.css?v=42`（`L14`）。`</body>` 前（`L454–L464`）依次为
-`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=57`。
+`<head>`：`styles.css?v=44`（`L14`）。`</body>` 前（`L454–L464`）依次为
+`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=58`。
 
 - 顺序不可调整：`app.js` 末尾同步执行 `bootstrap()`，依赖前 5 个脚本暴露的 `Worldforge*` 全局；`battle-ui.js` 依赖 `battle.js`。
 - 所有脚本都必须位于 `</body>` 前，因为 `battle-ui.js`、`macro.js`、`app.js` 在加载时就查询 DOM 并绑定事件。

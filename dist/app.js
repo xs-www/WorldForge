@@ -319,7 +319,7 @@ resetLoreEditor=function(type=activeLoreType){loreReferenceAssetIds=new Set();ba
 refreshArtAssets=async function(){await baseRefreshArtAssets();renderLoreArtCandidates();renderLoreLinkedCards();renderReferenceAssets('card');renderFreeAttachments()};
 q('#saveLore').onclick=()=>{saveLore();updateLoreVisualState()};q('#openSettings').onclick=openSettingsWithVisuals;q('#saveSettings').onclick=saveSettingsWithVisuals;q('#settingImagePromptType').onchange=event=>showImagePrompt(event.target.value);q('#resetImagePrompt').onclick=()=>{q('#settingImagePrompt').value=imagePromptDefaults[activeImagePromptType]||'';imagePromptDrafts[activeImagePromptType]=q('#settingImagePrompt').value;q('#promptSettingsStatus').textContent='已恢复当前生图分类默认值；保存设置后生效'};q('#prepareLoreArtPrompt').onclick=prepareLoreVisualPrompt;q('#optimizeLoreArtPrompt').onclick=optimizeLoreVisualPrompt;q('#generateLoreArt').onclick=generateLoreVisual;q('#loreArtProvider').onchange=updateLoreVisualState;q('#optimizeCardArtPrompt').onclick=optimizeCardArtPromptWithLore;q('#clearCardArt').onclick=clearCardArt;q('#generateCardArt').onclick=generateCardArtWithLore;
 q('#loreArtProvider').onchange=()=>{const provider=q('#loreArtProvider').value,ready=imageStatus[provider];q('#loreArtStatus').textContent=ready?(provider==='seedream'?'Seedream API 已配置；生成时会自动组合设定上下文':'ComfyUI 已配置；生成时会自动组合设定上下文'):(provider==='seedream'?'请先在设置中配置 Seedream API Key':'请先在设置中配置 ComfyUI 工作流');q('#generateLoreArt').disabled=!activeLoreId||!ready};
-q('#cardReferenceUpload').onchange=event=>{uploadReferenceFiles('card',event.target.files);event.target.value=''};q('#loreReferenceUpload').onchange=event=>{uploadReferenceFiles('lore',event.target.files);event.target.value=''};q('#bindLoreCard').onclick=bindExistingCardToLore;q('#newLoreGroup').onclick=()=>openLoreGroupDialog('create');q('#manageLoreGroup').onclick=()=>{const current=loreGroup(activeLoreType);openLoreGroupDialog('edit',loreGroupKey(current))};q('#addGroupField').onclick=()=>{groupFieldDraft=readGroupFieldDraft();groupFieldDraft.push({key:'',label:'',kind:'text',hint:''});paintGroupFieldRows()};q('#restoreGroupFields').onclick=()=>{const group=loreGroupsView().find(item=>item.id===editingLoreGroupId);const defaults=(WorldforgeLoreGroups.FIXED_GROUPS.find(item=>item.id===editingLoreGroupId)||WorldforgeLoreGroups.LEGACY_GROUPS[editingLoreGroupId]||{}).defaultFields||WorldforgeLoreGroups.MINIMAL_FIELDS;groupFieldDraft=defaults.map(item=>({...item}));paintGroupFieldRows();q('#groupStatus').textContent='已载入默认字段（尚未保存）'};q('#groupFormType').onchange=previewGroupSchema;q('#groupFieldRows').addEventListener('input',previewGroupSchema);q('#groupFieldRows').addEventListener('change',previewGroupSchema);q('#saveLoreGroup').onclick=saveLoreGroupFromDialog;q('#deleteLoreGroup').onclick=deleteLoreGroupFromDialog;q('#groupSelect').onchange=event=>fillLoreGroupDialog('edit',event.target.value);q('#cardSubtype').onchange=()=>{const select=q('#cardSubtype'),type=q('#cardType').value;if(select.value!=='__custom__')return updateCardSubtypeLines(type,select.value);const entered=(window.prompt('输入新的'+(type==='spell'?'派系':'种族')+'名称（留空取消）')||'').trim().slice(0,WorldforgeCards.SUBTYPE_LIMIT);renderCardSubtype(type,entered)};q('#cardWorldId').onchange=()=>renderCardSubtype(q('#cardType').value);
+q('#cardReferenceUpload').onchange=event=>{uploadReferenceFiles('card',event.target.files);event.target.value=''};q('#loreReferenceUpload').onchange=event=>{uploadReferenceFiles('lore',event.target.files);event.target.value=''};q('#bindLoreCard').onclick=bindExistingCardToLore;q('#newLoreGroup').onclick=()=>openLoreGroupDialog('create');q('#manageLoreGroup').onclick=()=>openLoreGroupDialog('list');q('#newGroupFromList').onclick=()=>fillLoreGroupDialog('create');q('#groupBack').onclick=()=>fillLoreGroupDialog('list');q('#addGroupField').onclick=()=>{groupFieldDraft=readGroupFieldDraft();groupFieldDraft.push({key:'',label:'',kind:'text',hint:''});paintGroupFieldRows()};q('#restoreGroupFields').onclick=()=>{const group=loreGroupsView().find(item=>item.id===editingLoreGroupId);const defaults=(WorldforgeLoreGroups.FIXED_GROUPS.find(item=>item.id===editingLoreGroupId)||WorldforgeLoreGroups.LEGACY_GROUPS[editingLoreGroupId]||{}).defaultFields||WorldforgeLoreGroups.MINIMAL_FIELDS;groupFieldDraft=defaults.map(item=>({...item}));paintGroupFieldRows();q('#groupStatus').textContent='已载入默认字段（尚未保存）'};q('#groupFormType').onchange=previewGroupSchema;q('#groupFieldRows').addEventListener('input',previewGroupSchema);q('#groupFieldRows').addEventListener('change',previewGroupSchema);q('#saveLoreGroup').onclick=saveLoreGroupFromDialog;q('#deleteLoreGroup').onclick=deleteLoreGroupFromDialog;q('#cardSubtype').onchange=()=>{const select=q('#cardSubtype'),type=q('#cardType').value;if(select.value!=='__custom__')return updateCardSubtypeLines(type,select.value);const entered=(window.prompt('输入新的'+(type==='spell'?'派系':'种族')+'名称（留空取消）')||'').trim().slice(0,WorldforgeCards.SUBTYPE_LIMIT);renderCardSubtype(type,entered)};q('#cardWorldId').onchange=()=>renderCardSubtype(q('#cardType').value);
 const UI_KEY='worldforge-ui-state-v1';
 function readUiState(){return readStore(UI_KEY,{})}
 function aiPanelState(){const state=readUiState().aiPanel;return['open','min','closed'].includes(state)?state:'open'}
@@ -358,7 +358,22 @@ function describeImportResult(data){const summary=data.summary||{},part=(label,i
 async function previewImport(){const status=q('#importStatus');try{status.textContent='正在预检…';const payload=await readImportFile(),response=await fetch(apiUrl('import'),{method:'POST',headers:{'Content-Type':'application/json','X-Worldforge-Import':'1'},body:JSON.stringify({mode:q('#importMode').value,dryRun:true,payload})}),data=await readApiJson(response,'预检失败');pendingImportPayload=payload;q('#importApply').hidden=false;status.textContent=describeImportResult(data)}catch(error){pendingImportPayload=null;q('#importApply').hidden=true;status.textContent='预检失败：'+error.message}}
 async function applyImport(){if(!pendingImportPayload)return showToast('请先预检导入文件');const status=q('#importStatus'),button=q('#importApply');try{button.disabled=true;status.textContent='正在导入…';const response=await fetch(apiUrl('import'),{method:'POST',headers:{'Content-Type':'application/json','X-Worldforge-Import':'1'},body:JSON.stringify({mode:q('#importMode').value,dryRun:false,payload:pendingImportPayload})}),data=await readApiJson(response,'导入失败');status.textContent='导入完成：'+describeImportResult(data);pendingImportPayload=null;q('#importApply').hidden=true;q('#importFile').value='';await hydrateContent();await refreshArtAssets();renderLoreTabs();renderLoreList();renderWorldHub();showToast('数据已导入')}catch(error){status.textContent='导入失败：'+error.message}finally{button.disabled=false}}
 let editingLoreGroupId='';
-function refreshLoreGroupSelect(){const select=q('#groupSelect');if(!select)return;const groups=loreGroupsView();select.replaceChildren(...groups.map(group=>{const option=document.createElement('option');option.value=loreGroupKey(group);option.textContent=group.label+'（'+group.id+(group.fixed?' · 固定':' · 自定义')+'）';return option}))}
+// 组列表：一行一个组，说明它是预置组还是自定义组、作用范围，点一下就进入编辑。
+function renderLoreGroupPicker(){
+  const list=q('#groupPickList');if(!list)return;
+  const groups=loreGroupsView();
+  list.replaceChildren(...groups.map(group=>{
+    const button=document.createElement('button'),main=document.createElement('span'),title=document.createElement('strong'),scope=document.createElement('small'),tail=document.createElement('span');
+    button.type='button';button.className='group-pick-item';button.title='编辑这个组的字段与提示';
+    title.textContent=group.label;
+    scope.textContent=(group.fixed?'预置组':'自定义组')+' · '+(group.fixed||!group.worldId?'所有世界':'仅 '+(group.worldId||'当前世界'));
+    main.className='group-pick-main';main.append(title,scope);
+    tail.className='group-pick-tail';tail.textContent=group.fields.length+' 个块 →';
+    button.append(main,tail);
+    button.onclick=()=>fillLoreGroupDialog('edit',loreGroupKey(group));
+    return button;
+  }));
+}
 let editingLoreGroupWorld='';let groupFieldDraft=[];
 let groupDialogMode='create';
 function editableGroup(selection){const wanted=String(selection||'');return loreGroupsView().find(item=>loreGroupKey(item)===wanted)||null}
@@ -377,11 +392,16 @@ function paintGroupFieldRows(){
 function readGroupFieldDraft(){const used=new Set();return qa('#groupFieldRows .group-field-row').map((row,index)=>{const label=row.querySelector('[data-role="label"]').value.trim(),kind=row.querySelector('[data-role="kind"]').value,existing=groupFieldDraft[index]||{},key=existing.key&&!used.has(existing.key)?existing.key:groupFieldKey(label,index,used);used.add(key);return{key,label:label||key,kind:kind==='multiline'||kind==='lines'||kind==='number'?kind:'text',hint:existing.hint||''}})}
 function previewGroupSchema(){const preview=q('#groupSchemaPreview');if(!preview)return;preview.textContent=JSON.stringify(WorldforgeLoreGroups.groupResponseSchema({fields:readGroupFieldDraft()}),null,2)}
 function fillLoreGroupDialog(mode='create',selection=''){
-  groupDialogMode=mode==='edit'?'edit':'create';
+  groupDialogMode=['edit','list'].includes(mode)?mode:'create';
   const group=groupDialogMode==='edit'?editableGroup(selection):null;
+  if(groupDialogMode==='edit'&&!group){groupDialogMode='list'}
   editingLoreGroupId=group?group.id:'';editingLoreGroupWorld=group?(group.worldId||''):'';
-  q('#groupDialogTitle').textContent=group?'编辑资料组 · '+group.label:'新建资料组';
-  q('#groupPickRow').hidden=groupDialogMode!=='edit';
+  const listing=groupDialogMode==='list';
+  q('#groupPickRow').hidden=!listing;
+  q('#groupFormBody').hidden=listing;
+  q('#groupBackRow').hidden=groupDialogMode!=='edit';
+  if(listing){q('#groupDialogTitle').textContent='资料组';q('#groupStatus').textContent='共 '+loreGroupsView().length+' 个组；点一行修改它的字段与提示。';renderLoreGroupPicker();return}
+  q('#groupDialogTitle').textContent=group?'编辑：'+group.label:'新建资料组';
   q('#groupLabel').value=group?group.label:'';
   q('#groupFormType').value=group?group.form:'generic';
   q('#groupScope').value=group&&group.worldId?'__world__':'__shared__';
@@ -389,9 +409,7 @@ function fillLoreGroupDialog(mode='create',selection=''){
   q('#groupPrompt').value=group?group.prompt||'':'';
   q('#deleteLoreGroup').hidden=!group||Boolean(group.fixed);
   groupFieldDraft=(group?group.fields:WorldforgeLoreGroups.MINIMAL_FIELDS).map(item=>({...item}));
-  q('#groupStatus').textContent=group?(group.fixed?'固定组：改的是它的字段与提示，组本身不能删':'组编号 '+group.id+(group.worldId?' · 仅世界 '+group.worldId:' · 所有世界共享')):('新组默认只属于 '+(currentWorldId()||'当前世界')+'；需要跨世界复用请选「所有世界共享」');
-  refreshLoreGroupSelect();
-  if(group)q('#groupSelect').value=loreGroupKey(group);
+  q('#groupStatus').textContent=group?(group.fixed?'预置组：字段与 AI 提示都可以改，组本身不能删':'自定义组'+(group.worldId?' · 仅世界 '+group.worldId:' · 所有世界共享')):('新组默认只属于 '+(currentWorldId()||'当前世界')+'；需要跨世界复用请选「所有世界共享」');
   paintGroupFieldRows();
 }
 function openLoreGroupDialog(mode='create',selection=''){fillLoreGroupDialog(mode,selection);q('#groupDialog').showModal()}
@@ -414,5 +432,5 @@ function saveLoreGroupFromDialog(){
   if(activeLoreType===saved.id){renderLoreFields(saved,entryValues(readLore().find(entry=>entry.id===activeLoreId)||{}));}
   showToast('资料组已保存');
 }
-function deleteLoreGroupFromDialog(){if(!editingLoreGroupId)return;const group=loreGroupsView().find(item=>item.id===editingLoreGroupId&&(item.worldId||'')===editingLoreGroupWorld);if(group?.fixed)return q('#groupStatus').textContent='固定组不能删除，只能改字段';if(readLore().some(entry=>entry.type===editingLoreGroupId))return q('#groupStatus').textContent='该资料组下还有资料，请先把它们移到其他组或删除';if(!confirm('删除这个资料组？已有资料不会受影响。'))return;const remaining=readCustomLoreGroups().filter(item=>!(item.id===editingLoreGroupId&&(item.worldId||'')===editingLoreGroupWorld));writeLoreGroups(remaining);editingLoreGroupId='';editingLoreGroupWorld='';renderLoreTabs();renderLoreList();fillLoreGroupDialog('create');if(activeLoreType===group?.id&&!loreGroupsView().some(item=>item.id===group.id))selectLoreType('world');showToast('资料组已删除')}
+function deleteLoreGroupFromDialog(){if(!editingLoreGroupId)return;const group=loreGroupsView().find(item=>item.id===editingLoreGroupId&&(item.worldId||'')===editingLoreGroupWorld);if(group?.fixed)return q('#groupStatus').textContent='固定组不能删除，只能改字段';if(readLore().some(entry=>entry.type===editingLoreGroupId))return q('#groupStatus').textContent='该资料组下还有资料，请先把它们移到其他组或删除';if(!confirm('删除这个资料组？已有资料不会受影响。'))return;const remaining=readCustomLoreGroups().filter(item=>!(item.id===editingLoreGroupId&&(item.worldId||'')===editingLoreGroupWorld));writeLoreGroups(remaining);editingLoreGroupId='';editingLoreGroupWorld='';renderLoreTabs();renderLoreList();fillLoreGroupDialog('list');if(activeLoreType===group?.id&&!loreGroupsView().some(item=>item.id===group.id))selectLoreType('world');showToast('资料组已删除')}
 async function bootstrap(){await loadSession();if(sessionMode==='accounts'&&!currentUser)return;await hydrateContent();await refreshArtAssets();applyPreferences();renderLoreTabs();leaveWorld();renderPickerSummaries();resetCardEditor();await Promise.all([refreshAiStatus(),refreshImageStatus()]);await refreshAgentCatalog();await refreshAgentSettings();refreshVersionBadge();updateLoreVisualState();applyAiPanel()}bootstrap();

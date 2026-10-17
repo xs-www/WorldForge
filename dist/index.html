@@ -11,7 +11,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=43">
+  <link rel="stylesheet" href="./styles.css?v=44">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -416,7 +416,13 @@
     </form>
   </dialog>
   <dialog id="groupDialog" class="dialog-card group-card"><form method="dialog" id="loreGroupForm"><div class="dialog-header"><div><p class="eyebrow">资料组</p><h2 id="groupDialogTitle">新建资料组</h2><p>名称与「详细设定」是每个条目必有的两项，其余内容块全部由这个组定义，不需要摘要、约束或开放问题也可以。固定组（世界、世界地图、角色、编年史、背景故事）只是预置了默认字段，字段同样可以改、可以恢复默认。</p></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="login-form">
-    <label id="groupPickRow" hidden>选择要编辑的组<select id="groupSelect"></select></label>
+    <div class="group-pick" id="groupPickRow" hidden>
+      <p class="field-help">选一个组来改它的字段和 AI 提示。世界、世界地图、角色、编年史、背景故事是产品自带的五个组：字段和提示都能改，但组本身不能删；其余组由作者自己建立，可改名、可删除。</p>
+      <div class="group-pick-list" id="groupPickList"></div>
+      <div class="group-pick-actions"><button class="button secondary compact" type="button" id="newGroupFromList">＋ 新建资料组</button></div>
+    </div>
+    <div id="groupFormBody">
+    <div class="group-back-row" id="groupBackRow" hidden><button class="text-action" type="button" id="groupBack">← 换个组</button></div>
     <label>组名<input id="groupLabel" maxlength="40" required placeholder="例如：势力、组织、历法"></label>
     <div class="lore-form-row">
       <label>表单形态<select id="groupFormType"><option value="generic">通用资料</option><option value="geography">地理层级</option><option value="chronicle">编年史</option><option value="story">背景故事</option></select><small>决定专属部件（地理树 / 编年史容器 / 只要正文），与内容块无关。</small></label>
@@ -429,6 +435,7 @@
     </div>
     <label>这个组的 AI 写作提示<textarea id="groupPrompt" rows="4" maxlength="4000" placeholder="可选：本组生成时的写作重点、结构与边界。留空则使用设置里的默认分类提示。"></textarea></label>
     <details class="group-schema"><summary>该组的返回 JSON 约束（给 Agent）</summary><pre id="groupSchemaPreview"></pre></details>
+    </div>
     <p class="settings-inline-status" id="groupStatus" role="status"></p>
   </div><div class="dialog-actions"><button class="button secondary" type="button" id="deleteLoreGroup" hidden>删除该组</button><button class="button primary" type="button" id="saveLoreGroup">保存</button></div></form></dialog>
   <dialog id="settingsDialog" class="settings-dialog"><form method="dialog" class="dialog-card settings-card" id="settingsForm"><div class="dialog-header"><div><p class="eyebrow">Worldforge</p><h2>设置</h2><p>模型密钥与创作内容保存在本机服务端；编辑偏好只保存在当前浏览器。</p></div><button class="close-button" value="cancel" formnovalidate aria-label="关闭">×</button></div><div class="settings-layout"><nav class="settings-nav" aria-label="设置分类"><button class="active" type="button" data-settings-tab="ai">语言模型</button><button type="button" data-settings-tab="prompts">提示词工程</button><button type="button" data-settings-tab="agent">Agent 模式</button><button type="button" data-settings-tab="image">图像生成</button><button type="button" data-settings-tab="editor">编辑偏好</button><button type="button" data-settings-tab="data">数据管理</button><button type="button" data-settings-tab="users" id="settingsUsersTab" hidden>账号</button></nav><div class="settings-content">
@@ -453,6 +460,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=57"></script>
+  <script src="./app.js?v=58"></script>
 </body>
 </html>

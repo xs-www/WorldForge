@@ -59,6 +59,7 @@
 | `readUiState` / `aiPanelState` / `applyAiPanel` / `setAiPanel` | AI 面板 open/min/closed 三态存 `worldforge-ui-state-v1` | `L206`–`L209` |
 | `refreshAgentCatalog` / `refreshAgentSettings` / `agentPresetFor` / `fillPresetSelect` / `syncFreePresetBar` / `agentPanelStatusText` / `applyAgentSettingsAfterSave` | 三个预设选择器与状态文案：目录来自 `api/ai/presets`，`agentCatalogFallback` 记住响应里的 `fallback` 标记；已保存但消失的 preset 显示「（已不可用）」而不改写选择 | `L197` / `L198` / `L194` / `L199` / `L200` / `L203` / `L205` |
 | `agentSettingsPatchFromForm` / `agentSelectionIsValid` / `chooseFreePreset` | 只提交仍存在的 preset；切换自由对话 preset 需确认并清空当前对话 | `L202` / `L201` / `L206` |
+| `renderLoreGroupPicker` | 资料组列表：一行一个组（预置组/自定义组 · 作用范围 · 字段数），点一下进入编辑；替代原来难懂的「要编辑的组」下拉 | `L363` |
 | `openLoreGroupDialog` / `fillLoreGroupDialog` / `saveLoreGroupFromDialog` / `deleteLoreGroupFromDialog` / `refreshLoreGroupSelect` | 资料组管理：新建（`WorldforgeLoreGroups.createGroup` 生成稳定 id）、改名/改 form/改属性名、删除空组；固定组不可改，仍有资料的组拒绝删除 | `L308`–`L311` |
 | `exportServerData(includeImages)` / `readImportFile` / `previewImport` / `applyImport` / `describeImportResult` | 数据搬运：导出走 `/api/export`（可选 `?images=1`），导入先 `dryRun` 预检再 `POST /api/import`（`X-Worldforge-Import: 1`），成功后重新 hydrate 并重渲染资料组与资料列表 | `L301`–`L306` |
 | `bootstrap()` | 启动序列：`hydrateContent` → `refreshArtAssets` → `applyPreferences` → `renderLoreTabs` → `leaveWorld` → `renderPickerSummaries` → `resetCardEditor` → 并行取 AI/图像状态 → `updateLoreVisualState` → `applyAiPanel`；加载时立即执行 | `L312` |

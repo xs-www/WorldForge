@@ -13,7 +13,8 @@ function fakeElement() {
   const element = {
     dataset: {}, classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     style: {}, children: [], value: '', textContent: '', hidden: false, checked: false, disabled: false, open: false,
-    append() {}, appendChild() {}, prepend() {}, remove() {}, replaceChildren() {}, insertBefore() {},
+    append() {}, appendChild() {}, prepend() {}, remove() {}, insertBefore() {},
+    replaceChildren(...nodes) { this.children = nodes; this.childElementCount = nodes.length; },
     addEventListener() {}, removeEventListener() {}, setAttribute() {}, getAttribute: () => null,
     removeAttribute() {}, focus() {}, blur() {}, select() {}, click() {}, scrollIntoView() {},
     querySelector: () => fakeElement(), querySelectorAll: () => [], closest: () => null,
@@ -34,7 +35,11 @@ const loreFixture = [
 
 function makeSandbox() {
   const store = new Map([['worldforge-lore-entries-v1', JSON.stringify(loreFixture)]]);
-  const sandbox = {
+  const elementCache = (() => {
+    const cache = new Map();
+    return selector => { if (!cache.has(selector)) cache.set(selector, fakeElement()); return cache.get(selector); };
+  })();
+    const sandbox = {
   console: { log() {}, warn() {}, error() {}, info() {} },
   setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {},
   requestAnimationFrame: () => 0, queueMicrotask() {},
@@ -44,7 +49,11 @@ function makeSandbox() {
   crypto: { randomUUID: () => '00000000-0000-4000-8000-000000000000' },
   location: { href: 'http://127.0.0.1:8080/', pathname: '/', replace() {} },
   navigator: { userAgent: 'node' },
-  fetch: async () => ({ ok: true, status: 200, json: async () => ({}), text: async () => '{}' }),
+  fetch: async () => {
+    const payload = { schemaVersion: 3, initialized: true, revision: 1, lastSavedBy: 'test', loreEntries: loreFixture, cardDrafts: [], keywords: [], loreGroups: [], notes: {} };
+    const text = JSON.stringify(payload);
+    return { ok: true, status: 200, json: async () => JSON.parse(text), text: async () => text };
+  },
   Blob: class {}, FormData: class {}, FileReader: class { readAsDataURL() {} },
   Image: class { set src(value) { this.onload?.(); } },
   HTMLCanvasElement: class { getContext() { return null; } }
@@ -57,7 +66,7 @@ sandbox.document = {
   currentScript: { src: 'http://127.0.0.1:8080/app.js' },
   documentElement: { dataset: {}, classList: { toggle() {} } },
   body: fakeElement(),
-  querySelector: () => fakeElement(),
+  querySelector: selector => elementCache(selector),
   querySelectorAll: () => [],
   createElement: () => fakeElement(),
   createTextNode: value => ({ nodeType: 3, textContent: String(value) }),
@@ -91,8 +100,21 @@ test('app.js 与前置脚本可以真正加载并进入世界视图', async () =
   assert.doesNotThrow(() => sandbox.selectLoreType('location'), '地理视图不应抛错');
   assert.doesNotThrow(() => sandbox.selectLoreType('faction'), '自定义资料组视图不应抛错');
   assert.doesNotThrow(() => sandbox.loadLore('W01'), '打开条目不应抛错');
+  assert.doesNotThrow(() => sandbox.openLoreGroupDialog('list'), '资料组列表不应抛错');
+  const formBody = sandbox.document.querySelector('#groupFormBody');
+  const pickRow = sandbox.document.querySelector('#groupPickRow');
+  const pickList = sandbox.document.querySelector('#groupPickList');
+  assert.equal(pickRow.hidden, false, '列表态应显示组列表');
+  assert.equal(formBody.hidden, true, '列表态应隐藏表单');
+  assert.ok((pickList.children?.length ?? 0) >= 5, '列表里应列出五个预置组');
   assert.doesNotThrow(() => sandbox.openLoreGroupDialog('create'), '新建资料组对话框不应抛错');
+  assert.equal(sandbox.document.querySelector('#groupFormBody').hidden, false, '新建态应显示表单');
+  assert.equal(sandbox.document.querySelector('#groupBackRow').hidden, true, '新建态不显示「换个组」');
   assert.doesNotThrow(() => sandbox.openLoreGroupDialog('edit', sandbox.loreGroupKey(sandbox.loreGroup('world'))), '编辑资料组对话框不应抛错');
+  assert.equal(sandbox.document.querySelector('#groupBackRow').hidden, false, '编辑态应能回到列表');
+  assert.match(String(sandbox.document.querySelector('#groupDialogTitle').textContent), /^编辑：/, '编辑态标题应写清在编辑哪个组');
+  assert.doesNotThrow(() => sandbox.fillLoreGroupDialog('list'), '返回列表不应抛错');
+  assert.equal(sandbox.document.querySelector('#groupFormBody').hidden, true, '返回列表后表单隐藏');
 });
 
 test('资料组字段与旧字段回填在真实数据形态下可见', async () => {

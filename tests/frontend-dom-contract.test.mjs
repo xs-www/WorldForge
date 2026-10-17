@@ -48,10 +48,10 @@ test('数据管理面板提供导出、预检与导入入口', () => {
 });
 
 test('资料组管理入口与编辑对话框接线完整', () => {
-  for (const id of ['newLoreGroup', 'manageLoreGroup', 'groupDialog', 'groupPickRow', 'groupSelect', 'groupLabel', 'groupFormType', 'groupScope', 'groupPrompt', 'groupFieldRows', 'addGroupField', 'restoreGroupFields', 'groupSchemaPreview', 'groupStatus', 'saveLoreGroup', 'deleteLoreGroup']) {
+  for (const id of ['newLoreGroup', 'manageLoreGroup', 'groupDialog', 'groupPickRow', 'groupPickList', 'newGroupFromList', 'groupFormBody', 'groupBackRow', 'groupBack', 'groupLabel', 'groupFormType', 'groupScope', 'groupPrompt', 'groupFieldRows', 'addGroupField', 'restoreGroupFields', 'groupSchemaPreview', 'groupStatus', 'saveLoreGroup', 'deleteLoreGroup']) {
     assert.match(htmlSource, new RegExp(`id="${id}"`), `缺少 #${id}`);
   }
-  for (const name of ['renderLoreTabs', 'openLoreGroupDialog', 'saveLoreGroupFromDialog', 'deleteLoreGroupFromDialog', 'fillLoreGroupDialog', 'paintGroupFieldRows', 'readGroupFieldDraft', 'previewGroupSchema', 'renderLoreFields', 'readLoreFieldsRaw', 'valuesFromFields', 'reconcileGroupFields', 'loreTypesWithForm', 'aiBlocksForGroup']) {
+  for (const name of ['renderLoreTabs', 'openLoreGroupDialog', 'saveLoreGroupFromDialog', 'deleteLoreGroupFromDialog', 'fillLoreGroupDialog', 'renderLoreGroupPicker', 'paintGroupFieldRows', 'readGroupFieldDraft', 'previewGroupSchema', 'renderLoreFields', 'readLoreFieldsRaw', 'valuesFromFields', 'reconcileGroupFields', 'loreTypesWithForm', 'aiBlocksForGroup']) {
     assert.match(appSource, new RegExp(`function ${name}\\(`), `缺少 ${name}`);
   }
 });

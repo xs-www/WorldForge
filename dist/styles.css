@@ -245,3 +245,16 @@
 .group-schema{margin-top:2px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface-subtle)}
 .group-schema summary{cursor:pointer;font-size:12px;font-weight:700}
 .group-schema pre{margin:10px 0 0;max-height:220px;overflow:auto;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+
+/* 资料组列表：一行一个组，替代原来难懂的下拉「要编辑的组」 */
+.group-pick{display:grid;gap:10px}
+.group-pick .field-help{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+.group-pick-list{display:grid;gap:8px;max-height:260px;overflow:auto}
+.group-pick-item{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;text-align:left}
+.group-pick-item:hover{border-color:var(--primary);background:var(--primary-soft)}
+.group-pick-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.group-pick-main strong{font-size:13px}
+.group-pick-main small{color:var(--faint);font-size:11px}
+.group-pick-tail{color:var(--muted);font-size:11px;white-space:nowrap}
+.group-pick-actions{display:flex;justify-content:flex-end}
+.group-back-row{display:flex}
