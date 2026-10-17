@@ -10,14 +10,14 @@
 | 2 | `chronicle.js`（`?v=1`） | `WorldforgeChronicle` | 编年史/节点两态、排序值排序、树构建 | `L434` |
 | 3 | `world-scope.js`（`?v=2`） | `WorldforgeWorldScope` | `W\d{2}` 世界 ID 归一、分组（含未归属桶）、搜索、跨世界归属迁移 | `L435` |
 | 4 | `relation-picker.js`（`?v=2`） | `WorldforgeRelationPicker` | 关联条目纯函数筛选/切换/摘要 | `L436` |
-| 5 | `lore-groups.js`（`?v=1`） | `WorldforgeLoreGroups` | **资料组真源**：五个固定组、自定义组规范/派生、提示词档位收敛；服务端 `lore-groups.mjs` 复用它 | `L437` |
+| 5 | `lore-groups.js`（`?v=1`） | `WorldforgeLoreGroups` | **资料组真源**：五个固定组、自定义组规范/派生（按世界作用范围）、提示词档位收敛；服务端 `lore-groups.mjs` 复用它 | `L437` |
 | 6 | `cards.js`（`?v=7`） | `WorldforgeCards` | 卡牌归一化、按世界派生的子类型候选、富文本 run 解析、卡面描述编译 | `L438` |
 | 6 | `battle.js`（`?v=1`） | `WorldforgeBattle` | 确定性对战规则引擎（无 DOM） | `L438` |
 | 7 | `battle-ui.js`（`?v=1`） | `WorldforgeBattleUI` | 对战 DOM 渲染与事件绑定，依赖 6 | `L439` |
 | 8 | `macro.js`（`?v=3`） | `WorldforgeMacro`（仅 `refresh`） | W98 宏观模拟前端，自带 IIFE 与事件绑定 | `L440` |
 | 10 | `app.js`（`?v=54`） | 无导出（组合根） | 世界观/卡牌/自由创作/W99 诊断的 DOM、状态、API 与持久化 | `L462` |
 
-`styles.css?v=42` 在 `<head>`（`L14`）。登录页 `login.html` 不在脚本装配表内：它是独立文档，只加载 `styles.css?v=42` 与 `login.js?v=1`。
+`styles.css?v=43` 在 `<head>`（`L14`）。登录页 `login.html` 不在脚本装配表内：它是独立文档，只加载 `styles.css?v=43` 与 `login.js?v=1`。
 
 ## 全局耦合规则
 
@@ -69,7 +69,7 @@ const apiUrl = path => new URL(path, API_ROOT);
 - **富文本白名单**：卡面描述只识别 `<b>`/`</b>`/`<i>`/`</i>`/`**`/`*`（`cards.js L34–L51`），其余字符按纯文本收进 run；DOM 侧一律 `createElement` + `textContent` 渲染（`app.js L147`），`app.js` 中唯一的 `innerHTML` 是 `L167` 的静态空状态串。`battle-ui.js`、`macro.js` 使用模板字符串 `innerHTML`，其内容来自内置测试卡牌/服务端模拟数据，源码中未见转义。
 - **预览与 PNG 同源**：`renderCardKeywordPreview`（`app.js L147`）与 `compileCardPng`（`L129`，660×920 canvas，经 `drawCompiledDescription` L125）都消费 `WorldforgeCards.compileDescription()` 的 `runs`，因此排版随 run 列表变化，改其一必须同步改另一侧。
 - **付费生图不自动重试**：`requestGeneratedAsset`（`app.js L7`）为每次请求生成 `clientRequestId` 并只 POST 一次；仅在响应为空/非 JSON/网络中断时，通过轮询 `art-assets`（最多 8 次、间隔 1.5s）按 `clientRequestId` 找回已生成的资产（`L6`），失败时把请求 ID 写进错误文案。
-- **缓存版本耦合**：新增或改动任一脚本/样式后必须同步递增 `index.html`（以及登录页 `login.html`）中对应的 `?v=`（当前 `styles 42 / app 54 / cards 7 / macro 3 / geography 2 / battle 1 / battle-ui 1 / chronicle 1 / world-scope 2 / relation-picker 2 / lore-groups 1 / card-agent-apply 1 / login 1`），顺序不变，否则浏览器可能复用旧脚本并与新 DOM 契约错位。
+- **缓存版本耦合**：新增或改动任一脚本/样式后必须同步递增 `index.html`（以及登录页 `login.html`）中对应的 `?v=`（当前 `styles 43 / app 56 / cards 7 / macro 3 / geography 2 / battle 1 / battle-ui 1 / chronicle 1 / world-scope 2 / relation-picker 2 / lore-groups 1 / card-agent-apply 1 / login 1`），顺序不变，否则浏览器可能复用旧脚本并与新 DOM 契约错位。
 - **没有默认世界**：`readLore()` 会滤掉早期 `seeded` 的默认世界条目，`normalizeLore` 不再把缺失的 `worldId` 改写成 `W01`；世界由作者新建，第一条取 `nextWorldId()` 的最小可用编号。
 - **资料组驱动界面**：标签页、表单形态、AI 内容块与地理/编年史作用域全部来自资料组；固定组只有世界、世界信息、角色、编年史、背景故事五项。
 - **状态分级由前端强制**：`cards.js L66` 把卡牌 `status` 固定为 `proposed`、`balanceStatus` 固定为 `untested`；资料条目的 `canon` 只能在 UI 中人工选择（`index.html L99`）。

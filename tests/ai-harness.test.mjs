@@ -12,12 +12,20 @@ test('context prioritizes same-world canon examples and isolates unrelated world
   assert.ok(!bundle.contextMeta.includedIds.includes('CHR-W02-001'));
 });
 
-test('each module exposes dedicated content blocks and timeline containers omit node-only fields', () => {
-  assert.ok(contentSpec('magic').blocks.some(item => item.label === '使用成本'));
-  assert.equal(contentSpec('location').blocks.find(item => item.key === 'details')?.label, '详细设定');
-  assert.ok(contentSpec('location').blocks.some(item => item.key === 'environment'));
-  assert.ok(!contentSpec('timeline', { chronicle: { kind: 'chronicle' } }).blocks.some(item => item.key === 'dateLabel'));
-  assert.deepEqual(normalizeSelectedBlocks('story', ['details']), ['details']);
+test('content blocks come from the group fields; name is fixed and story has no relations', () => {
+  const spec = contentSpec('terrain', {}, { id: 'terrain', label: '地形', form: 'geography', fields: [{ key: 'details', label: '详细设定', kind: 'multiline' }, { key: 'environment', label: '环境与交通', kind: 'text' }] });
+  assert.deepEqual(spec.blocks.map(block => block.key), ['name', 'details', 'environment', 'relations']);
+  assert.equal(spec.label, '地形');
+  assert.equal(spec.blocks.find(block => block.key === 'details').kind, 'string');
+  assert.equal(spec.blocks.find(block => block.key === 'environment').label, '环境与交通');
+  // 组里没定义的块不会出现在契约里
+  assert.deepEqual(normalizeSelectedBlocks('terrain', ['summary'], {}, { id: 'terrain', fields: [{ key: 'details', label: '正文', kind: 'multiline' }] }), ['name', 'details', 'relations']);
+  // 背景故事没有关联块；名称仍然可生成
+  assert.equal(contentSpec('story').blocks.some(block => block.key === 'relations'), false);
+  assert.deepEqual(contentSpec('story').blocks.map(block => block.key), ['name', 'details']);
+  // 请求没带组时按 type 回落到旧字段集，旧客户端不会掉字段
+  assert.equal(contentSpec('magic').label, '力量体系');
+  assert.ok(contentSpec('magic').blocks.some(block => block.label === '使用成本'));
 });
 
 test('prompt and schema contain only selected content blocks', () => {

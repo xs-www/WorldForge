@@ -775,7 +775,7 @@
     },
     "prompt-type-key": {
       "lines": [
-        "const typePrompt = promptSettings.typePrompts"
+        "const typePrompt = payload?.group?.prompt"
       ]
     },
     "card-context-world": {

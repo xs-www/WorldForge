@@ -12,7 +12,9 @@
 | `readApiJson(response,label)` | 统一响应解码；空响应/非 JSON/非 2xx 抛出带 `code`/`status`/`requestId` 的错误 | `L4` |
 | `requestGeneratedAsset(payload)` / `recoverGeneratedAsset(id)` | 付费生图：单次 POST，传输层失败后按 ID 轮询找回，**不自动重试** | `L7` / `L6` |
 | `CONTENT_KEYS` / `MIGRATION_KEY` / `BACKUP_KEY` | 需同步到 SQLite 的键集合；迁移标记与迁移前快照键 | `L8` |
-| `LORE_GROUPS_KEY` / `LoreGroups` / `customLoreGroups` / `derivedLoreGroups` / `loreGroupsView` / `loreGroup(type)` / `loreTypesWithForm(form)` | 资料组层：五项固定组由 `WorldforgeLoreGroups` 提供，其余是作者自定义组；旧类型的 `type` 值不变、按 `LEGACY_GROUPS` 自动派生组。**不再有 13 类静态表，也没有默认世界种子** | `L11`–`L21` |
+| `LORE_GROUPS_KEY` / `LoreGroups` / `readCustomLoreGroups` / `derivedLoreGroups` / `loreGroupsView` / `loreGroup(type)` / `loreTypesWithForm(form)` / `loreGroupKey(group)` / `commitLoreGroups(scoped)` | 资料组层：五项固定组（世界/世界地图/角色/编年史/背景故事）由 `WorldforgeLoreGroups` 提供，其余是作者自定义组，带 `worldId` 作用范围；派生只按当前世界的资料。**不再有静态类型表，也没有默认世界种子** | `L11`–`L29` |
+| `legacyValues` / `entryValues` / `valuesFromFields` / `renderLoreFields(group,values)` / `readLoreFieldsRaw()` | 内容块：条目把值存在 `values` 里；编辑器表单由组字段动态生成（单行/多行/每行一项/数值），因此可以没有摘要、约束或开放问题 | `L31`–`L72` |
+| `reconcileGroupFields(group)` | 固定组没有保存过字段覆盖时，把该世界资料里实际用到的旧字段补回视图 | `L18` |
 | `aiBlocksForGroup(group)` | 由资料组的 `form` + 三个属性名生成 AI 可生成内容块；表单字段与 AI 白名单因此永远同源 | `L23` |
 | `activeGroupIdWithForm(form)` / `renderLoreTabs()` | 按 `form` 找当前组（供地理/编年史新建入口）与动态渲染标签页 | `L24` / `L26` |
 | `readStore(k,f)` / `writeStore(k,v)` / `lines(v)` | JSON 读写；写正文键时触发 `scheduleContentSync()`；`lines` 把多行文本按行拆成数组 | `L18` |
@@ -63,7 +65,7 @@
 
 ## 重点逻辑
 
-- **资料组与多世界（v0.4.0）**：标签页、表单形态、AI 内容块与地理/编年史作用域全部由「资料组」驱动；固定组只有世界/世界信息/角色/编年史/背景故事五项。`readLore()` 会滤掉早期 `seeded` 的默认世界，`normalizeLore` 不再把缺失的 `worldId` 改写为 `W01`。
+- **资料组与多世界（v0.4.0）**：标签页、表单形态、AI 内容块与地理/编年史作用域全部由「资料组」驱动；固定组只有世界/世界信息/角色/编年史/背景故事五项。整库快照只提交**已保存**的组（`contentSnapshot` 用 `readCustomLoreGroups()`），派生组在各端按世界重算；`commitLoreGroups` 保存当前世界视图时保留其他世界的组。`readLore()` 会滤掉早期 `seeded` 的默认世界，`normalizeLore` 不再把缺失的 `worldId` 改写为 `W01`。
 - **数据同步与迁移（`L26`–`L27`）**：`persistContent` 用 `expectedRevision: contentRevision` 做乐观锁，成功后回写 `contentRevision` 并置 `MIGRATION_KEY`；`409` 时不再写库（`contentReady=false`），提示“先导出再刷新”，避免覆盖他端写入。`hydrateContent` 区分三种启动态（库未初始化/需迁移/已就绪），迁移前把本地快照存进 `BACKUP_KEY`。
 - **付费生图失败恢复（`L6`–`L7`）**：只有空响应、非 JSON、读取失败或 `TypeError`（网络）才进入找回流程；HTTP 语义错误（如 4xx）直接抛出，不找回也不重试。
 - **卡面一致性（`L129` + `L146`）**：预览与 PNG 都从 `WorldforgeCards.compileDescription()` 的 `runs` 出发，字体随字数降档（`L125`：>95 字 21px 起，最多 7 行），裁剪由 `artRect(type)` 按卡牌类型给出画框。

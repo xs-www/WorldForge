@@ -1,34 +1,42 @@
 # `dist/lore-groups.js`
 
-> 作用：**资料组的唯一真源**（跨前端与服务端）。定义五个固定组（世界、世界信息、角色、编年史、背景故事）、作者自定义组的规范化与派生规则、以及「任意组 → 五个提示词档位」的收敛函数。以经典脚本加载，挂 `WorldforgeLoreGroups`；`lore-groups.mjs` 通过副作用导入复用同一份表。
+> 作用：**资料组的唯一真源**（跨前端与服务端）。一个组 = 名称 + 作用范围 + 表单形态 + **自己的字段列表** + 该组的 AI 写作提示。固定组只固定「组」本身（世界 / 世界地图 / 角色 / 编年史 / 背景故事）与两项必有内容——名称与详细设定；其余字段全部由作者定义。
 
 ## 关键符号
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `FORMS` | 表单形态：`generic` / `story` / `chronicle` / `geography`；决定表单字段与树视图，与组名无关 | `L11` |
-| `FIXED_GROUPS` | 五项固定组，`fixed:true`，各带三个属性名 | `L12` |
-| `PROMPT_KEYS` | 拥有独立提示词档位的固定键 | `L20` |
-| `LEGACY_GROUPS` | 旧十三类里九个非固定类型的迁移声明（标签、图标、form、属性名）；只声明「迁移成什么样」，不强制存在 | `L23` |
-| `MAX_GROUPS` / `ID_PATTERN` | 自定义组上限 40；组 id 必须是 `^[a-z][a-z0-9_-]{0,31}$` | `L34` |
-| `normalizeGroups(value)` | 丢弃固定组 id、重复 id、非法 id，截断到上限 | `L43` |
-| `allGroups(custom)` | 固定组 + 规范化后的自定义组 | `L52` |
-| `promptKey(id)` | 任意组 id → 提示词档位；非固定键一律落到 `info` | `L59` |
-| `nextGroupId` / `createGroup` | 生成稳定且不撞号的组 id（ASCII 标签取 slug，否则 `group[-N]`） | `L61` / `L69` |
-| `deriveGroups(entries,customGroups)` | 保证资料里出现过的每个 `type` 都有对应组：旧类型按 `LEGACY_GROUPS` 迁移，未知类型原样建组；只新增不修改 | `L77` |
-| `groupForEntry(...)` | 查不到组时回落到 `info`，绝不回落到 `world` | `L89` |
+| `FORMS` / `FIELD_KINDS` | 表单形态（generic/story/chronicle/geography）与字段类型（text/multiline/lines/number） | `L14`–`L15` |
+| `FIXED_GROUPS` | 五个固定组，各自带一份**默认字段**（目前都只有「详细设定」） | `L22` |
+| `LEGACY_GROUPS` | 旧十三类里八个非固定类型的迁移声明（标签、图标、form、旧字段集） | `L30` |
+| `DEFAULT_FIELDS` / `MINIMAL_FIELDS` | 新建组与固定组的默认字段：只有 `details`（详细设定） | `L21` |
+| `LEGACY_FIELD_LABELS` | 旧字段 → 标签/类型，迁移旧资料时用来把「实际有值」的旧字段补回组定义 | `L63` |
+| `normalizeFields(value,fallback)` | 字段列表规范化：key 正则、类型白名单、去重、上限 16、空列表回落默认 | `L89` |
+| `normalizeGroup` / `normalizeGroups` | 组规范化；视图层丢掉固定组，落库层（`normalizeStoredGroups`）保留固定组的覆盖行 | `L101` / `L116` |
+| `materializeFixed(stored)` | 把固定组默认字段与作者保存的覆盖行合并成可用的固定组 | `L129` |
+| `allGroups(custom)` | 固定组 + 本世界自定义组（固定组覆盖行不重复出现） | `L136` |
+| `groupsForWorld(custom,worldId)` | 取某世界的自定义组：本世界优先，共享组次之 | `L166` |
+| `migrateLegacyGroups(groups,entries)` | 旧组迁移：按使用情况推断 `worldId`，把 `attributes:[a,b,c]` 转成字段，补空 `prompt`；幂等 | `L182` |
+| `deriveGroups(entries,custom,worldId)` | 只按**本世界**资料派生缺失的组，所以新建世界只有五个固定组 | `L214` |
+| `createGroup(label,options)` | 新建组：默认一个「详细设定」字段，id 在同一作用范围内唯一 | `L160` |
+| `groupResponseSchema(group)` | 由字段列表生成给 Agent 的返回 JSON 约束（名称 + 每个字段） | `L243` |
+| `imageKey(groupOrId)` | 组 → 生图档位：固定 id 直接用，自定义组按 form 归到 location/timeline/story/other | `L143` |
 
 ## 重点逻辑
 
-### 为什么只有五项固定
-- 固定组保证模块导航、编年史树、地理树与背景故事视图始终可用；它们靠 `form` 而不是靠题材区分。
-- 其余分类（势力、地理、力量体系、技术体系、物品、事件……）都是作者自定义组：`deriveGroups` 会把旧数据里的 `type` 自动迁移成同 ID 的自定义组，因此 `loreEntries[].type` 不需要改写。
+### 字段是组的一部分，不是产品常量
+- `normalizeFields` 只要求 key 合法；标签与类型都可改。`normalizeGroup` 在作者没给字段时回落到该组的默认字段（固定组/旧组各有自己的默认集，新建组只有一个 `details`）。
+- `groupResponseSchema` 把字段转成 JSON Schema：`name` 恒为必需，`lines` → `array<string>`、`number` → `number|null`、`multiline/text` → `string`；资料组对话框会把它原样展示给作者。
 
-### 规范化边界
-- `normalizeGroup` 会补全缺失的 label/icon/form/三个属性名，并强制 `fixed`/`custom` 由 id 决定；非法 id 返回 `null`，由调用方过滤。
-- `normalizeGroups` 只保留 `custom:true` 的组：任何试图通过导入文件「覆盖」固定组的条目都会被静默丢弃。
-- `deriveGroups` 是幂等的：已存在的组不会被再次追加，因此每次 `readLore()` 派生都安全。
+### 固定组的字段可以被覆盖
+- 保存固定组的字段/提示时写一行 `worldId:''` 的覆盖记录（`normalizeStoredGroups` 保留 `fixed` 组，`normalizeGroups` 丢弃）。
+- `materializeFixed` 以覆盖行的字段/提示为准，否则用默认字段；`allGroups` 因此既能读到覆盖，也不会把固定组当成自定义组列出来。
+
+### 旧数据迁移
+- 组没有 `fields` 时：优先用组里保存的 `attributes:[a,b,c]` 生成三个 text 字段（保留作者改过的标签），否则用 `LEGACY_GROUPS` 的旧字段集。
+- 组没有 `worldId` 时按实际使用情况推断：只在一个世界用到 → 收窄到该世界；跨世界或没有资料 → 共享。
+- 迁移只补缺失字段、不改已有值，重复执行结果相同。
 
 ## 重要约束
 - 本文件是经典脚本（不是 ESM）：只通过 `module.exports` 或 `globalThis.WorldforgeLoreGroups` 导出，`app.js` 必须在它之后加载。
-- 「组名」与「表单形态」解耦：作者可以把 `form:'geography'` 的组叫任何名字，地理树仍然按 `form` 渲染。
-- 固定组的 id 是接口契约（`world`/`info`/`character`/`timeline`/`story`），改名会破坏存储、提示词档位与旧数据迁移。
+- 固定组的 id 是接口契约（world/location/character/timeline/story），改名会破坏存储、提示词档位与旧数据迁移。
+- 条目里的字段值存在 `values` 里；用 `valuesFromFields` 收集时只保留**当前字段列表**的键，删除字段即删除该字段的值。

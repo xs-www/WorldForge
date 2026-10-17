@@ -1,4 +1,4 @@
-import { promptKeyOf } from './lore-groups.mjs';
+import { imageKeyForId } from './lore-groups.mjs';
 
 const text=(value,limit=1600)=>String(value??'').trim().slice(0,limit);
 
@@ -33,8 +33,8 @@ export function selectVisualLore(payload={}){
 
 export function imagePromptKey(payload={}){
   if(payload.targetType!=='lore')return'card';
-  // 资料组可能由作者自定义，生图档位统一收敛到五个固定档（未知组用 info 档）。
-  return promptKeyOf(String(payload.target?.type||payload.loreType||'info'));
+  // 资料组可能由作者自定义，生图档位按表单形态收敛到固定档（地理→location，编年史→timeline，其余→other）。
+  return imageKeyForId(String(payload.target?.type||payload.loreType||'world'));
 }
 
 export function composeImagePrompt(payload={},settings={}){

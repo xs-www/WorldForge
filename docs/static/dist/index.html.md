@@ -9,12 +9,14 @@
 | `header.app-header` + `nav.module-tabs` | 5 个 `[data-module]` 标签（world/cards/battle/free/simulation）、`#storageStatus`（SQLite 状态徽标）、`#appVersion`、账号相关 `#currentUser` / `#changePasswordButton` / `#logoutButton`、`#openSettings`、`#exportData` | `L17–L27` |
 | `section#worldModule[data-page=world]` | 内含两级视图：`#worldHub`（世界卡片网格）与 `#worldDetail`（资料工作区），二者用 `hidden` 互斥 | `L30–L183` |
 | `#worldDetail` 三栏 | `lore-library-panel`（列表 + 地理/编年史入口）｜`lore-editor-panel`（`#loreForm`）｜`ai-panel`（AI 助手，含收起态 `#openAiPanel`） | `L74–L181` |
+| `#loreFields` | 资料编辑器的内容块容器：字段完全由所属资料组定义（每块一行/一块），旧的固定摘要/正文/约束/开放问题输入已移除 | `L113` |
 | `#loreTabs` + `.lore-group-bar` | 标签页**由 `app.js` 的 `renderLoreTabs()` 动态生成**（五项固定组 + 作者自定义组），HTML 里是空容器；旁边是 `#newLoreGroup` / `#manageLoreGroup` 与固定组说明 | `L59–L60` |
 | `section#cardsModule[data-page=cards]` | `[data-card-tab]` 二级页签 + 三块 `[data-card-panel]`：`library` / `editor` / `artwork`，同时只有一块可见 | `L185–L241` |
 | `#cardPreview`（`.editable-card`） | 可编辑卡面预览；脚本写 `data-card-type` 供 CSS 按类型调整画框（`styles.css L56`），与 `compileCardPng` 输出保持同一排布 | `L213–L222` |
 | `section#battleModule[data-page=battle]` | 对战台 + 侧栏（关键词说明、`#battleLog`） | `L243–L265` |
 | `section#freeModule[data-page=free]` | 对话区 + 工具区（名称生成器） | `L267–L298` |
 | `section#simulationModule[data-page=simulation]` | W98 宏观面板；底部 `<details class="simulation-diagnostics">` 折叠 W99 诊断区（默认折叠，减少主视图噪音） | `L300–L393` |
+| 资料组对话框 | `#groupDialog`：新建模式没有选择器，编辑模式才有 `#groupPickRow`/`#groupSelect`；另有 `#groupLabel`、`#groupFormType`、`#groupScope`、字段编辑器 `#groupFieldRows` + `#addGroupField` + `#restoreGroupFields`、`#groupPrompt`、返回 JSON 约束预览 `#groupSchemaPreview` | `L418` |
 | `dialog` × 7 | `#noteDialog`、`#keywordDialog`、`#relationDialog`、`#groupDialog`（资料组管理）、`#settingsDialog`、`#passwordDialog`（自助改口令）、`#imageViewer`，均为 `form method="dialog"` | `L396–L452` |
 | 设置对话框的数据面板 | `#settingsExport`（完整 JSON）、`#settingsExportImages`（内嵌图片）、`#importFile` / `#importMode` / `#importPreview` / `#importApply` / `#importStatus`：服务端导出与「先预检、再确认」的导入 | `L447` |
 | 设置对话框的账号面板 | 仅管理员可见的 `[data-settings-tab="users"]` / `[data-settings-panel="users"]`：`#userList`、`#userStatus`、`#userSecret`、`#newUserName` / `#newUserRole` / `#newUserPassword`、`#createUser` | `L441–L449` |
@@ -25,7 +27,7 @@
 ## 脚本装配顺序与缓存版本
 
 `<head>`：`styles.css?v=42`（`L14`）。`</body>` 前（`L454–L464`）依次为
-`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=1` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=54`。
+`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=2` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=55`。
 
 - 顺序不可调整：`app.js` 末尾同步执行 `bootstrap()`，依赖前 5 个脚本暴露的 `Worldforge*` 全局；`battle-ui.js` 依赖 `battle.js`。
 - 所有脚本都必须位于 `</body>` 前，因为 `battle-ui.js`、`macro.js`、`app.js` 在加载时就查询 DOM 并绑定事件。

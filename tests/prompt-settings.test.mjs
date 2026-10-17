@@ -5,7 +5,7 @@ import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, IMAGE_PROMPT_KEYS, PROMPT_
 test('prompt settings expose defaults for the five fixed groups and preserve legacy text', () => {
   const defaults = normalizePromptSettings();
   // 只有五项固定组拥有出厂提示词；自定义资料组共用「世界信息」档。
-  assert.deepEqual(PROMPT_TYPE_KEYS, ['world', 'info', 'character', 'timeline', 'story']);
+  assert.deepEqual(PROMPT_TYPE_KEYS, ['world', 'location', 'character', 'timeline', 'story']);
   assert.deepEqual(Object.keys(defaults.typePrompts), PROMPT_TYPE_KEYS);
   assert.ok(PROMPT_TYPE_KEYS.every(key => DEFAULT_TYPE_PROMPTS[key].length > 20));
 

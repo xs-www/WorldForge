@@ -5,8 +5,8 @@
 ## 关键符号
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `PROMPT_TYPE_KEYS` | 五个固定资料组键（world / info / character / timeline / story），是保存与校验的白名单 | `L4` |
-| `LEGACY_PROMPT_TYPE_KEYS` | 旧十三类里九个非固定键；不再有出场默认值，但作者写过的文本必须原样保留 | `L7` |
+| `PROMPT_TYPE_KEYS` | 五个固定资料组键（world / location / character / timeline / story），是保存与校验的白名单 | `L4` |
+| `LEGACY_PROMPT_TYPE_KEYS` | 旧十三类里八个非固定键（含已移除的 info）；不再有出厂默认值，但作者写过的文本必须原样保留 | `L7` |
 | `IMAGE_PROMPT_KEYS` | `'card'` + 五个固定键 + `'other'`，共 7 个生图档位 | `L8` |
 | `DEFAULT_TYPE_PROMPTS` | 五类默认写作提示 | `L10` |
 | `DEFAULT_VISUAL_STYLE_PROMPT` | 跨图统一的材质/工艺一致性提示 | `L18` |
@@ -30,5 +30,5 @@
 - 校验函数只做白名单与长度检查，不校验文案内容语义；错误以 `Error` 抛出、无错误码。
 
 ## 重要约束
-- 自定义资料组没有独立档位：`server.mjs` 先用资料的真实 `type` 精确命中（兼容作者以前按旧类型写的提示词），未命中才收敛到 `info` 档。
+- 提示词归属资料组：`server.mjs` 先用 `group.prompt`，再用资料真实 `type` 精确命中（兼容旧键），最后收敛到 `world` 档。资料组对话框里可以给每个组写自己的提示词。
 - 出厂默认值不得重新引入题材假设：`tests/prompt-settings.test.mjs` 会断言默认文案里不出现「魔法/法术/蒸汽/工业/神力/神性/以太」等词。

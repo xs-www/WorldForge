@@ -6,7 +6,7 @@
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
 | `selectVisualLore(payload)` | 库快照前 500 条；种子 = `lore` 目标的 id 或卡牌的 `loreRefs`；再双向扩展一层关联（种子→`relationIds`，反向引用种子的条目），上限 12 条 | `L15` |
-| `imagePromptKey(payload)` | 非 `lore` 目标一律 `'card'`；`lore` 目标经 `promptKeyOf` 收敛到五个固定档位，自定义组落到 `'info'` | `L34` |
+| `imagePromptKey(payload)` | 非 `lore` 目标一律 `'card'`；`lore` 目标经 `imageKeyForId` 按表单形态收敛（地理→location、编年史→timeline、背景故事→story、其余→other） | `L34` |
 | `composeImagePrompt(payload, settings)` | 拼 7 个块，超 3000 字符时改用压缩版并 `slice` 到 3000 | `L38` |
 
 ## 重点逻辑

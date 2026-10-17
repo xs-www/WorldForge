@@ -1,31 +1,26 @@
 # `ai-content-specs.mjs`
 
-> 作用：内容块（block）契约的单一真值表——每类的标签、写作指引与 `kind`，同时驱动 JSON Schema 生成与返回校验。消费方：`ai-harness.mjs`（`generationContract`、`createLoreResponseSchema`、`validateAiResponse`）。
+> 作用：把「资料组的字段列表」翻译成内容块（block）契约——每块的标签、写作指引与 `kind`，同时驱动 JSON Schema 生成与返回校验。字段由作者在资料组里定义，本文件**不再内置任何具体类型的块清单**。消费方：`ai-harness.mjs`（`generationContract`、`createLoreResponseSchema`、`validateAiResponse`）。
 
 ## 关键符号
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `CONTENT_SPECS` | 冻结的**五个固定组**表：`{label, blocks, focus}`（world / info / character / timeline / story） | `L82` |
-| `contentSpec(type, draft, group)` | 解析本次契约：固定组用内建 spec；旧类型用 `LEGACY_GROUPS` 的属性名与写作重点；自定义组用客户端提交的 `group`（已清洗） | `L152` |
-| `normalizeSelectedBlocks(type, selected, draft, group)` | 只保留该契约允许的块并去重；无可选项时回落到**该契约全部块** | `L174` |
-| `blockSchema(item)` | 由 `kind` 生成 JSON Schema 片段 | `L180` |
+| `NAME_BLOCK` / `RELATIONS_BLOCK` | 唯一两个非字段块：名称（恒有）与关联建议（背景故事以外恒有） | `L6` / `L7` |
+| `KIND_TO_BLOCK` / `KIND_INSTRUCTION` | 字段类型 → 块 `kind`（text/multiline→string、lines→array、number→number）与缺省写作指引 | `L8` / `L9` |
+| `fieldToBlock(item)` | 单个字段 → 内容块；字段自带 `hint` 时优先用它 | `L17` |
+| `contentSpec(type, draft, group)` | 解析本次契约：优先用请求里（已清洗的）组，缺失时按 type 回落固定组/旧组的默认字段 | `L26` |
+| `normalizeSelectedBlocks(type, selected, draft, group)` | 只保留该契约允许的块并去重；无可选项时回落到全部块 | `L40` |
+| `blockSchema(item)` | 由块的 `kind` 生成 JSON Schema 片段 | `L46` |
 
-## 结构规律（同一模板 + 组差异）
-所有组共享同一个块模板，差异只在“中间段”的块集合与文案，因此不必逐类抄字段清单：
+## 契约形态
+- 块清单 = `名称` + 组的每个字段（顺序即组的字段顺序）+ `关联建议`（`form:'story'` 时没有关联块）。
+- 组的 `form` 只影响专属部件与是否有关联块，不影响字段：`generic/geography/chronicle/story` 都可以有自己的任意字段。
+- `focus` 取组自己的写作提示（`group.prompt`）；没有提示时给一句中性的写作重点，不假设任何世界设定。
 
-| 分组 | 块键 | 出现范围 | 差异点 |
-| --- | --- | --- | --- |
-| 通用头 | `name`、`summary` | 除 `story` 外全部（`story` 只用 `name`） | 文案相同，无组差异 |
-| 类型化正文 | `details` | 全部 | 每组 `label` 与 `instruction` 不同（如地理组为“详细设定”、`timeline` 为“史料正文”、`story` 为“故事正文”） |
-| 三元属性 | `attributeA/B/C` | 除 `story` 外全部 | 由 `attributes(a, b, c)` 生成；固定组用内建标签，自定义组用组定义里的三个属性名 |
-| 类型专属 | `environment`（地理组）、`dateLabel`+`order`（`timeline`） | 单一形态 | `order` 是唯一的 `kind:'number'` 块，可返回 `null` |
-| 通用尾 | `constraints`、`openQuestions`、`relations` | `constraints`/`openQuestions` 除 `story` 外全部；`relations` 由构造后的循环追加到**除 `story` 外**全部组 | 尾部文案全组相同 |
+## 与浏览器的关系
+- 浏览器侧用 `WorldforgeLoreGroups.groupResponseSchema(group)` 生成同一份约束并在资料组对话框里预览；两边的字段 → Schema 映射必须保持一致（`tests/lore-groups.test.mjs` 与 `tests/ai-harness.test.mjs` 各自断言）。
+- `blockSchema` 只表达形状（`array` ≤12 项、`relations` 的 `{id, reason}`、`number|null`），长度与 ID 白名单仍由 `validateAiResponse` 负责。
 
-- `kind` 只有 4 种：省略即 `'string'`、`'array'`、`'relations'`、`'number'`；这是 `blockSchema` 与 `ai-harness.mjs` 校验分支之间唯一的耦合点，两侧必须同步。`blockSchema` 只表达形状（`array` ≤12 项、`relations` 的 `{id, reason}`、`number|null`），长度与 ID 白名单由 `validateAiResponse` 负责。
-- `relations` 不在 `CONTENT_SPECS` 字面量里声明，而是构造后循环追加；`Object.freeze` 是浅冻结，`blocks` 数组仍被这个循环原地 push。
-- `contentSpec` 对 `timeline` 的过滤只针对编年史**容器**（`chronicle.kind === 'chronicle'`）；节点保留 `dateLabel`/`order`。
-
-## 未知类型与自定义组（关键行为）
-- 未知 `type` **不再回落到 `world`**（旧实现如此，会让科幻或自定义组拿到「世界」契约）。当前顺序是：固定组 → 旧类型（`LEGACY_GROUPS` + `LEGACY_FOCUS`）→ 按 form 生成的地理/编年史/背景故事契约 → 否则用组属性名 + `info` 写作重点。
-- 客户端提交的 `group` 经 `sanitizeLoreGroup` 清洗（id 正则、标签与属性名长度），因此 Schema、提示词与校验看到的是同一份契约。
-- 生成请求与返回校验都调用 `generationContract(payload)`，所以自定义组的属性名会同时出现在 prompt 第 5 层与 Schema 里；两边不可能漂移。
+## 重要约束
+- 请求没带 `group` 时按 `type` 回落到固定组/旧组默认字段，因此旧客户端不会掉字段；但**新增字段只能通过组传递**。
+- 字段 `key` 必须匹配 `^[a-z][A-Za-z0-9]{0,31}$`（由 `normalizeGroup` 保证），否则会被重命名成 `fieldN`。

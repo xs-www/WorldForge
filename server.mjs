@@ -487,7 +487,7 @@ async function callAi(payload) {
   // 自定义资料组没有独立提示词档位，统一落到「世界信息」档（promptKeyOf 负责收敛）。
   // 但作者以前按旧类型保存过的提示词仍然优先：magic / faction 等旧键会先被精确命中，
   // 这样升级分组方式不会让已有的分类提示词变成无效设置。
-  const typePrompt = promptSettings.typePrompts[payload?.draft?.type] ?? promptSettings.typePrompts[promptKeyOf(payload?.draft?.type)] ?? '';
+  const typePrompt = payload?.group?.prompt || promptSettings.typePrompts[payload?.draft?.type] || promptSettings.typePrompts[promptKeyOf(payload?.draft?.type)] || '';
   const promptPayload = { ...payload, typePrompt, personalizedPrompt: promptSettings.personalizedPrompt };
   const prompt = buildPrompt(promptPayload, bundle);
   const validationPayload = { ...payload, allowedRelationIds: [...bundle.examples, ...bundle.entries].map(entry => entry.id) };

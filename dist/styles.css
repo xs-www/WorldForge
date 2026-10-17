@@ -226,3 +226,22 @@
 .data-import input[type="file"]{font-weight:400;font-size:12px}
 .data-import select{height:34px;border:1px solid var(--border-strong);border-radius:10px;padding:0 10px;background:var(--surface)}
 .data-import-status{margin:0;color:var(--muted);font-size:12px;line-height:1.6;white-space:pre-wrap}
+
+/* 资料组字段：表单按组定义动态渲染 */
+.lore-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lore-fields>label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600}
+.lore-fields>label.full{grid-column:1/-1}
+.lore-fields input,.lore-fields textarea{border:1px solid var(--border-strong);border-radius:10px;padding:9px 11px;background:var(--surface);font:inherit;font-size:13px;font-weight:400}
+.lore-fields textarea{resize:vertical;min-height:64px}
+.lore-fields small{color:var(--faint);font-weight:400}
+@media(max-width:820px){.lore-fields{grid-template-columns:1fr}}
+/* 资料组字段编辑器 */
+.group-fields-editor{border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;gap:10px}
+.group-fields-head{display:flex;flex-direction:column;gap:3px}
+.group-fields-head small{color:var(--muted);font-weight:400;font-size:11px}
+.group-field-row{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;gap:8px;align-items:center}
+.group-field-row input,.group-field-row select{height:34px;border:1px solid var(--border-strong);border-radius:9px;padding:0 9px;background:var(--surface);font-size:12px;min-width:0}
+.group-fields-actions{display:flex;gap:8px;flex-wrap:wrap}
+.group-schema{margin-top:2px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface-subtle)}
+.group-schema summary{cursor:pointer;font-size:12px;font-weight:700}
+.group-schema pre{margin:10px 0 0;max-height:220px;overflow:auto;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word}

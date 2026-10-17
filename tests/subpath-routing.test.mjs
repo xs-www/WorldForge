@@ -16,15 +16,15 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=54/);
+  assert.match(htmlSource, /app\.js\?v=56/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=42/);
+  assert.match(htmlSource, /styles\.css\?v=43/);
   assert.match(htmlSource, /cards\.js\?v=7/);
   assert.match(htmlSource, /world-scope\.js\?v=2/);
   assert.match(htmlSource, /relation-picker\.js\?v=2/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
-  assert.match(htmlSource, /lore-groups\.js\?v=1/);
+  assert.match(htmlSource, /lore-groups\.js\?v=3/);
 });
 
 test('the header shows the running version and flags a stale page', () => {
@@ -232,23 +232,19 @@ test('one picker window serves lore relations, card sources and free-agent refer
   assert.match(styleSource, /\.relation-row\.chosen\{/);
 });
 
-test('bulk form fill only writes ids that exist in the markup', () => {
-  // loadLore 与 fillLoreForm 都用「id → 值」映射表写表单；映射表里的键必须是真实存在的元素 id，
-  // 否则 q() 返回 null，赋值会抛错并让整个动作失效。
-  const mapKeysOf = (fnName) => {
-    const start = appSource.indexOf(`function ${fnName}(`);
-    assert.ok(start > -1, `${fnName} should exist`);
-    const body = appSource.slice(start);
-    const mapStart = body.indexOf('const values={') + 'const values={'.length;
-    const mapEnd = body.indexOf('};Object.entries(values)');
-    assert.ok(mapStart > 0 && mapEnd > mapStart, `${fnName} should build a key/value map`);
-    return [...body.slice(mapStart, mapEnd).matchAll(/([A-Za-z][A-Za-z0-9]*)\s*:/g)].map(match => match[1]);
-  };
-  for (const fnName of ['loadLore', 'fillLoreForm']) {
-    const keys = mapKeysOf(fnName);
-    assert.ok(keys.length >= 15, `${fnName} should expose keys, got ${keys.length}`);
-    assert.deepEqual(keys.filter(key => !htmlSource.includes(`id="${key}"`)), [], `${fnName} writes unknown ids`);
+test('编辑器表单由资料组字段驱动，旧的固定字段 id 已全部移除', () => {
+  // 内容块不再写死在标记里：loadLore 只委托 fillLoreForm，字段由 renderLoreFields 按组生成。
+  assert.match(appSource, /function renderLoreFields\(group,values=\{\}\)/);
+  assert.match(appSource, /function readLoreFieldsRaw\(\)/);
+  assert.match(appSource, /function valuesFromFields\(group,rawValues\)/);
+  assert.match(appSource, /qa\('#loreFields \[data-field-key\]'\)/);
+  assert.match(appSource, /function loadLore\(id\)\{const e=readLore\(\)\.find/);
+  // 旧固定字段既不在标记里，也不在脚本里被引用（否则会拿到 null 并静默失效）。
+  for (const id of ['loreSummary', 'loreDetails', 'loreDetailsLabel', 'loreConstraints', 'loreQuestions', 'attributeA', 'attributeB', 'attributeC', 'locationEnvironment']) {
+    assert.doesNotMatch(htmlSource, new RegExp(`id="${id}"`), `index.html 不应再有 #${id}`);
+    assert.ok(!appSource.includes(`q('#${id}')`), `app.js 不应再引用 #${id}`);
   }
+  assert.match(htmlSource, /<div class="lore-fields" id="loreFields"><\/div>/);
 });
 
 test('the free agent reaches lore and art through read-only server-side tools', () => {
