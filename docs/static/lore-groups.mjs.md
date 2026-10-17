@@ -10,10 +10,10 @@
 ## 关键符号
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `FIXED_GROUPS` / `LEGACY_GROUPS` | 五个固定组（world/location/character/timeline/story）与旧类型迁移声明（含各自的默认字段） | `L7` / `L8` |
+| `FIXED_GROUPS` / `LEGACY_GROUPS` | 六个固定组（world/location/character/timeline/story/misc，`misc`=设定/未分类落点）与旧类型迁移声明（含各自的默认字段） | `L7` / `L8` |
 | `MINIMAL_FIELDS` / `DEFAULT_FIELDS` | 默认字段只有「详细设定」；名称是条目身份，不在字段里 | `L10` / `L9` |
 | `LEGACY_FIELD_LABELS` / `FIELD_KINDS` | 旧字段标签表与四种字段类型 | `L12` / `L11` |
-| `PROMPT_GROUP_KEYS` / `IMAGE_PROMPT_GROUP_KEYS` | 提示词档位键（五个固定组）与生图档位键（card + 五组 + other） | `L13` / `L14` |
+| `PROMPT_GROUP_KEYS` / `IMAGE_PROMPT_GROUP_KEYS` | 提示词档位键（五个有专属写作提示的固定组，`misc` 不含在内）与生图档位键（card + 五组 + other） | `L13` / `L14` |
 | `normalizeLoreGroups` / `normalizeStoredLoreGroups` | 视图规范化（丢固定组）与落库规范化（保留固定组覆盖行） | `L19` / `L20` |
 | `allLoreGroups` / `deriveLoreGroups` / `groupsForWorld` / `migrateLegacyGroups` | 合并固定组、按世界派生、取某世界的组、旧组迁移 | `L21`–`L24` |
 | `promptKeyOf` / `fieldSchema` / `groupResponseSchema` | 提示词档位、字段 Schema、由字段生成的整组返回约束 | `L26`–`L28` |

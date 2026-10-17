@@ -34,7 +34,7 @@ function entry(overrides = {}) {
     attributeA: '势力', attributeB: '', attributeC: '',
     constraints: [], openQuestions: [], tags: ['议会'], relations: [],
     locationKind: '', locationParent: '', chronicleKind: '', chronicleParent: '', dateLabel: '', order: null,
-    truthScope: 'objective',
+    truthScope: 'objective', category: '',
     ...overrides
   };
 }
@@ -277,7 +277,7 @@ test('缺容器的纪年节点会自动补建容器；缺上级的地理条目�
   assert.equal(built.warnings.some(item => item.code === 'LOCATION_ORPHAN'), true);
 });
 
-test('导入计划汇总统计，并按需生成 info 资料组', () => {
+test('导入计划汇总统计：无分类的 info 进入「设定」组，不新建资料组', () => {
   const plan = buildImportPlan({
     worldId: 'W06',
     world: { name: '余烬界', summary: '概述', details: '' },
@@ -288,10 +288,63 @@ test('导入计划汇总统计，并按需生成 info 资料组', () => {
     now: fixedNow
   });
   assert.equal(plan.world.name, '余烬界');
-  assert.deepEqual(plan.stats.counts, { info: 1, character: 1 });
+  assert.deepEqual(plan.stats.counts, { misc: 1, character: 1 });
   assert.equal(plan.stats.chunks, 2);
   assert.equal(plan.stats.total, 2);
-  assert.deepEqual(plan.groups.map(group => [group.id, group.worldId]), [['info', 'W06']]);
+  assert.deepEqual(plan.groups, []);
+  assert.match(plan.entries.find(item => item.type === 'misc').id, /^SET-W06-\d{3}$/);
+});
+
+test('分类解析：复用已有组 / 复用旧类型 id / 为新分类新建资料组', () => {
+  const plan = buildImportPlan({
+    worldId: 'W11',
+    entries: [
+      entry({ name: '甲势力', category: '势力' }),
+      entry({ name: '乙技术', category: '技术体系' }),
+      entry({ name: '丙杂项', category: '神秘学' }),
+      entry({ name: '丁无名' }),
+      entry({ name: '戊势力', category: '势力' })
+    ],
+    existingEntries: [],
+    existingGroups: [{ id: 'faction', label: '势力', worldId: '', form: 'generic', fields: [] }],
+    now: fixedNow
+  });
+  const types = plan.entries.map(item => item.type);
+  assert.equal(types[0], 'faction', '已有「势力」组时直接复用');
+  assert.equal(types[1], 'technology', '旧类型按稳定 id 复用');
+  assert.match(types[2], /^cat-[a-z0-9]+$/, '新分类生成确定性短 id');
+  assert.equal(types[3], 'misc', '没有分类的条目进「设定」组');
+  assert.equal(types[4], 'faction');
+  assert.equal(plan.groups.length, 2, '只新建「技术体系」与「神秘学」两个组');
+  assert.deepEqual(plan.groups.map(group => group.label).sort(), ['技术体系', '神秘学'].sort());
+  assert.ok(plan.groups.every(group => group.worldId === 'W11'));
+  assert.equal(plan.stats.createdGroups.length, 2);
+});
+
+test('二次导入去重：目标世界内同类型同名条目被跳过并告警', () => {
+  const existing = [{ id: 'CHR-W12-001', type: 'character', name: '议员甲', worldId: 'W12', values: { details: '旧正文' } }];
+  const plan = buildImportPlan({
+    worldId: 'W12',
+    entries: [entry({ type: 'character', name: '议员甲' }), entry({ type: 'character', name: '议员乙' })],
+    existingEntries: existing,
+    now: fixedNow
+  });
+  assert.deepEqual(plan.entries.map(item => item.name), ['议员乙']);
+  assert.deepEqual(plan.duplicates.map(item => [item.name, item.existingId]), [['议员甲', 'CHR-W12-001']]);
+  assert.equal(plan.warnings.some(item => item.code === 'DUPLICATES_SKIPPED'), true);
+  assert.equal(plan.stats.duplicates, 1);
+});
+
+test('每次保存前再挡一次重复：库里已有同名条目时跳过而不是报 409', () => {
+  const plan = buildImportPlan({ worldId: 'W13', entries: [entry({ type: 'character', name: '议员甲' }), entry({ type: 'character', name: '议员乙' })], existingEntries: [], now: fixedNow });
+  const validated = validateImportPlan(plan, {
+    existingEntries: [{ id: 'CHR-W13-001', type: 'character', name: '议员甲', worldId: 'W13' }],
+    intoWorld: 'W13',
+    now: fixedNow
+  });
+  assert.deepEqual(validated.entries.map(item => item.name), ['议员乙']);
+  assert.equal(validated.duplicates.length, 1);
+  assert.equal(validated.warnings.some(item => item.code === 'DUPLICATES_SKIPPED'), true);
 });
 
 test('世界条目名称优先作者输入，其次模型识别，最后兜底编号', () => {

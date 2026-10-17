@@ -12,7 +12,7 @@
   //   geography 地理树（层级 + 上级 + 坐标）
   const FORMS=['generic','story','chronicle','geography'];
   const FIELD_KINDS=['text','multiline','lines','number'];
-  const FIXED_IDS=new Set(['world','location','character','timeline','story']);
+  const FIXED_IDS=new Set(['world','location','character','timeline','story','misc']);
   const PROMPT_KEYS=Object.freeze(['world','location','character','timeline','story']);
   const IMAGE_KEYS=Object.freeze(['card','world','location','character','timeline','story','other']);
 
@@ -24,7 +24,8 @@
     Object.freeze({id:'location',label:'世界地图',icon:'地',form:'geography',fixed:true,defaultFields:DEFAULT_FIELDS}),
     Object.freeze({id:'character',label:'角色',icon:'人',form:'generic',fixed:true,defaultFields:DEFAULT_FIELDS}),
     Object.freeze({id:'timeline',label:'编年史',icon:'史',form:'chronicle',fixed:true,defaultFields:DEFAULT_FIELDS}),
-    Object.freeze({id:'story',label:'背景故事',icon:'篇',form:'story',fixed:true,defaultFields:DEFAULT_FIELDS})
+    Object.freeze({id:'story',label:'背景故事',icon:'篇',form:'story',fixed:true,defaultFields:DEFAULT_FIELDS}),
+    Object.freeze({id:'misc',label:'设定',icon:'设',form:'generic',fixed:true,defaultFields:DEFAULT_FIELDS})
   ]);
   // 旧版的十三类资料里有八个不是固定组（世界地图已升为固定组）。
   // 这里只声明迁移后的样子，不声明它们必须存在。

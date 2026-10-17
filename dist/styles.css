@@ -303,3 +303,10 @@
 .import-entry-body small{color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .import-footer-help{flex:1;margin-right:auto;line-height:1.55;align-self:center}
 @media(max-width:700px){.import-source-row{grid-template-columns:1fr}.import-entry{grid-template-columns:18px minmax(0,1fr)}.import-entry-type{display:none}.import-footer-help{display:none}}
+.lore-list-row{display:flex;align-items:center;gap:6px}
+.lore-list-row .lore-list-item{flex:1;min-width:0}
+.lore-pick{flex:0 0 auto;width:14px;height:14px;margin:0;accent-color:var(--primary)}
+.lore-bulk-bar{display:flex;align-items:center;gap:6px;padding:8px;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted)}
+.lore-bulk-bar select{flex:1;min-width:0;height:28px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-size:11px;padding:0 6px}
+.lore-bulk-bar .button{height:28px;padding:0 8px;font-size:10px}
+.lore-bulk-bar .text-action{padding:0;border:0;background:transparent;color:var(--primary);font-size:10px;cursor:pointer}

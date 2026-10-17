@@ -176,14 +176,15 @@ test('解析：分段调用模型、不写库、把结果改写成项目资料�
   assert.equal(data.entries.filter(entry => entry.name === '灰烬议会').length, 1);
   assert.ok(parliament.values.details.includes('议员不得兼任军职'), '合并后保留补充正文');
   assert.deepEqual(parliament.values.constraints, ['议员不得兼任军职']);
-  assert.match(parliament.id, /^INF-W02-\d{3}$/);
+  assert.match(parliament.id, /^SET-W02-\d{3}$/, '没有分类的 info 条目进「设定」组');
+  assert.equal(parliament.type, 'misc');
   assert.equal(parliament.status, 'proposed');
   assert.equal(parliament.worldId, 'W02');
   const member = data.entries.find(entry => entry.name === '首席议员');
   assert.match(member.id, /^CHR-W02-\d{3}$/);
   assert.deepEqual(member.relationIds, [parliament.id], '关系按名称解析成条目编号');
   assert.ok(data.warnings.some(item => item.code === 'DUPLICATE_MERGED'));
-  assert.ok(data.groups.some(group => group.id === 'info' && group.worldId === 'W02'));
+  assert.deepEqual(data.groups, [], '分类缺失时不需要新建资料组');
 
   const after = parse(await request(server.port, '/api/content'));
   assert.equal(after.revision, before.revision, '解析不允许写库');
@@ -395,7 +396,7 @@ test('确认导入：缺标记头 403，成功后只追加一个新世界', asyn
   const imported = after.loreEntries.filter(entry => entry.worldId === 'W02' && entry.type !== 'world');
   assert.deepEqual(imported.map(entry => entry.name).sort(), ['灰烬议会', '首席议员'].sort());
   assert.ok(imported.every(entry => entry.status === 'proposed'));
-  assert.deepEqual(after.loreGroups.map(group => [group.id, group.worldId]), [['info', 'W02']], 'info 资料组随世界落库');
+  assert.equal(imported.find(entry => entry.name === '灰烬议会').type, 'misc', '没有分类的条目落在「设定」组');
   assert.equal(after.loreEntries.find(entry => entry.name === '首席议员').relationIds.length, 1);
 });
 
@@ -473,6 +474,57 @@ test('确认导入：并入不存在的世界返回 400', async () => {
   });
   assert.equal(response.status, 400, response.body);
   assert.match(String(parse(response).error), /目标世界不存在/);
+});
+
+test('解析：分类决定条目组，旧类型复用稳定 id、新分类自动建组', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({
+    status: 200,
+    json: { choices: [{ message: { content: '@@ 条目\n类型：info\n名称：铁匠行会\n分类：势力\n正文：铸铁为业。\n\n@@ 条目\n类型：info\n名称：符文学\n分类：秘术\n正文：以符文施术。\n\n@@ 条目\n类型：info\n名称：无名杂项\n正文：没有分类。\n' } }] }
+  }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '铁匠行会、符文学与若干杂项。', intoWorld: 'W01' } });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  const byName = new Map(data.entries.map(item => [item.name, item.type]));
+  assert.equal(byName.get('铁匠行会'), 'faction', '「势力」复用旧类型 id');
+  assert.match(byName.get('符文学'), /^cat-[a-z0-9]+$/, '新分类生成确定性 id');
+  assert.equal(byName.get('无名杂项'), 'misc', '没有分类进「设定」组');
+  assert.deepEqual(data.groups.map(group => group.label).sort(), ['势力', '秘术'].sort());
+  assert.ok(data.groups.every(group => group.worldId === 'W01'));
+
+  const before = parse(await request(server.port, '/api/content'));
+  const commit = await request(server.port, '/api/lore-import/commit', {
+    method: 'POST', headers: importHeaders,
+    body: { mode: 'existing', worldId: 'W01', plan: { worldId: 'W01', world: data.world, entries: data.entries, groups: data.groups }, expectedRevision: before.revision }
+  });
+  assert.equal(commit.status, 200, commit.body);
+  const after = parse(await request(server.port, '/api/content'));
+  assert.deepEqual(after.loreGroups.map(group => group.label).sort(), ['势力', '秘术'].sort(), '新建组随导入落库');
+  assert.ok(after.loreGroups.every(group => group.worldId === 'W01'));
+  assert.equal(after.loreEntries.find(entry => entry.name === '符文学').type, byName.get('符文学'));
+});
+
+test('二次导入：同名同类型条目被识别为重复并跳过，不产生副本', async () => {
+  fakeModel.reset();
+  const reply = () => ({ status: 200, json: { choices: [{ message: { content: '@@ 条目\n类型：character\n名称：二次测试议员\n正文：第一次导入的内容。\n' } }] } });
+  fakeModel.setBehavior(reply);
+  const first = parse(await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '二次测试议员。', intoWorld: 'W01' } }));
+  assert.equal(first.entries.length, 1);
+  const before = parse(await request(server.port, '/api/content'));
+  const commit = await request(server.port, '/api/lore-import/commit', {
+    method: 'POST', headers: importHeaders,
+    body: { mode: 'existing', worldId: 'W01', plan: { worldId: 'W01', world: first.world, entries: first.entries, groups: first.groups }, expectedRevision: before.revision }
+  });
+  assert.equal(commit.status, 200, commit.body);
+
+  fakeModel.reset();
+  fakeModel.setBehavior(reply);
+  const second = parse(await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '二次测试议员。', intoWorld: 'W01' } }));
+  assert.equal(second.entries.length, 0, '已存在的同名条目不再进入计划');
+  assert.deepEqual(second.duplicates.map(item => item.name), ['二次测试议员']);
+  assert.equal(second.warnings.some(item => item.code === 'DUPLICATES_SKIPPED'), true);
+  const after = parse(await request(server.port, '/api/content'));
+  assert.equal(after.loreEntries.filter(entry => entry.name === '二次测试议员').length, 1, '库里仍然只有一条');
 });
 
 test('文件读取：缺标记头 403，DOCX 与压缩包被转成文本且不写库、不计模型调用', async () => {

@@ -12,7 +12,7 @@
 | `readApiJson(response,label)` | 统一响应解码；空响应/非 JSON/非 2xx 抛出带 `code`/`status`/`requestId` 的错误 | `L4` |
 | `requestGeneratedAsset(payload)` / `recoverGeneratedAsset(id)` | 付费生图：单次 POST，传输层失败后按 ID 轮询找回，**不自动重试** | `L7` / `L6` |
 | `CONTENT_KEYS` / `MIGRATION_KEY` / `BACKUP_KEY` | 需同步到 SQLite 的键集合；迁移标记与迁移前快照键 | `L8` |
-| `LORE_GROUPS_KEY` / `LoreGroups` / `readCustomLoreGroups` / `derivedLoreGroups` / `loreGroupsView` / `loreGroup(type)` / `loreTypesWithForm(form)` / `loreGroupKey(group)` / `commitLoreGroups(scoped)` | 资料组层：五项固定组（世界/世界地图/角色/编年史/背景故事）由 `WorldforgeLoreGroups` 提供，其余是作者自定义组，带 `worldId` 作用范围；派生只按当前世界的资料。**不再有静态类型表，也没有默认世界种子** | `L11`–`L29` |
+| `LORE_GROUPS_KEY` / `LoreGroups` / `readCustomLoreGroups` / `derivedLoreGroups` / `loreGroupsView` / `loreGroup(type)` / `loreTypesWithForm(form)` / `loreGroupKey(group)` / `commitLoreGroups(scoped)` | 资料组层：六项固定组（世界/世界地图/角色/编年史/背景故事/设定）由 `WorldforgeLoreGroups` 提供，其余是作者自定义组，带 `worldId` 作用范围；派生只按当前世界的资料。**不再有静态类型表，也没有默认世界种子** | `L11`–`L29` |
 | `legacyValues` / `entryValues` / `valuesFromFields` / `renderLoreFields(group,values)` / `readLoreFieldsRaw()` | 内容块：条目把值存在 `values` 里；编辑器表单由组字段动态生成（单行/多行/每行一项/数值），因此可以没有摘要、约束或开放问题 | `L31`–`L72` |
 | `reconcileGroupFields(group)` | 固定组没有保存过字段覆盖时，把该世界资料里实际用到的旧字段补回视图 | `L18` |
 | `aiBlocksForGroup(group)` | 由资料组的 `form` + 三个属性名生成 AI 可生成内容块；表单字段与 AI 白名单因此永远同源 | `L23` |
@@ -33,7 +33,8 @@
 | `currentWorldId()` / `worldGroups()` | 当前世界取自 `activeWorldId` → 偏好 `worldId` → **空串（未归属）**，没有默认世界；分组委托 `WorldforgeWorldScope.groups` | `L66` / `L67` |
 | `renderWorldHub` / `worldPanel` / `renderWorldDetailHeader` / `enterWorld` / `leaveWorld` | 世界列表与详情两层视图；未归属分组提供“归入某世界”下拉 | `L46` / `L45` / `L47` / `L48` / `L49` |
 | `createWorld()` / `adoptWorldGroup(...)` | 新建下一可用 `W##`；把孤儿资料批量改 `worldId`（`WorldforgeWorldScope.reassign`） | `L50` / `L51` |
-| `LORE_IMPORT_LABELS` / `openLoreImport` / `readLoreImportFiles` / `renderLoreImportPlan` / `parseLoreImport` / `saveLoreImport` | 设定导入（ADR-0033）：文件读取（`lore-import/extract`，把抽取文本回填文本框）→ 逐条勾选预览 → `lore-import/commit`；勾选状态只在内存，保存后用服务端快照重载并进入新世界 | `L131`–`L143` |
+| `LORE_IMPORT_LABELS` / `openLoreImport` / `readLoreImportFiles` / `renderLoreImportPlan` / `parseLoreImport` / `saveLoreImport` | 设定导入（ADR-0033）：`openLoreImport(worldId)` 两种入口共用同一对话框，`worldId` 非空即「并入当前世界」（解析带 `intoWorld`、保存带 `mode:"existing"`，隐藏世界名输入）；文件读取（`lore-import/extract`）→ 逐条勾选预览（含重复条目提示与「规范化 N 段」）→ `lore-import/commit`；勾选状态只在内存，保存后用服务端快照重载 | `L131`–`L143` |
+| `renderLoreGroupSelect` / `renderBulkGroupSelect` / `updateLoreBulkBar` / `applyLoreBulkMove` / `lorePickSelection` / `loreListItem` | 条目分组调整：编辑器下拉（`#loreGroupSelect`）决定保存到哪个组/类型；资料列表每行带勾选框（`.lore-pick`），底部批量条（`#loreBulkBar`）可一次把选中条目移动到目标组，跨类型时重新生成条目 id 并重渲染 | `L145`–`L166`, `L210` |
 | `setTypeAttributes(t)` / `updateLoreBadge(s)` | 按资料类型改写表单标签/占位符/按钮文案并显示地图、编年史专属字段组 | `L52` |
 | `selectLoreType` / `loadLore` / `collectLoreForm` / `saveLore` / `deleteLore` / `resetLoreEditor` / `fillLoreForm` / `loreListItem` / `renderLoreList` | 资料编辑器主链路：选中→填表→收集→落库→重渲染。`collectLoreForm` 里世界条目的 `worldId` 恒等于其自身 `id`；在某个世界内新建「世界」条目会被拒绝，要求回世界列表 | `L103`–`L108`, `L111`, `L114` |
 | `populateLocationParents` / `beginGeographyEntry` / `prepareGeographyFramework` / `geographyNode` / `renderGeographyTree` | 地理层级：以 `form:'geography'` 的资料组集合为作用域（不再写死 `location`），父级下拉只列 `allowedParentKinds` 合法项 | `L88`, `L109`–`L112` |
@@ -67,7 +68,9 @@
 
 ## 重点逻辑
 
-- **资料组与多世界（v0.3.1）**：标签页、表单形态、AI 内容块与地理/编年史作用域全部由「资料组」驱动；固定组只有世界/世界信息/角色/编年史/背景故事五项。整库快照只提交**已保存**的组（`contentSnapshot` 用 `readCustomLoreGroups()`），派生组在各端按世界重算；`commitLoreGroups` 保存当前世界视图时保留其他世界的组。`readLore()` 会滤掉早期 `seeded` 的默认世界，`normalizeLore` 不再把缺失的 `worldId` 改写为 `W01`。
+- **资料组与多世界（v0.3.1）**：标签页、表单形态、AI 内容块与地理/编年史作用域全部由「资料组」驱动；固定组有世界/世界信息/角色/编年史/背景故事/设定六项，其中「设定」（`misc`）是所有未指定分组的条目的落点，可逐条或批量改到自定义组。整库快照只提交**已保存**的组（`contentSnapshot` 用 `readCustomLoreGroups()`），派生组在各端按世界重算；`commitLoreGroups` 保存当前世界视图时保留其他世界的组。`readLore()` 会滤掉早期 `seeded` 的默认世界，`normalizeLore` 不再把缺失的 `worldId` 改写为 `W01`。
+- **组作用范围默认本世界（`L472`–`L478`）**：资料组对话框的「作用范围」下拉世界内默认 `__world__`（仅当前世界），只有编辑**共享**组或固定组时才显示只读的共享值；`saveLoreGroupFromDialog` 直接取下拉的值写 `worldId`，不再用「值不存在即共享」这类隐式推断，避免把新组误存成全局共享。
+- **导入不写 canon、不覆盖**：`saveLoreImport` 只提交服务端返回的计划快照；重复条目由服务端跳过，前端只显示告警，不做本地合并。
 - **数据同步与迁移（`L26`–`L27`）**：`persistContent` 用 `expectedRevision: contentRevision` 做乐观锁，成功后回写 `contentRevision` 并置 `MIGRATION_KEY`；`409` 时不再写库（`contentReady=false`），提示“先导出再刷新”，避免覆盖他端写入。`hydrateContent` 区分三种启动态（库未初始化/需迁移/已就绪），迁移前把本地快照存进 `BACKUP_KEY`。
 - **付费生图失败恢复（`L6`–`L7`）**：只有空响应、非 JSON、读取失败或 `TypeError`（网络）才进入找回流程；HTTP 语义错误（如 4xx）直接抛出，不找回也不重试。
 - **卡面一致性（`L129` + `L146`）**：预览与 PNG 都从 `WorldforgeCards.compileDescription()` 的 `runs` 出发，字体随字数降档（`L125`：>95 字 21px 起，最多 7 行），裁剪由 `artRect(type)` 按卡牌类型给出画框。

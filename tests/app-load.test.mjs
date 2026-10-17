@@ -13,7 +13,7 @@ function fakeElement() {
   const element = {
     dataset: {}, classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     style: {}, children: [], value: '', textContent: '', hidden: false, checked: false, disabled: false, open: false,
-    append() {}, appendChild() {}, prepend() {}, remove() {}, insertBefore() {},
+    append(...nodes) { this.children.push(...nodes); this.childElementCount = this.children.length; }, appendChild(node) { this.children.push(node); this.childElementCount = this.children.length; return node; }, prepend() {}, remove() {}, insertBefore() {},
     replaceChildren(...nodes) { this.children = nodes; this.childElementCount = nodes.length; },
     addEventListener() {}, removeEventListener() {}, setAttribute() {}, getAttribute: () => null,
     removeAttribute() {}, focus() {}, blur() {}, select() {}, click() {}, scrollIntoView() {},
@@ -152,6 +152,48 @@ test('资料组作用范围：世界内新建默认仅当前世界，且可以�
   sandbox.updateGroupScopeHint();
   sandbox.saveLoreGroupFromDialog();
   assert.equal(stored().find(group => group.label === '共享历法').worldId, '');
+});
+
+test('逐条归组：改资料组并保存会把条目移到目标组', async () => {
+  const { sandbox } = await boot();
+  const lore = JSON.parse(sandbox.localStorage.getItem('worldforge-lore-entries-v1') || '[]');
+  lore.push({ id: 'FAC-W01-101', type: 'faction', name: '势力甲', worldId: 'W01', status: 'proposed', truthScope: 'objective', values: { details: '旧正文' } });
+  sandbox.localStorage.setItem('worldforge-lore-entries-v1', JSON.stringify(lore));
+  sandbox.enterWorld('W01');
+  sandbox.selectLoreType('faction');
+  sandbox.loadLore('FAC-W01-101');
+  const select = sandbox.document.querySelector('#loreGroupSelect');
+  assert.ok([...select.children].some(option => option.value === 'misc'), '资料组下拉必须包含「设定」组');
+  assert.equal(select.value, 'faction');
+  select.value = 'misc';
+  sandbox.saveLore();
+  const moved = sandbox.readLore().find(entry => entry.id === 'FAC-W01-101');
+  assert.equal(moved.type, 'misc', '保存后条目应归入目标组');
+});
+
+test('批量归组：勾选后一次把多条资料移到目标组', async () => {
+  const { sandbox } = await boot();
+  const lore = JSON.parse(sandbox.localStorage.getItem('worldforge-lore-entries-v1') || '[]');
+  lore.push(
+    { id: 'FAC-W01-101', type: 'faction', name: '势力甲', worldId: 'W01', status: 'proposed', truthScope: 'objective', values: { details: '甲' } },
+    { id: 'FAC-W01-102', type: 'faction', name: '势力乙', worldId: 'W01', status: 'proposed', truthScope: 'objective', values: { details: '乙' } }
+  );
+  sandbox.localStorage.setItem('worldforge-lore-entries-v1', JSON.stringify(lore));
+  sandbox.enterWorld('W01');
+  sandbox.selectLoreType('faction');
+  const rows = sandbox.document.querySelector('#loreList').children;
+  assert.ok(rows.length >= 2, '列表里应出现两条势力资料');
+  const row = rows.find(item => item.children && item.children[0] && item.children[0].type === 'checkbox');
+  assert.ok(row, '每行都应带勾选框');
+  row.children[0].checked = true;
+  row.children[0].onchange();
+  assert.match(String(sandbox.document.querySelector('#loreBulkCount').textContent), /已选 1 条/);
+  assert.equal(sandbox.document.querySelector('#loreBulkMove').disabled, false);
+  sandbox.document.querySelector('#loreBulkGroup').value = 'misc';
+  sandbox.applyLoreBulkMove();
+  const moved = sandbox.readLore().filter(entry => entry.type === 'misc');
+  assert.equal(moved.length, 1, '只移动勾选的那一条');
+  assert.equal(sandbox.readLore().filter(entry => entry.type === 'faction').length, 2, '另外两条势力资料保持不动');
 });
 
 test('世界内导入设定：默认并入当前世界，列表页仍是新建世界', async () => {

@@ -1,6 +1,6 @@
 import { previewOf } from './ai-harness.mjs';
 import { normalizeModelOutput, repairsApplied } from './model-json-normalizer.mjs';
-import { fallbackGroup } from './lore-groups.mjs';
+import { LEGACY_GROUPS, MAX_LORE_GROUPS, sanitizeLoreGroup } from './lore-groups.mjs';
 
 // ── 设定导入（ADR-0033）─────────────────────────────────────────────────────
 // 「粘贴一篇长篇设定 → Agent 分段解析 → 改写成资料库条目 → 作者预览确认 → 建立新世界」。
@@ -18,7 +18,7 @@ import { fallbackGroup } from './lore-groups.mjs';
 // 4. 跨段合并是确定性的（同名同类型合并），不额外调用模型做归并；世界名与概述
 //    取第一段非空值，避免多一次模型调用带来的费用与不确定输出。
 
-export const LORE_IMPORT_TYPES = Object.freeze(['character', 'location', 'timeline', 'story', 'info']);
+export const LORE_IMPORT_TYPES = Object.freeze(['character', 'location', 'timeline', 'story', 'info', 'misc']);
 
 /**
  * 第 3 层入口契约：设定导入整理器的输出与事实纪律。
@@ -62,7 +62,7 @@ export const IMPORT_CHRONICLE_KINDS = Object.freeze(['chronicle', 'entry']);
 export const IMPORT_TRUTH_SCOPES = Object.freeze(['objective', 'in_world_belief', 'unknown']);
 
 /** 条目类型 → 稳定 ID 前缀，沿用仓库的 `CHR-W##-###` 式约定。 */
-const ID_PREFIX = Object.freeze({ character: 'CHR', location: 'LOC', timeline: 'EVT', story: 'STY', info: 'INF' });
+const ID_PREFIX = Object.freeze({ character: 'CHR', location: 'LOC', timeline: 'EVT', story: 'STY', info: 'INF', misc: 'SET' });
 
 /** 模型在非结构化降级时可能写中文类型名，这里收敛到封闭集合。 */
 const TYPE_ALIASES = Object.freeze({
@@ -70,7 +70,8 @@ const TYPE_ALIASES = Object.freeze({
   location: ['location', '地点', '地理', '地名', '地图', '大陆', '国家', '城市', '区域', 'place'],
   timeline: ['timeline', '编年史', '时间线', '年表', '纪年', '大事记', 'chronicle'],
   story: ['story', '背景故事', '故事', '传说', '歌谣', '书信', 'legend'],
-  info: ['info', '世界信息', '设定', '势力', '组织', 'faction', '种族', 'species', '文化', 'culture', '宗教', 'religion', '信仰', '力量体系', '魔法', 'magic', '技术', 'technology', '科技', '物品', 'item', '事件', 'event', 'artifact']
+  misc: ['misc', '设定', '未分组', '未分类', '其他', '其它'],
+  info: ['info', '世界信息', '势力', '组织', 'faction', '种族', 'species', '文化', 'culture', '宗教', 'religion', '信仰', '力量体系', '魔法', 'magic', '技术', 'technology', '科技', '物品', 'item', '事件', 'event', 'artifact']
 });
 
 function badRequest(message) {
@@ -162,7 +163,7 @@ export const IMPORT_RECORD_FIELDS = Object.freeze([
   { key: 'name', labels: ['名称', '名字', '标题'], kind: 'text' },
   { key: 'summary', labels: ['概述', '摘要', '一句话概述'], kind: 'text' },
   { key: 'details', labels: ['正文', '详细设定', '内容'], kind: 'text' },
-  { key: 'attributeA', labels: ['属性一', '要点一', '分类'], kind: 'text' },
+  { key: 'attributeA', labels: ['属性一', '要点一', '第一条要点'], kind: 'text' },
   { key: 'attributeB', labels: ['属性二', '要点二', '归属'], kind: 'text' },
   { key: 'attributeC', labels: ['属性三', '要点三'], kind: 'text' },
   { key: 'constraints', labels: ['约束', '限制', '限制与边界'], kind: 'lines' },
@@ -175,7 +176,8 @@ export const IMPORT_RECORD_FIELDS = Object.freeze([
   { key: 'chronicleParent', labels: ['所属编年史'], kind: 'text' },
   { key: 'dateLabel', labels: ['纪年'], kind: 'text' },
   { key: 'order', labels: ['排序', '排序值'], kind: 'number' },
-  { key: 'truthScope', labels: ['事实层次', '事实层次/视角'], kind: 'text' }
+  { key: 'truthScope', labels: ['事实层次', '事实层次/视角'], kind: 'text' },
+  { key: 'category', labels: ['分类', '类别', '资料组'], kind: 'text' }
 ]);
 
 /** 第 4–6 层提示词：作者风格（4）→ 本次任务与输出契约（5）→ 原文（6）。 */
@@ -194,7 +196,7 @@ export function buildImportPrompt(options = {}) {
 - 只使用原文明确写出的信息。可以归纳、分段、改写成通顺正文，但不得新增原文没有的事实、数字、名称、关系、年代或机制。
 - 原文没交代但整理时确实需要作者裁定的地方，只能写进 openQuestions，不能当作已知事实写进正文。
 - 一条条目只讲一个对象（一个人、一个地点、一个势力、一个事件……）；同一对象的分散描述必须合并成一条。
-- 目标类型只有五种：character 角色、location 地理条目、timeline 编年史、story 背景故事、info 其它设定。势力、种族、文化、宗教、力量体系、技术、物品、事件等一律用 info，并把分类写进 attributeA；原文里有独立的传说、歌谣、书信或短篇叙述时用 story。
+- 目标类型只有五种：character 角色、location 地理条目、timeline 编年史、story 背景故事、info 其它设定。势力、种族、文化、宗教、力量体系、技术、物品、事件等一律用 info，并在「分类」里写它的类别名（如「势力」「技术体系」「物品」「事件」）；分类会决定条目归入哪个资料组，系统按分类名自动复用或新建资料组，没有分类的条目进「设定」组。原文里有独立的传说、歌谣、书信或短篇叙述时用 story。
 - name 必须是原文出现的专名；没有专名时用原文的描述性称呼，不要自行造名。
 - details 直接写可进入条目正文的成品文字，保留作者的措辞、自造词与口吻；禁止出现“原文提到”“本条目”“以上内容”“设计说明”“字段说明”等元话语。
 - 地理层级只能是 ${IMPORT_LOCATION_KINDS.join(' / ')}；只有在原文能看出上下级关系时才填上级。
@@ -218,6 +220,7 @@ ${instruction ? `作者补充要求：${instruction}\n` : ''}输出格式：按�
 属性一：（info 条目填分类，如「势力」「技术体系」；其它类型可留空）
 属性二：（如所属势力、地区）
 属性三：（最关键的要点）
+分类：（info 条目必填：势力 / 种族 / 文化 / 宗教 / 力量体系 / 技术体系 / 物品 / 事件 等，决定归入哪个资料组；其它类型留空）
 约束：（原文明确写出的限制与代价）
 开放问题：（原文没交代、需要作者裁定的缺口）
 标签：（关键词）
@@ -295,7 +298,9 @@ function normalizeExtractedEntry(raw) {
       chronicleParent: type === 'timeline' ? text(source.chronicleParent, LORE_IMPORT_LIMITS.name) : '',
       dateLabel: type === 'timeline' ? text(source.dateLabel, LORE_IMPORT_LIMITS.name) : '',
       order: type === 'timeline' ? finiteNumber(source.order) : null,
-      truthScope: type === 'story' ? 'unknown' : truthScope
+      truthScope: type === 'story' ? 'unknown' : truthScope,
+      // 分类只对 info 有意义：它决定条目最后进哪个资料组（见 buildImportPlan 的类型解析）。
+      category: type === 'info' ? text(source.category, 60) : ''
     }
   };
 }
@@ -569,20 +574,94 @@ export function buildWorldEntry({ worldId, world = {}, authorName = '', now = ()
   };
 }
 
-/** 导入用到 `info` 时才落一行资料组记录；它是作者可改的自定义组，不是产品常量。 */
-export function buildImportGroups(entries, worldId) {
-  if (!(entries || []).some(entry => entry.type === 'info')) return [];
-  const group = fallbackGroup('info');
-  return [{ ...group, worldId }];
+/** 分类名归一：去空白、去「资料组/组」后缀，用于把模型写的类别匹配到已有组。 */
+function categoryKey(value) {
+  return String(value ?? '').replace(/[\s\u3000]/g, '').replace(/(资料组|条目组|组)$/u, '').toLowerCase();
+}
+
+/** 中文分类无法 slug 化，用确定性短哈希生成稳定 id（cat-xxxx），同一分类永远同一 id。 */
+function categoryGroupId(label) {
+  let hash = 5381;
+  for (const char of String(label)) hash = ((hash * 33) ^ char.codePointAt(0)) >>> 0;
+  return `cat-${hash.toString(36).slice(0, 8)}`;
 }
 
 /**
- * 汇总一次解析结果：分配世界编号、改写条目、生成可选资料组与统计。
- * `existingEntries` 是当前内容库里的资料条目（只用于编号避让与世界编号）。
+ * 把模型写的「分类」落到一个资料组：
+ * 1. 已有组的 id / 标签精确匹配 → 复用；
+ * 2. 旧类型（势力 / 力量体系 / 技术体系 / 物品 / 事件 / 种族 / 文化 / 宗教）按稳定 legacy id 复用；
+ * 3. 都没有 → 为当前世界新建一个通用组（标签就是分类名）。
+ * 返回 `{type, group}`，group 为需要新建的组（复用已有组时为 null）。
  */
-export function buildImportPlan({ worldId, world, entries, warnings = [], extractions = [], source = {}, existingEntries = [], now } = {}) {
+function resolveCategoryType(category, groups, created, worldId, warnings) {
+  const key = categoryKey(category);
+  if (!key) return { type: 'misc', group: null };
+  const pool = [...groups, ...created];
+  const byId = pool.find(group => String(group.id).toLowerCase() === key);
+  if (byId) return { type: byId.id, group: null };
+  const byLabel = pool.find(group => categoryKey(group.label) === key);
+  if (byLabel) return { type: byLabel.id, group: null };
+  for (const [id, legacy] of Object.entries(LEGACY_GROUPS)) {
+    if (categoryKey(id) !== key && categoryKey(legacy.label) !== key) continue;
+    if (groups.some(group => group.id === id)) return { type: id, group: null };
+    if (groups.length + created.length >= MAX_LORE_GROUPS) break;
+    const group = sanitizeLoreGroup({ id, worldId, label: legacy.label, form: legacy.form, fields: legacy.defaultFields });
+    if (group) { created.push(group); return { type: id, group } }
+  }
+  if (groups.length + created.length >= MAX_LORE_GROUPS) {
+    warnings.push({ code: 'GROUP_LIMIT_REACHED', message: `自定义资料组已达上限 ${MAX_LORE_GROUPS}，「${category}」的条目先放进「设定」组` });
+    return { type: 'misc', group: null };
+  }
+  const id = categoryGroupId(category);
+  const existing = groups.find(group => group.id === id);
+  if (existing) return { type: id, group: null };
+  const group = sanitizeLoreGroup({ id, worldId, label: category, form: 'generic', fields: [] });
+  if (!group) { warnings.push({ code: 'GROUP_INVALID', message: `分类「${category}」无法生成有效资料组，条目放进「设定」组` }); return { type: 'misc', group: null } }
+  created.push(group);
+  return { type: id, group };
+}
+
+/**
+ * 汇总一次解析结果：分配世界编号、解析条目分类、跳过已存在的条目、改写条目并统计。
+ * - `existingEntries`：当前内容库里的全部条目（编号避让 + 目标世界内重复检测）。
+ * - `existingGroups`：当前全部资料组视图（分类解析与复用）。
+ * 重复检测只看**目标世界内同类型 + 同名**的条目：这样「第一次导入漏了几条、再导一次」不会
+ * 产生重复，而不同世界里的同名条目仍然可以各自存在。
+ */
+export function buildImportPlan({ worldId, world, entries, warnings = [], extractions = [], source = {}, existingEntries = [], existingGroups = [], now } = {}) {
   const existingIds = (Array.isArray(existingEntries) ? existingEntries : []).map(entry => String(entry?.id ?? '')).filter(Boolean);
-  const built = buildLoreEntries(entries || [], { worldId, existingIds: [worldId, ...existingIds], now });
+  const groups = Array.isArray(existingGroups) ? existingGroups : [];
+  const createdGroups = [];
+  const duplicates = [];
+  const resolved = [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    let type = entry.type;
+    if (type === 'info') {
+      const category = String(entry.category || '').trim();
+      if (!category) { type = 'misc' }
+      else {
+        const result = resolveCategoryType(category, groups, createdGroups, worldId, warnings);
+        type = result.type;
+      }
+    }
+    resolved.push({ ...entry, type });
+  }
+  const existingByName = new Map((Array.isArray(existingEntries) ? existingEntries : [])
+    .filter(entry => entry && entry.type !== 'world' && String(entry.worldId || '') === worldId)
+    .map(entry => [`${entry.type}|${nameKey(entry.name)}`, entry]));
+  const fresh = [];
+  for (const entry of resolved) {
+    const key = `${entry.type}|${nameKey(entry.name)}`;
+    const existing = existingByName.get(key);
+    if (existing) { duplicates.push({ type: entry.type, name: entry.name, existingId: existing.id }); continue; }
+    existingByName.set(key, entry);
+    fresh.push(entry);
+  }
+  if (duplicates.length) {
+    const names = duplicates.slice(0, 5).map(item => item.name).join('、');
+    warnings.push({ code: 'DUPLICATES_SKIPPED', message: `跳过 ${duplicates.length} 条库里已有的条目（同类型同名）：${names}${duplicates.length > 5 ? ' 等' : ''}` });
+  }
+  const built = buildLoreEntries(fresh, { worldId, existingIds: [worldId, ...existingIds], now });
   const counts = {};
   for (const entry of built.entries) counts[entry.type] = (counts[entry.type] || 0) + 1;
   return {
@@ -593,7 +672,8 @@ export function buildImportPlan({ worldId, world, entries, warnings = [], extrac
       details: text(world?.details, 16000)
     },
     entries: built.entries,
-    groups: buildImportGroups(built.entries, worldId),
+    groups: createdGroups,
+    duplicates,
     warnings: [...warnings, ...built.warnings],
     stats: {
       chunks: Array.isArray(extractions) ? extractions.length : 0,
@@ -601,6 +681,8 @@ export function buildImportPlan({ worldId, world, entries, warnings = [], extrac
       truncated: Boolean(source.truncated),
       droppedCharacters: Number(source.droppedCharacters) || 0,
       total: built.entries.length,
+      duplicates: duplicates.length,
+      createdGroups: createdGroups.map(group => group.label),
       counts
     }
   };
@@ -630,7 +712,9 @@ function normalizePlanEntry(raw, worldId, now) {
   const id = text(item.id, 80);
   if (!/^[A-Za-z][A-Za-z0-9-]{2,79}$/.test(id)) throw badRequest(`条目编号无效：${id || '(空)'}`);
   const type = text(item.type, 24);
-  if (!LORE_IMPORT_TYPES.includes(type)) throw badRequest(`不支持的资料类型：${type || '(空)'}`);
+  // 类型可以是内置的六种，也可以是分类解析后新建 / 复用的资料组 id（如 faction、cat-xxx）。
+  const customGroupId = /^[a-z][a-z0-9_-]{0,31}$/.test(type) && type !== 'world';
+  if (!LORE_IMPORT_TYPES.includes(type) && !customGroupId) throw badRequest(`不支持的资料类型：${type || '(空)'}`);
   const name = text(item.name, LORE_IMPORT_LIMITS.name);
   if (!name) throw badRequest(`条目 ${id} 缺少名称`);
   const values = normalizePlanValues(item.values, `条目 ${id}`);
@@ -686,14 +770,26 @@ export function validateImportPlan(value, { existingEntries = [], now = () => ne
   const rawEntries = Array.isArray(plan.entries) ? plan.entries : [];
   if (rawEntries.length > LORE_IMPORT_LIMITS.totalEntries) throw badRequest(`一次最多导入 ${LORE_IMPORT_LIMITS.totalEntries} 条资料`);
   const existingIds = new Set(current.map(entry => String(entry?.id ?? '')));
+  const existingNames = new Map(current
+    .filter(entry => entry && entry.type !== 'world' && String(entry.worldId || '') === worldId)
+    .map(entry => [`${entry.type}|${nameKey(entry.name)}`, entry]));
   const seen = new Set();
-  const entries = rawEntries.map(raw => {
+  const duplicates = [];
+  const entries = [];
+  for (const raw of rawEntries) {
     const entry = normalizePlanEntry(raw, worldId, now());
-    if (existingIds.has(entry.id)) throw badRequest(`条目编号 ${entry.id} 已存在`);
+    // 同一批里重复出现同一编号属于客户端结构错误，直接拒绝，不当作「重复条目」静默跳过。
     if (seen.has(entry.id)) throw badRequest(`条目编号重复：${entry.id}`);
+    const nameKeyOfEntry = `${entry.type}|${nameKey(entry.name)}`;
+    // 二次导入保护优先于「编号是否已被占用」：预览之后库里可能已经有了同名同类型的条目，
+    // 这时 plan 里的编号很可能已过期，直接 409 会挡住「补导」。
+    const clash = existingNames.get(nameKeyOfEntry);
+    if (clash) { duplicates.push({ type: entry.type, name: entry.name, existingId: clash.id }); continue; }
+    if (existingIds.has(entry.id)) throw badRequest(`条目编号 ${entry.id} 已存在`);
     seen.add(entry.id);
-    return entry;
-  });
+    existingNames.set(nameKeyOfEntry, entry);
+    entries.push(entry);
+  }
   // 关联与被引用关系只保留指向本批次条目的部分：不存在的编号会被静默丢弃会让作者困惑，因此明确清空并回报。
   const warnings = [];
   let droppedRelationCount = 0;
@@ -703,6 +799,7 @@ export function validateImportPlan(value, { existingEntries = [], now = () => ne
     droppedRelationCount += before - entry.relationIds.length;
   }
   if (droppedRelationCount) warnings.push({ code: 'RELATION_DROPPED', message: `有 ${droppedRelationCount} 个关联指向未被勾选的条目，已移除` });
+  if (duplicates.length) warnings.push({ code: 'DUPLICATES_SKIPPED', message: `有 ${duplicates.length} 条资料在保存前已存在于该世界（${duplicates.slice(0, 5).map(item => item.name).join('、')}${duplicates.length > 5 ? ' 等' : ''}），已跳过` });
   const ids = new Set(entries.map(entry => entry.id));
   const chronicleOrphans = entries.filter(entry => entry.chronicle.kind === 'entry' && (!entry.chronicle.parentId || !ids.has(entry.chronicle.parentId)));
   // 只清空父级、保留 kind：节点仍被识别为节点，前端会把它列进「待整理的编年节点」，
@@ -712,11 +809,21 @@ export function validateImportPlan(value, { existingEntries = [], now = () => ne
   const locationOrphans = entries.filter(entry => entry.type === 'location' && entry.location.parentId && !ids.has(entry.location.parentId));
   for (const entry of locationOrphans) entry.location = { ...entry.location, parentId: '' };
   if (locationOrphans.length) warnings.push({ code: 'LOCATION_ORPHAN', message: `${locationOrphans.length} 个地理条目缺少同批次里的上级，会显示在「待整理的地理条目」里` });
+  // 新组随计划回传：只接受与目标世界一致、且确实被条目引用的组，数量受全局上限约束。
+  const usedTypes = new Set(entries.map(entry => entry.type));
+  const groups = [];
+  for (const raw of Array.isArray(plan.groups) ? plan.groups : []) {
+    if (groups.length + 1 > MAX_LORE_GROUPS) break;
+    const group = sanitizeLoreGroup({ ...(raw && typeof raw === 'object' ? raw : {}), worldId });
+    if (!group || !usedTypes.has(group.id) || groups.some(item => item.id === group.id)) continue;
+    groups.push(group);
+  }
   return {
     worldId,
     world: { name, summary: text(world.summary, 2000), details: text(world.details, 16000) },
     entries,
-    groups: buildImportGroups(entries, worldId),
+    groups,
+    duplicates,
     warnings
   };
 }

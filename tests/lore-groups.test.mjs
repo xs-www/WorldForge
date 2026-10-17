@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 await import('../dist/lore-groups.js');
 const groups = globalThis.WorldforgeLoreGroups;
 
-test('五个固定资料组：世界 / 世界地图 / 角色 / 编年史 / 背景故事', () => {
-  assert.deepEqual(groups.FIXED_GROUPS.map(group => group.id), ['world', 'location', 'character', 'timeline', 'story']);
-  assert.deepEqual(groups.FIXED_GROUPS.map(group => group.label), ['世界', '世界地图', '角色', '编年史', '背景故事']);
+test('六个固定资料组：世界 / 世界地图 / 角色 / 编年史 / 背景故事 / 设定', () => {
+  assert.deepEqual(groups.FIXED_GROUPS.map(group => group.id), ['world', 'location', 'character', 'timeline', 'story', 'misc']);
+  assert.deepEqual(groups.FIXED_GROUPS.map(group => group.label), ['世界', '世界地图', '角色', '编年史', '背景故事', '设定']);
   for (const group of groups.FIXED_GROUPS) {
     assert.equal(group.fixed, true);
     assert.ok(groups.FORMS.includes(group.form));
@@ -94,7 +94,7 @@ test('按世界派生：新世界不会凭空出现旧组', () => {
   assert.deepEqual(forW01.map(group => group.id), ['faction', 'species']);
   assert.deepEqual(forW02, []);
   assert.ok(forW01.every(group => group.worldId === 'W01'));
-  assert.deepEqual(groups.allGroups(forW02).map(group => group.id), ['world', 'location', 'character', 'timeline', 'story']);
+  assert.deepEqual(groups.allGroups(forW02).map(group => group.id), ['world', 'location', 'character', 'timeline', 'story', 'misc']);
 });
 
 test('旧组数据迁移：补 worldId 与字段，老 attributes 变成三个字段', () => {
@@ -135,7 +135,7 @@ test('生图档位按表单形态归一', () => {
 
 test('服务端包装层与浏览器侧共享同一张表', async () => {
   const server = await import('../lore-groups.mjs');
-  assert.equal(server.FIXED_GROUPS.length, 5);
+  assert.equal(server.FIXED_GROUPS.length, 6);
   assert.equal(server.MAX_LORE_GROUPS, groups.MAX_GROUPS);
   assert.deepEqual(server.MINIMAL_FIELDS, []);
   assert.equal(server.fallbackGroup('magic').label, '力量体系');

@@ -37,13 +37,13 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 4. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID；连接中断只按请求 ID 找回，不自动重发付费请求。
 5. **数据搬运**：`GET /api/export`（可选内嵌图片）→ 交换格式 JSON；`POST /api/import` → `data-transfer.mjs` 解析/合并 → 同一个内容库 → 图片落盘并登记美术元数据。预检与真实导入共用校验。
 6. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
-7. **设定导入**：主界面粘贴长篇原文或上传文档 → `POST /api/lore-import/extract`（`lore-import-files.mjs`：docx/xlsx/md/txt/zip 读成文本，压缩包逐条校验内部格式；不写库、不计配额）→ `POST /api/lore-import/parse`（`lore-import.mjs` 切分 + 设定入口 preset 分段抽取 + 确定性合并 → 预览计划，不写库、按段计费）→ 作者逐条勾选 → `POST /api/lore-import/commit`（复核后追加一个新世界，`expectedRevision` 乐观锁）。导入结果全部 `proposed`。
+7. **设定导入**：主界面粘贴长篇原文或上传文档 → `POST /api/lore-import/extract`（`lore-import-files.mjs`：docx/xlsx/md/txt/zip 读成文本，压缩包逐条校验内部格式；不写库、不计配额）→ `POST /api/lore-import/parse`（`lore-import.mjs` 切分 + 设定入口 preset 分段抽取 + 确定性合并 + 分类落组 + 跳过重复 → 预览计划，不写库、按段计费）→ 作者逐条勾选 → `POST /api/lore-import/commit`（复核后追加一个新世界或并入当前世界，`expectedRevision` 乐观锁）。导入结果全部 `proposed`。
 
 ## 全局不变量（跨模块）
 
 - **没有默认世界**：新装实例不含任何世界或题材种子；缺失的世界归属显示为「未归属资料」桶，而不是算进某个默认世界。
 - **作者主权**：`canon` / `proposed` / `deprecated` 与 `objective` / `in_world_belief` / `unknown` 由作者裁定；代码只在 `proposed` 一侧生成候选。
-- **导入只追加**：设定导入（`/api/lore-import/commit`）只写入一个新世界及其 `proposed` 条目，不改动任何既有条目、不写 canon、不写回仓库；解析阶段（`/api/lore-import/parse`）不写库，只在作者确认后才落盘。
+- **导入只追加且不重复**：设定导入（`/api/lore-import/commit`）只写入一个新世界（或并入目标世界）及其 `proposed` 条目，不改动任何既有条目、不写 canon、不写回仓库；解析阶段（`/api/lore-import/parse`）不写库，只在作者确认后才落盘。解析与确认各做一次「目标世界内同类型 + 同名」去重，因此同一份设定可以分多次导入补齐。
 - **模拟域隔离**：模拟只读 Git 投影出的 JSON 发布清单，不写作者内容表；W97/W98/W99 是合成实验，不是正史。
 - **不可信内容不上指令层**：作者笔记、资料库正文、示例只能出现在用户消息侧；preset 伪造分层标记会被注册表拒绝加载。
 - **输出外壳不依赖供应商支持**：`response_format` / `text.format` 只是加固，不是外壳的唯一来源。设定与卡牌入口都必须把 `{"variants":[…]}`、`key`、已勾选键写进 prompt 第 5 层，解析侧再宽松收敛（裸候选对象、顶层数组、夹带围栏）+ 候选缺 `key` 时补 `candidate-N`；只支持 `json_object` 的兼容接口不得让整次生成失败，降级原因由响应里的 `fallbackReason` 如实回显。

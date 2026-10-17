@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "c04c7c03da583dcc221ea181ddf44284dc082981221dd94c3e683cb55b50ef11"
+      "sha256": "fda8c26eb98d056646f7a3f9ce68715fb456f553d18e19499e35975508c93b39"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,13 +294,13 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "cf0d426cf1dbf8272a55408ee07a29b88da62ad3483a0cef3d06c6d16814d6ce"
+      "sha256": "9679234889c294362611ece1aa9d54c7c870f8d4e6131de3495ff948409b2a2b"
     },
     {
       "source": "dist/login.html",
       "doc": "docs/static/dist/login.html.md",
       "status": "documented",
-      "sha256": "ec0d9da0e18b054915251a29b03f8be48274873b1285197699ca496b8c1e17d8"
+      "sha256": "4abfeb74627fc69f20acb8784192bafe67ee2d53931933715f381cc09c89d91e"
     },
     {
       "source": "dist/login.js",
@@ -312,7 +312,7 @@
       "source": "dist/lore-groups.js",
       "doc": "docs/static/dist/lore-groups.js.md",
       "status": "documented",
-      "sha256": "d17f0ff0c60bed1ca8ae77c54e0cb8dc7fb26337734df9d86a1bce76ac07a19a"
+      "sha256": "2967bc90194adad7d81760145d939cf57c09ee662d699f5d4ccaf72eab83c63f"
     },
     {
       "source": "dist/macro.js",
@@ -330,7 +330,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "5b326294aefe10981e0b3e8bb88facc5ed8494ca29bd319b4d925fe1212c7b17"
+      "sha256": "1acc2df6246e3dc4672d4a10b7f2f30ab1636a562fb57d713335f7a28c1e813f"
     },
     {
       "source": "dist/world-scope.js",
@@ -372,7 +372,7 @@
       "source": "lore-import.mjs",
       "doc": "docs/static/lore-import.mjs.md",
       "status": "documented",
-      "sha256": "cb6fad5699f5aa624dcc028b5b444d61f084c9ec3fa1552e86db1dbee8d05e06"
+      "sha256": "172476424524104f9c21349dfc86d02b37e27791424f51ed1fea8399f45ed646"
     },
     {
       "source": "lore-import-files.mjs",
@@ -432,7 +432,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "911b034cf2ae7242d9bd2035ac912be896dcbabb3ed9d43226268d07978565a2"
+      "sha256": "db7bfb7c8ced6703d20ac5d1087dd72bdf77cb92a98c15bb9e108b5f85d61962"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -876,13 +876,13 @@
       "source": "tests/lore-groups.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "a6e401d7fc41e059b7ec378b1c91d9d6dc695a6c1adaf0facc78f5accc450cb9"
+      "sha256": "ee37e8085157ee829f3308e602d1c7eaeb01fe5d36cf452028a60bf5b53d0d94"
     },
     {
       "source": "tests/lore-import-api.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "65b445aa8bc636b1cdaf72c8eacf728522d3453806bbe01f4036a39bcc178d63"
+      "sha256": "fc9a347b2bb1270568b4bf2b19cdc639d15fe9b47984f3f17788bcfc06c6670f"
     },
     {
       "source": "tests/lore-import-files.test.mjs",
@@ -894,7 +894,7 @@
       "source": "tests/lore-import.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "65e62f804afc88cb9b8dc81d6d1583dbc7ce7c2ec7649148b384e9eda81b11ff"
+      "sha256": "5e95fe2adc37cd75902181e0206cfa22ef2bb66a98c8d069bcdb7b40aaafbb03"
     },
     {
       "source": "tests/macro-simulation.test.mjs",
@@ -918,7 +918,7 @@
       "source": "tests/README.md",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "38bbfb92ea62935808e9312c538388b35b0f322df34d7a4994f28dbe36ee922c"
+      "sha256": "c5d1229d2298b4c19b590daf075256792f8e23b54f791f1389f822c5d653380c"
     },
     {
       "source": "tests/reference-assets.test.mjs",
@@ -978,7 +978,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "f2bc882bccb2e249d398bf3ca36dca0803c966c7a1aeba58dd1d967f352eab35"
+      "sha256": "5b7156683cd287b862668b35566627a6d7a7bedb455e01c67e003c6f4db226e5"
     },
     {
       "source": "tests/world-package.test.mjs",

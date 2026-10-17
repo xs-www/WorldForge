@@ -8,21 +8,21 @@
 
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `LORE_IMPORT_TYPES` | 唯一允许的五种条目类型：`character` / `location` / `timeline` / `story` / `info` | `L21` |
+| `LORE_IMPORT_TYPES` | 唯一允许的六种条目类型：`character` / `location` / `timeline` / `story` / `info` / `misc`（`misc` = 「设定」组的落点） | `L21` |
 | `LORE_IMPORT_ENTRY_CONTRACT` | 第 3 层入口契约：只整理原文已写出的信息、不新造设定、缺口进 `openQuestions`、结果一律 `proposed` | `L27` |
 | `LORE_IMPORT_LIMITS` | 输入、切分、条目与并发上限的唯一真值（90000 字符 / 9000 每段 / 10 段 / 16 每条 / 160 总计 / 3 并发） | `L34` |
 | `normalizeImportSource(value)` | 去 BOM、统一换行、拒绝空文本；超限按段落边界截断并回报丢弃字符数 | `L104` |
 | `splitImportSource(text, options)` | 确定性切分：窗口内取最靠后的段落 / 换行 / 句末断点（≥40% 才用），返回 `{chunks, truncated, droppedCharacters}` | `L134` |
-| `IMPORT_RECORD_FIELDS` | 记录格式的字段清单（键、中文名与别名、`text` / `lines` / `number`）；提示词第 5 层与规范化器共用这一份 | `L160` |
+| `IMPORT_RECORD_FIELDS` | 记录格式的字段清单（键、中文名与别名、`text` / `lines` / `number`），含 `category`（标签「分类」）；提示词第 5 层与规范化器共用这一份 | `L161` |
 | `buildImportPrompt(options)` | 第 4 层作者风格 → 第 5 层任务 / 规则 / **记录格式契约** → 第 6 层原文；不再要求模型输出 JSON | `L182` |
 | `normalizeExtraction(raw, options)` | 把一段模型输出收敛成 `{world, entries}`：记录格式或 JSON 都接受；空内容记 `EMPTY_RESPONSE`，坏条目只丢自己并记 `issues`，不抛错 | `L331` |
 | `mergeExtractions(extractions)` | 按「类型 + 名称」去重合并，世界名与概述取首段非空值，返回告警 | `L380` |
 | `nextWorldIdOf(entries)` | 最小可用 `W##`；与浏览器 `WorldforgeWorldScope.nextWorldId` 同一规则 | `L438` |
-| `buildLoreEntries(planEntries, options)` | 分配 `CHR/LOC/EVT/STY/INF-W##-###`、解析关联名称、补建编年史容器、改写为 `values` + `location` + `chronicle` | `L484` |
-| `buildWorldEntry(options)` | 世界条目：名称取作者输入 → 模型识别 → `导入的世界 W##`，固定 `proposed` / `objective` | `L549` |
-| `buildImportGroups(entries, worldId)` | 仅当存在 `info` 条目时产出本世界的 `info` 资料组（复用 `fallbackGroup('info')` 的字段） | `L572` |
-| `buildImportPlan(options)` | 汇总解析结果：世界编号、条目、资料组、告警与统计 | `L582` |
-| `validateImportPlan(value, options)` | 落库前复核客户端回传的计划：强制 `proposed`、剔除越界关联 / 父级、编号冲突 400 与 `409`；传 `intoWorld` 时改为「并入已有世界」语义 | `L668` |
+| `buildLoreEntries(planEntries, options)` | 分配 `CHR/LOC/EVT/STY/INF/SET-W##-###`、解析关联名称、补建编年史容器、改写为 `values` + `location` + `chronicle` | `L490` |
+| `buildWorldEntry(options)` | 世界条目：名称取作者输入 → 模型识别 → `导入的世界 W##`，固定 `proposed` / `objective` | `L555` |
+| `categoryKey` / `categoryGroupId` / `resolveCategoryType(category, groups, created, worldId, warnings)` | 分类落组：先按 id / 标签匹配已有组，再匹配旧类型稳定 id，最后用确定性短哈希 `cat-<base36>` 新建世界内组；上限 `MAX_LORE_GROUPS` 时回落到 `misc` | `L578`–`L622` |
+| `buildImportPlan(options)` | 汇总解析结果：分类解析 → 跳过目标世界里的同名同类型条目 → 世界编号、条目、新建资料组、重复列表、告警与统计 | `L631` |
+| `validateImportPlan(value, options)` | 落库前复核客户端回传的计划：强制 `proposed`、剔除越界关联 / 父级、编号冲突 400 与 `409`、接受自定义组 id、保存前再跳过重复条目；传 `intoWorld` 时改为「并入已有世界」语义 | `L754` |
 
 ## 重点逻辑
 
@@ -44,15 +44,25 @@
 - 地理条目的 `parentId` / 编年史的 `parentId` 解析不到时留空，条目进入前端「待整理」区域。
 - 产出字段：`id / type / worldId / name / status='proposed' / truthScope / values / tags / relationIds / location / chronicle / updatedAt`；`story` 固定 `unknown` 且不写标签。
 
+### `buildImportPlan({ worldId, world, entries, existingEntries, existingGroups, ... })`
+- 先把 `info` 条目按 `分类` 落组：分类为空 → `misc`；否则复用已有组 / 旧类型 id / 新建 `cat-<hash>`，新建的组收进 `plan.groups` 随预览一起回传。
+- 再按「目标世界内同类型 + 同名」跳过库里已有的条目，收进 `duplicates` 并追加一条 `DUPLICATES_SKIPPED` 告警；批内同名同类型会先合并（`mergeExtractions`），不会自己和自己重复。
+- 只有留下的新条目才分配编号，因此**二次导入**（第一次漏了几条再补）不会产生重复条目，也不会因为编号被占用而失败。
+- `stats` 额外给出 `duplicates` 与 `createdGroups`，前端据此显示「跳过 N 条 / 新建 M 个资料组」。
+
 ### `validateImportPlan(value, { existingEntries, now, intoWorld })`
 - 默认是**新建世界**语义：世界编号已存在、条目编号与既有内容或同批次重复，都直接拒绝。
-- 传 `intoWorld` 时是**并入已有世界**：世界编号必须与目标一致（不一致 400），不再检查编号空闲；结构校验与条目编号重复检查不变。
+- 传 `intoWorld` 时是**并入已有世界**：世界编号必须与目标一致（不一致 400），不再检查编号空闲；结构校验不变。
+- **保存前再去重**：预览之后作者可能已经手工建了同名条目，或同一计划被提交两次；这类条目被跳过并回报 `DUPLICATES_SKIPPED`，而不是 409。同一批里出现重复编号仍属客户端结构错误，直接 400。
+- `type` 除六种内置类型外，还接受分类解析产生的合法组 id（`^[a-z][a-z0-9_-]{0,31}$`，但 `world` 永远不允许——世界条目只能由导入自己生成）。
+- 计划里回传的 `plan.groups` 会被重新消毒：`worldId` 强制为本次目标世界、只保留确实被条目引用的组、去重、受 `MAX_LORE_GROUPS` 上限约束。
 - 结构问题（缺名称、缺正文、非法类型、`values` 键不合法或超长）一律 400；新建世界时世界编号冲突是 409。
 - 未勾选条目导致的失效关联与父级会被清空并作为 `warnings` 回传，不静默保留悬空引用。
 
 ## 重要约束
 - 本模块没有 I/O 与事务：调用方必须先完成模型调用与计费，再把 `buildImportPlan` 的结果交给前端预览；写库只能走 `server.mjs` 的 `commitLoreImport`。
 - 导入永不产出 `canon` / `deprecated`：`status` 在改写与复核两处都被强制为 `proposed`。
-- 类型别名表（`TYPE_ALIASES`）只用于收敛中文类型名；封闭集合仍是 `LORE_IMPORT_TYPES`。
+- 类型别名表（`TYPE_ALIASES`）只用于收敛中文类型名；封闭集合仍是 `LORE_IMPORT_TYPES`。`分类` 是**组归属**而不是新类型：它最终被解析成某个资料组 id，解析不到才落 `misc`。
+- 「设定」（`misc`）是每个世界都有的固定组，导入因此不需要为「未分类」预造组；作者可在界面上逐条或批量把条目改到别的组。
 - 本模块不发送 `json_schema`：字段契约在提示词第 5 层与 `IMPORT_RECORD_FIELDS`，输出结构由 `model-json-normalizer.mjs` 负责。新增字段必须两处同时改，否则模型写了也解析不出来。
 - 世界编号与条目编号都依赖调用方传入的当前条目集合；并发导入同一编号时由写入阶段的 409 兜底，本模块不做加锁。

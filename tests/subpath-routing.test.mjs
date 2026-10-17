@@ -16,9 +16,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'lore-import/parse', 'lore-import/commit', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=65/);
+  assert.match(htmlSource, /app\.js\?v=66/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=48/);
+  assert.match(htmlSource, /styles\.css\?v=49/);
   assert.match(htmlSource, /cards\.js\?v=7/);
   assert.match(htmlSource, /world-scope\.js\?v=2/);
   assert.match(htmlSource, /relation-picker\.js\?v=2/);
@@ -181,7 +181,7 @@ test('worldview module is a world list that scopes every entry to one world', ()
   assert.match(appSource, /function createWorld\(\)/);
   assert.match(appSource, /function adoptWorldGroup\(sourceId,targetId\)/);
   assert.match(appSource, /WorldforgeWorldScope\.loreOfWorld\(readLore\(\),activeWorldId\)/);
-  assert.match(appSource, /worldId=activeLoreType==='world'\?id:currentWorldId\(\)/);
+  assert.match(appSource, /worldId=targetType==='world'\?id:currentWorldId\(\)/);
   assert.match(appSource, /if\(m==='world'\)leaveWorld\(\)/);
   assert.doesNotMatch(appSource, /q\('#loreWorldId'\)/);
   assert.match(styleSource, /\.world-grid\{/);
@@ -404,7 +404,7 @@ test('设定导入从主界面入口走到预览、勾选与确认保存（ADR-0
   assert.match(styleSource, /\.import-entry\{/);
 });
 
-test('资料组作用范围在世界内可见、可改，默认仅当前世界', () => {
+test('资料组作用范围在世界内可见、可改，默认仅当前世界；条目可逐条或批量归组', () => {
   // 作用范围行不再是 hidden + disabled：世界内新建默认「仅当前世界」，可主动改为共享。
   assert.doesNotMatch(htmlSource, /id="groupScopeRow" hidden/);
   assert.match(htmlSource, /id="groupScopeHint"/);
@@ -412,5 +412,10 @@ test('资料组作用范围在世界内可见、可改，默认仅当前世界',
   assert.match(appSource, /q\('#groupScope'\)\.value=shared\?'__shared__':'__world__'/);
   assert.match(appSource, /q\('#groupScope'\)\.disabled=fixedGroup/);
   assert.match(appSource, /q\('#groupScope'\)\.onchange=updateGroupScopeHint/);
+  // 逐条归组：编辑器里的资料组下拉；批量归组：列表勾选 + 工具条。
+  for (const id of ['loreGroupSelect', 'loreBulkBar', 'loreBulkGroup', 'loreBulkMove', 'loreBulkClear', 'loreBulkCount']) assert.match(htmlSource, new RegExp(`id="${id}"`), `缺少 #${id}`);
+  assert.match(appSource, /function renderLoreGroupSelect\(selected\)/);
+  assert.match(appSource, /function applyLoreBulkMove\(\)/);
+  assert.match(appSource, /function updateLoreBulkBar\(\)/);
   assert.match(appSource, /scope==='__shared__'\?'':/);
 });

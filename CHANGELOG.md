@@ -16,15 +16,20 @@
 - **文件上传**：`lore-import-files.mjs` + `POST /api/lore-import/extract`——`.md`/`.txt`（UTF-8/UTF-16/GBK）、`.docx`（正文与脚注）、`.xlsx`（多工作表）、`.zip`（逐条校验内部格式、一层嵌套）、`.rtf`、旧版 `.doc`/`.xls`（OLE2 尽力抽取 + 告警）；`.rar`/`.pdf` 识别后明确拒绝。零依赖（只用 `node:zlib`），解压只在内存，预算为 8 文件 / 单文件 12 MB / 合计 24 MB / 文本 12 万字 / 压缩包 200 条目 / 单条 8 MB / 嵌套 2 层。对话框新增文件选择、逐文件摘要与告警区，抽取文本回填原文框后仍由作者确认再解析。
 - **输出契约：解析 agent 不再负责 JSON**（ADR-0033 §10）：新增通用规范化层 `model-json-normalizer.mjs`，导入改为要求模型写「`@@ 段 + 字段：值`」记录格式，由规范化层转成结构化数据；导入入口**不再发送 `json_schema`**，每段一次调用（去掉原来的结构化降级重试）。规范化层只修语法：围栏/散文、字符串内未转义换行、尾逗号、注释、全角标点、输出截断（退回最后一个完整对象）、JSONL、字符串里套 JSON；记录格式支持多行正文与自然分行的列表。段级告警会带模型原文片段，截断恢复记 `OUTPUT_TRUNCATED`，预览头部显示「规范化 N 段」。
 - **模型调用协议兼容层**：机械型入口（导入、设定候选、卡牌补丁、名称生成、宏观提案、提示词优化）默认发送 `thinking: {type: 'disabled'}`，避免思考型模型把输出预算耗在推理上、正文为空；供应商错误信息指向 thinking 时自动去掉重试并在进程内记住。响应解析一次覆盖 chat `choices[]`、responses `output_text`/`output[]`、顶层 `text`/`completion` 与网关 `data` 包装，**并跳过 `type:"reasoning"` 思考项**（否则会把英文思考当正文）；导入首段为空时换另一种 API 类型重试一次并记 `STYLE_FALLBACK`。空响应错误现在带 `style` / `finish_reason` / 实际返回字段 / `reasoning_content` 字数，只返回思考过程时明确写出这一点。导入提示词首行要求「不要输出思考过程、第一个字符必须是 `@`」。
-- 测试：`tests/lore-import.test.mjs`（18 项纯函数）、`tests/model-json-normalizer.test.mjs`（11 项）、`tests/lore-import-files.test.mjs`（13 项，真实 ZIP/OOXML 字节夹具）、`tests/lore-import-api.test.mjs`（22 项端到端 + 假模型，含响应形状兼容、API 类型回退、`thinking` 默认与拒绝回退、reasoning 空响应诊断、并入已有世界）、`tests/app-load.test.mjs`（新增资料组作用范围与世界内导入两项）、`tests/subpath-routing.test.mjs`（界面与请求契约）；`tests/helpers/document-fixtures.mjs` 提供文档夹具生成器。
+- **「设定」固定组（第六项）**：所有世界新增 `misc` 资料组（标签「设定」、form `generic`、条目前缀 `SET`），承接所有未指定分组的条目；它没有专属提示词档位，AI 写作与生图走通用回落，随世界自动存在、不可删除。
+- **分类自动建组**：记录格式新增可选字段 `分类`。导入按「已有组 id/标签 → 旧十三类稳定 id（势力/力量体系/技术体系/物品/事件/种族/文化/宗教）→ 按名字新建 `cat-<base36 哈希>` 世界内组」的顺序解析；组数达 40 上限时条目回落「设定」并告警 `GROUP_LIMIT_REACHED`。新建的组随预览回传，确认导入时一并落库。
+- **重复导入跳过**：解析时按「目标世界内同类型 + 同名」跳过库里已有条目（`duplicates` + `DUPLICATES_SKIPPED`），确认导入时再判一次（跳过而非 409），因此长篇设定可以分多次补齐而不产生重复条目；同一批次内部重复编号仍 400。
+- **逐条 / 批量改组**：资料列表每行带勾选框，底部批量条（`#loreBulkBar`）可一次「归入」目标组；编辑器新增「资料组」下拉，单条也能移到别的组，改类型会重新生成条目编号。
+- 测试：`tests/lore-import.test.mjs`（21 项纯函数）、`tests/model-json-normalizer.test.mjs`（11 项）、`tests/lore-import-files.test.mjs`（13 项，真实 ZIP/OOXML 字节夹具）、`tests/lore-import-api.test.mjs`（24 项端到端 + 假模型，含响应形状兼容、API 类型回退、`thinking` 默认与拒绝回退、reasoning 空响应诊断、并入已有世界、分类建组、二次导入去重）、`tests/lore-groups.test.mjs`（六个固定组）、`tests/app-load.test.mjs`（新增资料组作用范围、世界内导入、单条改组与批量归入四项）、`tests/subpath-routing.test.mjs`（界面与请求契约）；`tests/helpers/document-fixtures.mjs` 提供文档夹具生成器。
 
 ### Changed
 - `Dockerfile` 的根模块 COPY 白名单加入 `lore-import.mjs`；`npm run check` 的语法检查加入该模块；`docs/static/anchors.json` 新增 6 个锚点并把两个随调用点重复的锚点改为 `count/nth`。
+- 固定资料组由五项变为六项（新增「设定」）；`lore-groups.js` / `lore-groups.mjs` 的 `FIXED_IDS`、`deriveGroups` 与资料组对话框同步，版本号 `lore-groups.js?v=3`、`styles.css?v=49`、`app.js?v=66`。
 
 ### 未验证 / 未决
 - 真实模型对长文的分段质量、真实导入后的地理树与年表渲染、多人并发导入同一世界编号的体验都需要作者实测；本文与 ADR 均未声称已验证。
 - `.rar` / `.pdf` 明确不支持；真实 Word/WPS 导出的旧版 `.doc`、受密码保护或 ZIP64/分卷压缩包、含图片扫描件的文档都没有实机验证。
-- 是否允许并入既有世界、是否把导入暴露给 DSH preset 侧入口、超过 9 万字是否分批续传，均待裁定。
+- ~~是否允许并入既有世界~~ —— 2026-10-21 按作者要求实现；~~`info` 之外的自定义资料组是否允许模型产出~~ —— 由 `分类` 自动建组实现。仍待裁定：是否把导入暴露给 DSH preset 侧入口、超过 9 万字是否分批续传。
 
 ## [0.3.1] - 2026-10-20
 

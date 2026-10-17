@@ -11,15 +11,17 @@
 | `#worldDetail` 三栏 | `lore-library-panel`（列表 + 地理/编年史入口）｜`lore-editor-panel`（`#loreForm`）｜`ai-panel`（AI 助手，含收起态 `#openAiPanel`） | `L74–L181` |
 | `#loreDetails` | 「详细设定」是内置块：固定在名称下方的多行输入框，不随资料组字段变化 | `L113` |
 | `#loreFields` | 资料组自定义内容块容器：字段完全由所属资料组定义，可以为空（只有名称与详细设定） | `L114` |
-| `#loreTabs` + `.lore-group-bar` | 标签页**由 `app.js` 的 `renderLoreTabs()` 动态生成**（五项固定组 + 作者自定义组），HTML 里是空容器；旁边是 `#newLoreGroup` / `#manageLoreGroup` 与固定组说明 | `L59–L60` |
+| `#loreTabs` + `.lore-group-bar` | 标签页**由 `app.js` 的 `renderLoreTabs()` 动态生成**（六项固定组 + 作者自定义组），HTML 里是空容器；旁边是 `#newLoreGroup` / `#manageLoreGroup` 与固定组说明 | `L59–L60` |
+| `.lore-bulk-bar`（`#loreBulkBar`） | 资料列表底部的批量条：`#loreBulkCount`（已选 N 条）、`#loreBulkGroup`（目标组下拉）、`#loreBulkMove`（归入）、`#loreBulkClear`（清空）；未选中时整条隐藏 | `L76–L80` |
+| `#loreGroupSelect` | 编辑器里的「资料组」下拉：改选后保存即把条目移到目标组，表单按目标组形态切换；`collectLoreForm` 用它决定 type | `L98` |
 | `section#cardsModule[data-page=cards]` | `[data-card-tab]` 二级页签 + 三块 `[data-card-panel]`：`library` / `editor` / `artwork`，同时只有一块可见 | `L185–L241` |
 | `#cardPreview`（`.editable-card`） | 可编辑卡面预览；脚本写 `data-card-type` 供 CSS 按类型调整画框（`styles.css L56`），与 `compileCardPng` 输出保持同一排布 | `L213–L222` |
 | `section#battleModule[data-page=battle]` | 对战台 + 侧栏（关键词说明、`#battleLog`） | `L243–L265` |
 | `section#freeModule[data-page=free]` | 对话区 + 工具区（名称生成器） | `L267–L298` |
 | `section#simulationModule[data-page=simulation]` | W98 宏观面板；底部 `<details class="simulation-diagnostics">` 折叠 W99 诊断区（默认折叠，减少主视图噪音） | `L300–L393` |
-| 资料组对话框 | `#groupDialog` 三态：列表（`#groupPickRow` + `#groupPickList`，每行一个组、点进去编辑）、新建、编辑（`#groupFormBody`）。编辑态有 `#groupBackRow`/`#groupBack` 回到列表；表单含 `#groupLabel`、`#groupFormType`、`#groupScope`、字段编辑器 `#groupFieldRows` + `#addGroupField` + `#restoreGroupFields`、`#groupPrompt`、返回 JSON 约束预览 `#groupSchemaPreview` | `L418` |
+| 资料组对话框 | `#groupDialog` 三态：列表（`#groupPickRow` + `#groupPickList`，每行一个组、点进去编辑）、新建、编辑（`#groupFormBody`）。编辑态有 `#groupBackRow`/`#groupBack` 回到列表；表单含 `#groupLabel`、`#groupFormType`、作用范围行 `#groupScopeRow`（`#groupScope` + `#groupScopeHint`，世界内默认「仅当前世界」，可改选共享；固定组只读）、字段编辑器 `#groupFieldRows` + `#addGroupField` + `#restoreGroupFields`、`#groupPrompt`、返回 JSON 约束预览 `#groupSchemaPreview` | `L418` |
 | `dialog` × 8 | `#noteDialog`、`#keywordDialog`、`#relationDialog`、`#groupDialog`（资料组管理）、`#loreImportDialog`（设定导入，ADR-0033）、`#settingsDialog`、`#passwordDialog`（自助改口令）、`#imageViewer`，均为 `form method="dialog"` | `L396–L475` |
-| 设定导入对话框 | 入口是世界列表页的 `#openLoreImport`；正文区含文件读取（`#loreImportFiles` + `#loreImportReadFiles` + `#loreImportFileStatus`）、`#loreImportSource`、字符预算 `#loreImportCount`、世界名与补充要求、`#loreImportParse`；预览区 `#loreImportReview` 含 `#loreImportSummary` / `#loreImportAgent` / `#loreImportWarnings` / `#loreImportEntries` / `#loreImportSelectAll` / `#loreImportSelectNone` / `#loreImportSelected` / `#loreImportSave` | `L455–L475` |
+| 设定导入对话框 | 两个入口：世界列表页 `#openLoreImport`（建立新世界）与世界详情页 `#openWorldImport`（并入当前世界）。正文区含文件读取（`#loreImportFiles` + `#loreImportReadFiles` + `#loreImportFileStatus`）、`#loreImportSource`、字符预算 `#loreImportCount`、世界名行 `#loreImportWorldNameRow`（并入模式隐藏）、目标提示 `#loreImportTarget`（「将建立新世界」/「并入 W##」）、补充要求、`#loreImportParse`；预览区 `#loreImportReview` 含 `#loreImportSummary` / `#loreImportAgent` / `#loreImportWarnings` / `#loreImportEntries` / `#loreImportSelectAll` / `#loreImportSelectNone` / `#loreImportSelected` / `#loreImportSave` | `L455–L475` |
 | 设置对话框的数据面板 | `#settingsExport`（完整 JSON）、`#settingsExportImages`（内嵌图片）、`#importFile` / `#importMode` / `#importPreview` / `#importApply` / `#importStatus`：服务端导出与「先预检、再确认」的导入 | `L449` |
 | 设置对话框的账号面板 | 仅管理员可见的 `[data-settings-tab="users"]` / `[data-settings-panel="users"]`：`#userList`、`#userStatus`、`#userSecret`、`#newUserName` / `#newUserRole` / `#newUserPassword`、`#createUser` | `L441–L451` |
 | `#toast` | 全局提示，`role="status" aria-live="polite"` | `L476` |
@@ -28,8 +30,8 @@
 
 ## 脚本装配顺序与缓存版本
 
-`<head>`：`styles.css?v=47`（`L14`）。`</body>` 前依次为
-`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=63`。
+`<head>`：`styles.css?v=49`（`L14`）。`</body>` 前依次为
+`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=66`。
 
 - 顺序不可调整：`app.js` 末尾同步执行 `bootstrap()`，依赖前 5 个脚本暴露的 `Worldforge*` 全局；`battle-ui.js` 依赖 `battle.js`。
 - 所有脚本都必须位于 `</body>` 前，因为 `battle-ui.js`、`macro.js`、`app.js` 在加载时就查询 DOM 并绑定事件。

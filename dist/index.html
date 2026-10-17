@@ -11,7 +11,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=48">
+  <link rel="stylesheet" href="./styles.css?v=49">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -46,8 +46,7 @@
       <div class="world-detail" id="worldDetail" hidden>
         <div class="page-heading world-detail-heading">
           <div>
-            <p class="breadcrumb"><button class="breadcrumb-link" id="backToWorlds" type="button">← 所有世界</button></p>
-            <h1 id="worldDetailTitle">世界</h1>
+            <p class="breadcrumb"><button class="breadcrumb-link" id="backToWorlds" type="button">← 所有世界</button></p>            <h1 id="worldDetailTitle">世界</h1>
             <p class="world-detail-meta" id="worldDetailMeta"></p>
             <p class="world-detail-summary" id="worldDetailSummary"></p>
           </div>
@@ -74,6 +73,12 @@
             <p>先建立一部编年史，再在其中添加带纪年和排序值的节点；节点会按排序值由早到晚排列。</p>
             <div><button class="button secondary compact" id="newChronicle" type="button">＋ 新建编年史</button></div>
           </section>
+          <div class="lore-bulk-bar" id="loreBulkBar">
+            <span id="loreBulkCount">已选 0 条</span>
+            <select id="loreBulkGroup" aria-label="目标资料组"></select>
+            <button class="button secondary compact" id="loreBulkMove" type="button" disabled>归入</button>
+            <button class="text-action" id="loreBulkClear" type="button">清空</button>
+          </div>
           <div class="lore-list" id="loreList"></div>
           <div class="lore-empty" id="loreEmpty"><strong>还没有这类资料</strong><p>新资料默认保存为 proposed。</p><button class="button secondary compact" type="button" id="emptyNewLore">建立第一条</button></div>
         </aside>
@@ -90,6 +95,7 @@
               <label>事实层次<select id="loreTruthScope"><option value="objective">objective · 客观</option><option value="in_world_belief">in_world_belief · 世界内观点</option><option value="unknown">unknown · 未知</option></select></label>
               <label>所属世界<span class="field-readonly" id="loreWorldIdText">—</span><small>归属于当前世界，只能回到世界列表归入其他世界。</small></label>
             </div>
+            <label class="story-hidden">资料组<select id="loreGroupSelect"></select><small>改选后保存即可把这条资料移到别的组；表单会按目标组的形态切换，结构字段可能失效。</small></label>
             <div class="map-fields" id="mapFields" hidden>
               <div class="lore-form-row">
                 <label>地理层级<select id="locationKind"><option value="continent">大陆</option><option value="country">国家</option><option value="region">地区</option><option value="area">区域</option><option value="city">城市</option><option value="site">地点</option><option value="route">路线 / 通道</option></select></label>
@@ -493,6 +499,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=65"></script>
+  <script src="./app.js?v=66"></script>
 </body>
 </html>

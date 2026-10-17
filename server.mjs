@@ -18,7 +18,7 @@ import { LEGACY_PROMPTS_ENV, LEGACY_PROMPT_SOURCE, legacyDefaults, legacyPresets
 import { AGENT_SETTINGS_ENV, AGENT_SETTINGS_FILENAME, loadAgentSettings, publicAgentSelections, saveAgentSettings, validateAgentSelectionPatch } from './agent-settings.mjs';
 import { AUTH_DEFAULT_QUOTA, AUTH_REQUIRE_ENV, AUTH_USERS_ENV, clearSessionCookie, cookieSecureMode, isSecureRequest, openAuthStore, sessionCookie } from './auth.mjs';
 import { buildExportBundle, extensionForMimeType, parseImportBundle, planArtAssetImport, planImport } from './data-transfer.mjs';
-import { promptKeyOf, MAX_LORE_GROUPS } from './lore-groups.mjs';
+import { allLoreGroups, promptKeyOf, MAX_LORE_GROUPS } from './lore-groups.mjs';
 import { buildImportPlan, buildImportPrompt, buildWorldEntry, LORE_IMPORT_ENTRY_CONTRACT, LORE_IMPORT_LIMITS, mergeExtractions, nextWorldIdOf, normalizeExtraction, normalizeImportSource, splitImportSource, validateImportPlan } from './lore-import.mjs';
 import { extractImportDocuments } from './lore-import-files.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
@@ -1002,7 +1002,8 @@ async function callLoreImport(payload, session) {
     warnings: [...warnings, ...merged.warnings, ...issues],
     extractions,
     source: { characters: source.characters, truncated: source.truncated, droppedCharacters: source.droppedCharacters + split.droppedCharacters },
-    existingEntries: current.loreEntries
+    existingEntries: current.loreEntries,
+    existingGroups: allLoreGroups(current.loreGroups)
   });
   return {
     ...plan,
