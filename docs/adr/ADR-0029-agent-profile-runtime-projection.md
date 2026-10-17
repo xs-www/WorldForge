@@ -144,6 +144,12 @@ Sprint 1 的 Registry 必须使用下列已冻结错误码，不得另起名字�
 
 路径安全（Sprint 1 加固）：preset 目录、manifest 文件、prompt 文件及其**中间目录**都不得是符号链接；解析后用 `realpath` 复核真实路径仍在 preset 根目录与 Registry 根目录之内，任何逃逸报 `AGENT_PROMPT_PATH_UNSAFE`。
 
+`AGENT_PROMPT_PATH_UNSAFE` 的**两层**来源都必须归到同一错误码，不得因为"Schema 先于路径解析"而把它改归结构错误：
+
+- Schema 层：`systemPrompt` 命中 `not` 路径约束（根路径、Windows/UNC 绝对路径、`..` 穿越）时即报 `AGENT_PROMPT_PATH_UNSAFE`；
+- 解析层：符号链接、真实路径逃逸、非相对路径报 `AGENT_PROMPT_PATH_UNSAFE`；
+- 空值、类型错误、长度超限仍归 `AGENT_MANIFEST_INVALID`。
+
 只读快照（Sprint 1 加固）：Registry 返回的 profile 必须**深度冻结**，包括 `manifest` 与其嵌套数组；`Object.freeze` 只冻结顶层不算满足 S1-04。
 
 ## 影响范围

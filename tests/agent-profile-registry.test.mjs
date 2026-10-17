@@ -213,6 +213,12 @@ test('every frozen error code is actually produced by the registry, not just dec
     cleanup.push(oversized);
     await record('AGENT_PROMPT_TOO_LARGE', () => loadAgentProfiles(oversized));
 
+    // 路径不安全必须能从真实加载路径产生（Schema 的 not 约束先于路径解析）。
+    const traversalRoot = await completeRootWith('reject/traversal');
+    cleanup.push(traversalRoot);
+    await record('AGENT_PROMPT_PATH_UNSAFE', () => loadAgentProfiles(traversalRoot));
+
+    // 符号链接逃逸同样归 PATH_UNSAFE，作为第二条独立触发路径。
     const linked = await completeRoot();
     cleanup.push(linked);
     const outside = await mkdtemp(join(tmpdir(), 'worldforge-outside-'));
@@ -221,11 +227,11 @@ test('every frozen error code is actually produced by the registry, not just dec
     await rm(join(linked, 'fixture-lore', 'runtime', 'system.md'));
     try {
       await symlink(join(outside, 'system.md'), join(linked, 'fixture-lore', 'runtime', 'system.md'));
-      await record('AGENT_PROMPT_PATH_UNSAFE', () => loadAgentProfiles(linked));
+      await expectError(() => loadAgentProfiles(linked), 'AGENT_PROMPT_PATH_UNSAFE');
     } catch (error) {
       if (error.code !== 'EPERM') throw error;
-      // 无法创建符号链接时，用「逃出目录的同构路径」触发同一错误码，并如实记录差异。
-      await record('AGENT_PROMPT_PATH_UNSAFE', () => resolveAgentPromptPath(join(linked, 'fixture-lore'), 'runtime/../../runtime/system.md'));
+      // 无法创建符号链接时，用「逃出目录的同构路径」验证解析层，并如实记录差异。
+      await expectError(() => resolveAgentPromptPath(join(linked, 'fixture-lore'), 'runtime/../../runtime/system.md'), 'AGENT_PROMPT_PATH_UNSAFE');
     }
 
     const registry = await loadAgentProfiles();
@@ -247,11 +253,17 @@ test('manifest validation classifies each defect with its own error code', async
     // 字段级结构问题
     ['额外字段', { plugins: [] }, 'AGENT_MANIFEST_INVALID'],
     ['非法 id 格式', { id: 'Not-Kebab' }, 'AGENT_MANIFEST_INVALID'],
-    ['prompt 为空', { systemPrompt: '' }, 'AGENT_MANIFEST_INVALID'],
-    ['prompt 绝对路径', { systemPrompt: 'C:\\evil\\system.md' }, 'AGENT_MANIFEST_INVALID'],
-    ['prompt 相对穿越', { systemPrompt: '../../agent.cordis.yml' }, 'AGENT_MANIFEST_INVALID'],
     ['缺少必填字段', base => { const copy = { ...base }; delete copy.mode; return copy; }, 'AGENT_MANIFEST_INVALID'],
     ['不支持的 schemaVersion', { schemaVersion: 2 }, 'AGENT_MANIFEST_INVALID'],
+    // ADR-0029 §9 冻结：路径形态问题归 PATH_UNSAFE，不是结构问题
+    ['prompt 为空', { systemPrompt: '' }, 'AGENT_MANIFEST_INVALID'],
+    ['prompt 类型错误', { systemPrompt: 5 }, 'AGENT_MANIFEST_INVALID'],
+    ['prompt 超长', { systemPrompt: `runtime/${'a'.repeat(200)}.md` }, 'AGENT_MANIFEST_INVALID'],
+    ['prompt Windows 绝对路径', { systemPrompt: 'C:\\worldforge\\secret\\system.md' }, 'AGENT_PROMPT_PATH_UNSAFE'],
+    ['prompt Unix 根路径', { systemPrompt: '/etc/passwd' }, 'AGENT_PROMPT_PATH_UNSAFE'],
+    ['prompt UNC 路径', { systemPrompt: '\\\\server\\share\\system.md' }, 'AGENT_PROMPT_PATH_UNSAFE'],
+    ['prompt 相对穿越', { systemPrompt: '../../agent.cordis.yml' }, 'AGENT_PROMPT_PATH_UNSAFE'],
+    ['prompt 中间段穿越', { systemPrompt: 'runtime/../../system.md' }, 'AGENT_PROMPT_PATH_UNSAFE'],
     // 枚举
     ['未知 mode', { mode: 'agentic_shell' }, 'AGENT_ENUM_UNKNOWN'],
     ['未知 surface', { surfaces: ['simulation'] }, 'AGENT_ENUM_UNKNOWN'],
@@ -367,8 +379,8 @@ test('startup refuses a broken root instead of silently switching persona', asyn
     ['reject/unknown-field', 'AGENT_MANIFEST_INVALID'],
     ['reject/unknown-enum', 'AGENT_ENUM_UNKNOWN'],
     ['reject/incompatible-combination', 'AGENT_COMPAT_MISMATCH'],
-    ['reject/absolute-path', 'AGENT_MANIFEST_INVALID'],
-    ['reject/traversal', 'AGENT_MANIFEST_INVALID'],
+    ['reject/absolute-path', 'AGENT_PROMPT_PATH_UNSAFE'],
+    ['reject/traversal', 'AGENT_PROMPT_PATH_UNSAFE'],
     ['reject/empty-prompt', 'AGENT_MANIFEST_INVALID'],
     ['reject/missing-prompt', 'AGENT_PROMPT_MISSING'],
     ['reject/oversized-prompt', 'AGENT_PROMPT_TOO_LARGE']

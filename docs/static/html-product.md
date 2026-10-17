@@ -1,5 +1,38 @@
 # HTML 产品静态文档
 
+## 2026-10-17 路径错误码契约修正归档（Sprint 1 复审）
+
+复审只剩一个契约问题：ADR-0029 §9 冻结「绝对路径、`..` 穿越、符号链接逃逸或非相对路径 → `AGENT_PROMPT_PATH_UNSAFE`」，但实现把 `systemPrompt` 的路径形态问题按字段统一映射为 `AGENT_MANIFEST_INVALID`。由于 Schema 校验先于路径解析，**约定错误码在真实加载路径上不可达**，测试还把这一偏离写成了预期。
+
+### 修正
+
+- `classifyManifestError`：`systemPrompt` 命中 Schema `not` 路径约束（`keyword === 'not'`）→ `AGENT_PROMPT_PATH_UNSAFE`。空值、类型错误、长度超限仍为 `AGENT_MANIFEST_INVALID`。
+- `pickErrorCode` 优先级调整为「兼容矩阵 > 路径不安全 > 枚举 > 结构」，确保路径问题不会被同批次的枚举错误掩盖。
+- 解析层保持原状：符号链接、真实路径逃逸同样报 `AGENT_PROMPT_PATH_UNSAFE`。两层来源归到同一错误码，与 ADR 一致。
+
+实测（`validateAgentRuntimeManifest`，基于 `lore-writer` 投影）：
+
+| systemPrompt | 错误码 |
+|---|---|
+| `C:\worldforge\secret\system.md` | `AGENT_PROMPT_PATH_UNSAFE` |
+| `/etc/passwd` | `AGENT_PROMPT_PATH_UNSAFE` |
+| `\\server\share\system.md` | `AGENT_PROMPT_PATH_UNSAFE` |
+| `../../agent.cordis.yml` | `AGENT_PROMPT_PATH_UNSAFE` |
+| `runtime/../../system.md` | `AGENT_PROMPT_PATH_UNSAFE` |
+| `''` | `AGENT_MANIFEST_INVALID` |
+| `5` | `AGENT_MANIFEST_INVALID` |
+| 超 200 字符 | `AGENT_MANIFEST_INVALID` |
+| `runtime/system.md` | 通过 |
+
+### 测试
+
+- `tests/agent-profile-registry.test.mjs`：分类矩阵扩到 20 行，新增 Unix 根路径、UNC、中间段穿越、类型错误与超长 prompt；`reject/absolute-path` 与 `reject/traversal` 的预期改为 `AGENT_PROMPT_PATH_UNSAFE`。
+- 「所有错误码可达」测试改为从**真实加载路径**触发 `AGENT_PROMPT_PATH_UNSAFE`：穿越夹具（Schema 层）与符号链接（解析层）两条独立路径，两者都不再依赖内存构造。
+- `tests/agent-profile-api.test.mjs`：服务级启动拒绝的预期同步改为 `AGENT_PROMPT_PATH_UNSAFE`。
+- 文档同步：ADR-0029 §9 补充「两层来源都必须归到同一错误码」的说明；Sprint 计划 §8.6 增加第 7 行记录本次修正；`CHANGELOG.md` 更正上一轮的错误描述。
+
+验证：`npm run check` 全通过（177 项测试）。未验证项不变：浏览器侧选择器（Sprint 3）、请求快照与卡牌 Agent（Sprint 2/4）、真实模型端到端。
+
 ## 2026-10-17 Sprint 1 只读验收修正与真实 Docker 比对归档
 
 Sprint 1 只读验收暂不通过：4 个代码问题 + 1 个错误码分类问题 + Docker 一致性未完成。本次全部修正并完成真实镜像比对。设定助手与自由创作的生成行为仍未改变（Sprint 2）。测试 173 → 177 项，全部通过。

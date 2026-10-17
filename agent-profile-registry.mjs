@@ -115,7 +115,8 @@ function validateNode(spec, value, path, errors) {
 /**
  * 逐字段错误码映射（ADR-0029 §9）。
  * 结构与枚举类缺陷必须落回它们自己的错误码，不能因为"Schema 报错"就一律归到 ENUM：
- * - `systemPrompt` 的路径形态问题属于 MANIFEST_INVALID（路径安全性由解析层报 PATH_UNSAFE）；
+ * - `systemPrompt` 命中 Schema 的 `not` 路径约束（根路径、绝对路径、`..` 穿越）即
+ *   PATH_UNSAFE——ADR-0029 §9 已冻结该语义；空值、类型与长度仍归 MANIFEST_INVALID；
  * - `surfaces` 元素与各枚举字段才是 ENUM_UNKNOWN；
  * - 条件分支（allOf/if/then）表达的是兼容矩阵，命中即 COMPAT_MISMATCH。
  */
@@ -137,16 +138,21 @@ function classifyManifestError(error) {
   // 必填字段缺失与对象类型错误属于清单结构问题，路径里没有可用的字段名。
   if (error.keyword === 'required' || error.path === '$' || error.keyword === 'type') return 'AGENT_MANIFEST_INVALID';
   const field = error.path.replace(/^\$\.?/, '').split(/[.[]/)[0];
+  // ADR-0029 §9 冻结：绝对路径、`..` 穿越、根路径或 UNC 路径都是"路径不安全"，
+  // 必须报 AGENT_PROMPT_PATH_UNSAFE。Schema 校验先于路径解析，若不在此映射，
+  // 解析层永远没有机会返回这个约定错误码。
+  if (field === 'systemPrompt' && error.keyword === 'not') return 'AGENT_PROMPT_PATH_UNSAFE';
   // schemaVersion 的 `const` 是结构版本约束，不是兼容矩阵分支。
   if (field === 'schemaVersion') return 'AGENT_MANIFEST_INVALID';
   if (error.keyword === 'const' || error.keyword === 'contains') return 'AGENT_COMPAT_MISMATCH';
   return FIELD_ERROR_CODES[field] ?? 'AGENT_MANIFEST_INVALID';
 }
 
-/** 把逐条错误合并成单一稳定错误码：兼容矩阵 > 枚举 > 其余结构问题。 */
+/** 把逐条错误合并成单一稳定错误码：兼容矩阵 > 路径不安全 > 枚举 > 其余结构问题。 */
 function pickErrorCode(errors) {
   const codes = errors.map(classifyManifestError);
   if (codes.includes('AGENT_COMPAT_MISMATCH')) return 'AGENT_COMPAT_MISMATCH';
+  if (codes.includes('AGENT_PROMPT_PATH_UNSAFE')) return 'AGENT_PROMPT_PATH_UNSAFE';
   if (codes.includes('AGENT_ENUM_UNKNOWN')) return 'AGENT_ENUM_UNKNOWN';
   return 'AGENT_MANIFEST_INVALID';
 }

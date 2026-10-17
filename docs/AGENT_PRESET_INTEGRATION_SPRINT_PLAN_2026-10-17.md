@@ -419,7 +419,8 @@ Sprint 0 的退出条件是「runtime manifest 与兼容矩阵经作者确认」
 | 2 | 本机/镜像一致性未完成 | 已真实 `docker compose up -d --build` 重建并逐项比对，见下方结论 |
 | 3 | preset 目录与 manifest 符号链接可绕过根目录 | `listPresetDirectories` 拒绝符号链接目录；`loadManifestFile` 对 preset 目录与 manifest 文件做 `realpath` 复核；`resolveAgentPromptPath` 逐段检查 prompt 路径的每一段（含中间目录）都不是符号链接 |
 | 4 | Registry 快照只浅冻结 `manifest` | 新增 `deepFreeze`，profile 及其 `manifest`、嵌套数组全部冻结 |
-| 5 | 非法组合、绝对路径、`schemaVersion` 都被归为 `AGENT_ENUM_UNKNOWN` | 校验器改为两遍并携带 `path`/`keyword`：字段级缺陷按字段映射错误码（`systemPrompt`→`AGENT_MANIFEST_INVALID`、各枚举字段→`AGENT_ENUM_UNKNOWN`）；`allOf/if/then` 分支命中→`AGENT_COMPAT_MISMATCH`；`schemaVersion` 的 `const`→`AGENT_MANIFEST_INVALID`。另修正 `AGENT_MANIFEST_UNREADABLE` 的分工（JSON 解析失败） |
+| 5 | 非法组合、绝对路径、`schemaVersion` 都被归为 `AGENT_ENUM_UNKNOWN` | 校验器改为两遍并携带 `path`/`keyword`：字段级缺陷按字段映射错误码（各枚举字段→`AGENT_ENUM_UNKNOWN`）；`allOf/if/then` 分支命中→`AGENT_COMPAT_MISMATCH`；`schemaVersion` 的 `const`→`AGENT_MANIFEST_INVALID`。另修正 `AGENT_MANIFEST_UNREADABLE` 的分工（JSON 解析失败） |
+| 7 | 复审：`systemPrompt` 的绝对路径与 `..` 穿越被归为 `AGENT_MANIFEST_INVALID`，而 ADR §9 冻结为 `AGENT_PROMPT_PATH_UNSAFE`；Schema 先于解析层执行，导致约定错误码在真实加载路径上不可达 | 把 `systemPrompt` 命中 Schema `not` 路径约束映射为 `AGENT_PROMPT_PATH_UNSAFE`；空值/类型/长度仍为 `AGENT_MANIFEST_INVALID`。`pickErrorCode` 优先级调整为「兼容矩阵 > 路径不安全 > 枚举 > 结构」。测试改为从真实加载路径触发该错误码（`reject/traversal` 与符号链接两条独立路径），并补齐 Unix 根路径、UNC、中间段穿越用例 |
 | 6 | 「所有错误码可达」只比较手写集合 | 测试改为逐个真实触发：11 个错误码全部由真实路径产生，断言的是实际抛出的 `error.code` |
 
 顺带修正的一个真实缺陷：`server.mjs` 启动失败时只 `throw`，而数据库与模拟服务此时已打开，事件循环不会退出，表现为「启动失败但不退出」并在本机留下锁定的 SQLite 文件。改为打印诊断后 `process.exit(1)`。

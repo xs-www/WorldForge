@@ -161,8 +161,8 @@ test('startup refuses a corrupted projection instead of degrading silently', asy
   // 每个缺陷夹具替换进一个三入口齐全的根目录，这样失败原因只能来自该缺陷本身。
   const cases = [
     ['reject/unknown-enum', ['AGENT_ENUM_UNKNOWN']],
-    ['reject/absolute-path', ['AGENT_MANIFEST_INVALID']],
-    ['reject/traversal', ['AGENT_MANIFEST_INVALID']],
+    ['reject/absolute-path', ['AGENT_PROMPT_PATH_UNSAFE']],
+    ['reject/traversal', ['AGENT_PROMPT_PATH_UNSAFE']],
     ['reject/incompatible-combination', ['AGENT_COMPAT_MISMATCH']],
     ['reject/oversized-prompt', ['AGENT_PROMPT_TOO_LARGE']],
     ['reject/missing-prompt', ['AGENT_PROMPT_MISSING']],
