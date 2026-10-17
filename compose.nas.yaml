@@ -15,17 +15,22 @@ services:
   worldforge:
     image: ${WORLDFORGE_IMAGE:-ghcr.io/xs-www/worldforge:latest}
     container_name: worldforge
-    # 原来的 compose.yaml 只绑 127.0.0.1，NAS 上局域网设备连不进来；这里绑定全部网卡。
-    # 注意：本应用没有登录与权限控制，设置页可直接改写 API Key，不要映射到公网。
-    # 只想让 tailnet 访问时，可把端口映射改回 "127.0.0.1:4173:8080" 并走 tailscale serve。
+    # 默认只绑回环：公网经 `tailscale funnel --set-path /worldforge http://127.0.0.1:4173` 进入，
+    # 局域网访问改用 tailscale serve 或显式设置 WORLDFORGE_BIND 后再暴露端口。
+    # 账号体系已内建，但“绑定全部网卡 + 弱口令”仍然危险，因此默认不监听局域网。
     ports:
-      - "${WORLDFORGE_PORT:-4173}:8080"
+      - "${WORLDFORGE_BIND:-127.0.0.1}:${WORLDFORGE_PORT:-4173}:8080"
     environment:
       WORLDFORGE_CONFIG_PATH: /data/.env.local
       WORLDFORGE_DB_PATH: /data/worldforge.sqlite
       WORLDFORGE_ASSETS_PATH: /data/assets/cards
       WORLDFORGE_COMFY_WORKFLOW_PATH: /data/comfyui-workflow.json
       WORLDFORGE_PROMPT_SETTINGS_PATH: /data/prompt-settings.json
+      # 公网发布必须开启账号：缺失或损坏的 users.json 会让容器拒绝启动，而不是裸奔。
+      WORLDFORGE_REQUIRE_AUTH: "1"
+      WORLDFORGE_AUTH_USERS_PATH: /data/users.json
+      # Tailscale Funnel 终结 TLS，容器内看到的是 http；显式打开 Secure Cookie。
+      WORLDFORGE_COOKIE_SECURE: "1"
       # ComfyUI 通道按作者要求保留：NAS 侧暂时用不到生图，但配置位与工作流入口照旧可用。
       # 真要在这台机器上出图时，把地址改成能访问到 ComfyUI 主机的地址（局域网 IP 或宿主机）。
       COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://host.docker.internal:8188}

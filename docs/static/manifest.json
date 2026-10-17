@@ -8,9 +8,9 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17",
   "counts": {
-    "sources": 139,
-    "documented": 60,
-    "aggregated": 78,
+    "sources": 146,
+    "documented": 64,
+    "aggregated": 81,
     "config": 1
   },
   "files": [
@@ -132,13 +132,13 @@
       "source": ".dockerignore",
       "doc": "docs/static/.dockerignore.md",
       "status": "documented",
-      "sha256": "9d75026a6a2572024a5d44b301a1f2a185f4b3c256faf5877388c9cb272a4ff9"
+      "sha256": "a653b8201b1bf1aff841881ec387bd4ed20fe85a3715765b30c3115f796082ec"
     },
     {
       "source": ".env.example",
       "doc": "docs/static/.env.example.md",
       "status": "documented",
-      "sha256": "de0164a6a7f33baca9e5a9838452130bb798dc315e7b259d5bda1687805547c3"
+      "sha256": "ab212cee7775f5d9e6f447f2fc394093af5629e977bdfdb4f77c647c7248efaf"
     },
     {
       "source": ".github/workflows/ci.yml",
@@ -240,7 +240,7 @@
       "source": "compose.nas.yaml",
       "doc": "docs/static/compose.nas.yaml.md",
       "status": "documented",
-      "sha256": "4b1b1c0d69394a7100eae97653a3ae0040289154d896caaabcbf58ce13bf9a88"
+      "sha256": "612faaa62eb5cdf975d1d32e1dbf3d1cee9249ad567272049170b02c279c9ff1"
     },
     {
       "source": "compose.yaml",
@@ -258,7 +258,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "16bca90ea7d20cecd78174dbf19d470fe18f20e1a45f3ba6f581484c9b8aa715"
+      "sha256": "4867c3b70180e2edcf722486a11686014c13ff4bc728933d3506d94a3b5aab49"
     },
     {
       "source": "dist/battle.js",
@@ -294,7 +294,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "704ef99f980be971ff42374677345b0fe410eff7d09bca77d58b1590d550c6cd"
+      "sha256": "87660920361f4edecd4bad7fa17d42b4b63b6031528a07759e9344d42b5bd758"
     },
     {
       "source": "dist/macro.js",
@@ -312,7 +312,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "24364dd083802d4132954b0854ca191c77a3809a38ef726a1abcd4db45ceef85"
+      "sha256": "0bf2f33f9a3bc1e19225643820568c00bbdea094eaf31b87c36743ae257da057"
     },
     {
       "source": "dist/world-scope.js",
@@ -330,7 +330,7 @@
       "source": "Dockerfile",
       "doc": "docs/static/Dockerfile.md",
       "status": "documented",
-      "sha256": "76b90996d89151f4e0b054422433ba4e7e832c86f49453ebd443717b02e40a1e"
+      "sha256": "63d4031e79dde4589960d9d780a30ca567c8486fc5dfdfde9dffbb8e954b2bea"
     },
     {
       "source": "image-context.mjs",
@@ -342,7 +342,7 @@
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "d70d393fc69d588b873dcfdf1b13dc1260926f32835815badeacfac4565ea619"
+      "sha256": "1cdbcb88f45b00e36a1883cfda5f33876d62e13ca42d6adf2c0fa54cf4e1da9c"
     },
     {
       "source": "prompt-settings.mjs",
@@ -378,19 +378,19 @@
       "source": "docs/static/anchors.json",
       "doc": "docs/static/server.mjs.md",
       "status": "config",
-      "sha256": "e3a93a69375897a4e12588925c2f3b315d011b4c90afb833389afb97f4890e3f"
+      "sha256": "c58dec96688a0dff947fdaf4ff79663accd494aa3c424677963cbd962235b676"
     },
     {
       "source": "static-doc-anchors.mjs",
       "doc": "docs/static/static-doc-anchors.mjs.md",
       "status": "documented",
-      "sha256": "2aba426bf37e55cca38f3d75ecbde14c50a1cabafca837b257cfa1a77a255134"
+      "sha256": "6401c25f744716154aa65ff2200dc48e549e6008df3d18fa28eeab95756c2054"
     },
     {
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "2ad817f5eba21e76ba7d8a57e513600a3d4d41884069e5e63d05cf26eaa2c5a5"
+      "sha256": "a5cf9c58cc60d33f6914cb4597aed02db9d39c7326463d68bedd9991d80256a8"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -528,7 +528,7 @@
       "source": "storage.mjs",
       "doc": "docs/static/storage.mjs.md",
       "status": "documented",
-      "sha256": "ea53f3b39f5e144101d4c6a7ed269410b55fec595267c68df4ef3b3b54d69d93"
+      "sha256": "f543af6aefb281668bec57d71561855e3cbbbde6af28615100c4555a746b8d0c"
     },
     {
       "source": "storage-migrations.mjs",
@@ -834,7 +834,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "e835785f35acc6e1d83a98ac3723c23c4f44f1beaf6e093b8ef847428acce9a7"
+      "sha256": "121b986313ce202645f7ccbd4526cb93483dc0ca9d9901ebca320808c179546d"
     },
     {
       "source": "tests/world-package.test.mjs",
@@ -847,6 +847,48 @@
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
       "sha256": "2711be8d537399f8baac0fc8ee8936d56fb8af985e522bfecda66a3772855709"
+    },
+    {
+      "source": "auth.mjs",
+      "doc": "docs/static/auth.mjs.md",
+      "status": "documented",
+      "sha256": "e4f148b57b23b822c1ed852b34732bc9b64077ef82a4602b4e8489faeedb0572"
+    },
+    {
+      "source": "scripts/auth-cli.mjs",
+      "doc": "docs/static/scripts/auth-cli.mjs.md",
+      "status": "documented",
+      "sha256": "fe0374c4166791aa776c6b2a80ebec0bec6f85a8e40c1e8f8090f30ddd42a297"
+    },
+    {
+      "source": "dist/login.html",
+      "doc": "docs/static/dist/login.html.md",
+      "status": "documented",
+      "sha256": "54ac2619590f9de767c0bc1c1fb39014f34a0847b03d4577bcff580e13679d44"
+    },
+    {
+      "source": "dist/login.js",
+      "doc": "docs/static/dist/login.js.md",
+      "status": "documented",
+      "sha256": "16f9843e676e52e01ad2e18309c16b54fe519972277fe30e1ae9501771a4e73a"
+    },
+    {
+      "source": "tests/auth.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "c9abf054c200498880b4868501a3a6760065679193b055a6575b3b61091f5b8f"
+    },
+    {
+      "source": "tests/auth-api.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "23857df41168bf002c28795bee0427bccf9950264f69878b94ca6e6e314f2a0b"
+    },
+    {
+      "source": "tests/auth-ui.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "06827bfd3c4c1095620a16b3328e6a00158ea5dc75005a76cb1fb32a69c130d5"
     }
   ],
   "aggregates": [

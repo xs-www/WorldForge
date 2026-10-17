@@ -19,20 +19,21 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 
 | 模块 | 文档 | 职责 |
 | --- | --- | --- |
-| HTTP 服务与持久化 | [`server.mjs.md`](server.mjs.md)、[`storage.mjs.md`](storage.mjs.md)、[`storage-migrations.mjs.md`](storage-migrations.mjs.md)、[`reference-assets.mjs.md`](reference-assets.mjs.md) | 路由与请求校验、设置读写、SQLite 内容库与整库快照、图片资产落盘 |
+| HTTP 服务与持久化 | [`server.mjs.md`](server.mjs.md)、[`auth.mjs.md`](auth.mjs.md)、[`storage.mjs.md`](storage.mjs.md)、[`storage-migrations.mjs.md`](storage-migrations.mjs.md)、[`reference-assets.mjs.md`](reference-assets.mjs.md)、[`scripts/auth-cli.mjs.md`](scripts/auth-cli.mjs.md) | 路由与请求校验、账号/会话/配额/审计、设置读写、SQLite 内容库与整库快照、图片资产落盘、账号 CLI |
 | Agent Profile 契约与注册表 | [`agent-profile-contract.mjs.md`](agent-profile-contract.mjs.md)、[`agent-profile-registry.mjs.md`](agent-profile-registry.mjs.md)、[`agent-legacy.mjs.md`](agent-legacy.mjs.md)、[`agent-runtime.schema.json.md`](agent-runtime.schema.json.md)、[`.agent-presets/README.md`](.agent-presets/README.md) | 只读发现产品投影，Schema 校验 + 确定性指纹 + 11 个稳定错误码，投影损坏即拒绝启动；`WORLDFORGE_AGENT_LEGACY_PROMPTS=1` 时只把第 2 层 persona 退回固定提示 |
 | AI 生成栈 | [`ai-harness.mjs.md`](ai-harness.mjs.md)、[`ai-agent.mjs.md`](ai-agent.mjs.md)、[`ai-tools.mjs.md`](ai-tools.mjs.md)、[`ai-content-specs.mjs.md`](ai-content-specs.mjs.md)、[`prompt-settings.mjs.md`](prompt-settings.mjs.md)、[`image-context.mjs.md`](image-context.mjs.md) | 提示词分层与上下文预算、内容块 Schema、多轮只读工具循环与硬上限（6 轮 / 12 次调用 / 4 图） |
 | 生图通道 | [`seedream.mjs.md`](seedream.mjs.md)、[`comfyui.mjs.md`](comfyui.mjs.md) | 外部生图 API 边界：固定参数、占位符替换、超时与失败上报 |
 | 模拟内核 | [`world-package.mjs.md`](simulation/compiler/world-package.mjs.md)、[`instance-store.mjs.md`](simulation/storage/instance-store.mjs.md)、[`simulation-runtime.mjs.md`](simulation/runtime/simulation-runtime.mjs.md)、[`mechanic-runtime.mjs.md`](simulation/rules/mechanic-runtime.mjs.md)、[`schemas/README.md`](simulation/schemas/README.md) | 编译 → 实例化 → 确定性 Tick → 快照/重放；规则权威、LLM 只提案 |
-| 前端 | [`dist/README.md`](dist/README.md) | 零构建的全局脚本装配、视图渲染、浏览器侧缓存与首次迁移 |
+| 前端 | [`dist/README.md`](dist/README.md)、[`dist/login.html.md`](dist/login.html.md)、[`dist/login.js.md`](dist/login.js.md) | 零构建的全局脚本装配、视图渲染、浏览器侧缓存与首次迁移；登录页是独立文档，未登录时不加载应用外壳 |
 | 交付与验证 | [`Dockerfile.md`](Dockerfile.md)、[`compose.yaml.md`](compose.yaml.md)、[`compose.nas.yaml.md`](compose.nas.yaml.md)、[`.github/workflows/ci.yml.md`](.github/workflows/ci.yml.md)、[`scripts/ci/smoke-container.mjs.md`](scripts/ci/smoke-container.mjs.md)、[`static-doc-anchors.mjs.md`](static-doc-anchors.mjs.md)、[`static-doc-manifest.mjs.md`](static-doc-manifest.mjs.md) | 镜像白名单 COPY 闭包、CI 三道关、容器冒烟；两道静态文档门禁（`L###` 锚点唯一命中、清单哈希与磁盘一致） |
 
 ## 主要数据流
 
 1. **作者编辑**：`dist/*.js` 从 `document.currentScript` 解析出 `api/` 前缀 → `fetch` 到 `server.mjs` 的 `/api/content` → `storage.mjs` 写入 SQLite（`WORLDFORGE_DATA_DIR`，默认 `.data/`）。浏览器 `localStorage` 只作缓存与旧数据迁移来源，不是真值。
-2. **AI 生成**：入口（设定助手 / 自由创作 / 卡牌 Agent）→ `server.mjs` 解析 preset 并拼三层指令 + 用户侧 `<untrusted_context>` → `ai-agent.mjs` 调用外部模型（轮次与工具硬上限）→ 逐候选校验 → 回填表单；候选不会自动晋升 `canon`。
-3. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID；连接中断只按请求 ID 找回，不自动重发付费请求。
-4. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
+2. **账号与访问控制**：存在 `users.json` 时，`server.mjs` 在所有 API 之前校验 `wf_session` 会话；登录页（`dist/login.html` + `login.js`）提交到 `/api/auth/login`，`auth.mjs` 用 scrypt 校验口令并签发 HMAC 会话；`admin` 才能改设置与账号，成员按 UTC 日配额调用 AI/生图，内容保存记录 `lastSavedBy`。
+3. **AI 生成**：入口（设定助手 / 自由创作 / 卡牌 Agent）→ `server.mjs` 解析 preset 并拼三层指令 + 用户侧 `<untrusted_context>` → `ai-agent.mjs` 调用外部模型（轮次与工具硬上限）→ 逐候选校验 → 回填表单；候选不会自动晋升 `canon`。
+4. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID；连接中断只按请求 ID 找回，不自动重发付费请求。
+5. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
 
 ## 全局不变量（跨模块）
 
@@ -42,13 +43,14 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 - **输出外壳不依赖供应商支持**：`response_format` / `text.format` 只是加固，不是外壳的唯一来源。设定与卡牌入口都必须把 `{"variants":[…]}`、`key`、已勾选键写进 prompt 第 5 层，解析侧再宽松收敛（裸候选对象、顶层数组、夹带围栏）+ 候选缺 `key` 时补 `candidate-N`；只支持 `json_object` 的兼容接口不得让整次生成失败，降级原因由响应里的 `fallbackReason` 如实回显。
 - **付费请求不自动重试**：生图长连接中断时前端只查询同一次请求已落盘的结果。
 - **启动 fail-fast**：preset 投影或 Registry 有缺陷时服务拒绝启动并打印稳定错误码，不静默换 persona。唯一例外是显式回滚开关：只有 `WORLDFORGE_AGENT_LEGACY_PROMPTS` 精确等于 `1` 才降级启动，并由 `/api/health` 明确报告 `degraded`。
+- **账号 fail-closed**：存在 `users.json` 即要求会话；`WORLDFORGE_REQUIRE_AUTH=1` 时账号库缺失或损坏一律拒绝启动。匿名模式只是本机开发路径，启动日志会明确警告；未登录的页面导航返回登录页。
 - **回滚只换 persona**：回滚模式下第 1 层安全边界、第 3 层入口契约、Schema、工具白名单、轮次上限与 canon 纪律全部不变；`presetHash` 回显为空串、版本固定为 `0.0.0-legacy`。
-- **`dist/` 是源码而非构建产物**：文件被手工维护成少量超长行，没有打包步骤；改动后需同步 `index.html` 的 `?v=` 缓存版本。
+- **`dist/` 是源码而非构建产物**：文件被手工维护成少量超长行，没有打包步骤；改动后需同步 `index.html`（与 `login.html`）的 `?v=` 缓存版本。
 
 ## 覆盖与清单
 
-- 当前 60 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
-- [`manifest.json`](manifest.json) 记录 139 个源/配置/清单文件：60 个 `documented`、78 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
+- 当前 64 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
+- [`manifest.json`](manifest.json) 记录 146 个源/配置/清单文件：64 个 `documented`、81 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
 - 清单哈希由 `node static-doc-manifest.mjs --check` 强制（已接入 `npm run check`）：任何条目与磁盘不一致都会以 `HASH_MISMATCH` 失败，改源码后必须 `--write` 重算。
 - 未收录（只在本文引用）：设计/ADR 文档 [`../../docs/PROJECT_DESIGN.md`](../../docs/PROJECT_DESIGN.md)、[`../../docs/WorldForge_2.0_Design_Document_V1.0.md`](../../docs/WorldForge_2.0_Design_Document_V1.0.md)、[`../../docs/adr/README.md`](../../docs/adr/README.md)；模拟模块关系 [`../../simulation/README.md`](../../simulation/README.md)；设定内容目录 `universe/`、`worlds/`、`mechanics/`、`cards/`、`templates/`；运行时数据库 `.data/*.sqlite*`；二进制素材 `dist/assets/`。
 - [`html-product.md`](html-product.md) 是 2026-10-17 之前逐次交付的追加式归档（含当时的验证/未验证结论），保留原貌，不作为当前实现索引。

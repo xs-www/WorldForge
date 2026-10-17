@@ -11,6 +11,7 @@ cards
 templates
 scripts
 !scripts/compile-world-package.mjs
+!scripts/auth-cli.mjs
 exports
 tests
 *.md

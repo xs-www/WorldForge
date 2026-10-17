@@ -16,6 +16,7 @@ import { DEFAULT_IMAGE_PROMPTS, DEFAULT_TYPE_PROMPTS, DEFAULT_VISUAL_STYLE_PROMP
 import { asAgentProfileError, loadAgentProfiles, publicRegistryView, registryHealthSummary } from './agent-profile-registry.mjs';
 import { LEGACY_PROMPTS_ENV, LEGACY_PROMPT_SOURCE, legacyDefaults, legacyPresetsView, legacyProfile, legacyPromptsEnabled, legacyRegistryHealth } from './agent-legacy.mjs';
 import { AGENT_SETTINGS_ENV, AGENT_SETTINGS_FILENAME, loadAgentSettings, publicAgentSelections, saveAgentSettings, validateAgentSelectionPatch } from './agent-settings.mjs';
+import { AUTH_DEFAULT_QUOTA, AUTH_REQUIRE_ENV, AUTH_USERS_ENV, clearSessionCookie, cookieSecureMode, isSecureRequest, openAuthStore, sessionCookie } from './auth.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
 import { buildMacroProposalPrompt, MACRO_PROPOSAL_SCHEMA } from './simulation/llm/macro-proposal.mjs';
@@ -27,6 +28,10 @@ const comfyWorkflowPath = process.env.WORLDFORGE_COMFY_WORKFLOW_PATH || join(dir
 const promptSettingsPath = process.env.WORLDFORGE_PROMPT_SETTINGS_PATH || join(dirname(envPath), 'prompt-settings.json');
 // Agent 选择单独一份文件：不写 .env.local，也不与作者可编辑的分类提示词混在一起。
 const agentSettingsPath = process.env[AGENT_SETTINGS_ENV] || join(dirname(envPath), AGENT_SETTINGS_FILENAME);
+// 账号库与 .env.local 同目录（Docker 内为 /data/users.json）。只有存在 users.json 才启用登录；
+// WORLDFORGE_REQUIRE_AUTH=1 时缺失或损坏直接拒绝启动，避免“忘了建账号就暴露公网”（ADR-0030）。
+const usersPath = process.env[AUTH_USERS_ENV] || join(dirname(envPath), 'users.json');
+const requireAuth = process.env[AUTH_REQUIRE_ENV] === '1';
 
 async function loadLocalEnv() {
   try {
@@ -89,6 +94,61 @@ try {
 let agentSettings = await loadAgentSettings(agentSettingsPath, { defaults: agentDefaults() });
 if (agentSettings.reason) console.warn(`[agent-settings] using defaults (${agentSettings.reason}) at ${agentSettingsPath}`);
 else console.log(`[agent-settings] ${AGENT_SURFACES_FOR_LOG(agentSettings)}`);
+
+// —— 账号与会话（ADR-0030）——
+// 存在 users.json 才启用登录；匿名模式只保留给本机开发与既有测试，公网部署必须 REQUIRE_AUTH=1。
+// 账号库缺失或损坏时：REQUIRE_AUTH=1 拒绝启动（fail-closed），否则明确警告后以匿名模式运行。
+let auth = null;
+try {
+  auth = await openAuthStore({ usersPath, requireAuth, quotaDefaults: AUTH_DEFAULT_QUOTA });
+  console.log(`[auth] 账号模式：${auth.userCount()} 个账号（${usersPath}）`);
+} catch (error) {
+  if (!['AUTH_USERS_MISSING', 'AUTH_USERS_INVALID'].includes(error.code)) throw error;
+  // AuthError 的 message 已带 `CODE: ` 前缀，避免重复打印错误码。
+  console.error(`[auth] ${error.message}`);
+  if (requireAuth) {
+    console.error('[auth] 拒绝启动：WORLDFORGE_REQUIRE_AUTH=1 要求先创建账号库。');
+    console.error('[auth] 在 NAS 上运行：docker compose exec worldforge node scripts/auth-cli.mjs add <用户名> --admin');
+    process.exit(1);
+  }
+  console.warn('[auth] 已按匿名本机模式启动：所有 API 不需要登录，只适合 127.0.0.1 或 tailnet 内部使用。');
+}
+
+// 公开端点：健康检查（供 Docker HEALTHCHECK 使用）、登录、会话查询与退出；其余 /api/* 一律要求会话。
+const AUTH_PUBLIC_API = new Set(['GET /api/health', 'GET /api/auth/session', 'POST /api/auth/login', 'POST /api/auth/logout']);
+function apiNeedsSession(method, pathname) {
+  return Boolean(auth) && pathname.startsWith('/api/') && !AUTH_PUBLIC_API.has(`${method} ${pathname}`);
+}
+function apiNeedsAdmin(method, pathname) {
+  if (!auth) return false;
+  if (pathname === '/api/settings' && (method === 'GET' || method === 'POST')) return true;
+  return pathname === '/api/users' || pathname.startsWith('/api/users/');
+}
+function sessionOf(req) { return auth ? auth.sessionFromRequest(req) : null; }
+function sessionView(session) {
+  const base = { mode: auth ? 'accounts' : 'anonymous', required: requireAuth };
+  if (!auth || !session) return { ...base, user: null };
+  return { ...base, user: { username: session.username, role: session.role, usage: auth.usageFor(session.username) } };
+}
+function clientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) return forwarded.split(',')[0].trim().slice(0, 64);
+  return String(req.socket?.remoteAddress || '').slice(0, 64);
+}
+function cookieSecure(req) {
+  const mode = cookieSecureMode();
+  return mode === null ? isSecureRequest(req) : mode;
+}
+async function chargeQuota(kind, session) {
+  if (!auth || !session) return;
+  await auth.consumeQuota({ username: session.username, kind });
+}
+// `/api/health` 是公开端点（Docker HEALTHCHECK 也用它）：去掉绝对路径，避免向匿名访客
+// 暴露 NAS/容器内的数据目录结构。内部诊断仍可通过文件系统日志获得。
+function publicHealth(health) {
+  const { databasePath, ...rest } = health || {};
+  return rest;
+}
 
 function AGENT_SURFACES_FOR_LOG(settings) {
   return Object.entries(settings.selections).map(([surface, id]) => `${surface}=${id}`).join(' ');
@@ -645,8 +705,15 @@ async function callMacroProposal(payload) {
   }
 }
 
-async function serveStatic(req, res) {
+async function serveStatic(req, res, session) {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  // 未登录时把无扩展名的导航（`/`、`/worldforge/`）直接换成登录页：
+  // 应用外壳与 API 都不发给匿名访客。带扩展名的静态资源本身不含数据，允许匿名取用。
+  if (auth && !session && (!extname(pathname) || /\/index\.html$/.test(pathname))) {
+    const login = await readFile(join(dist, 'login.html'));
+    res.writeHead(200, { ...securityHeaders, 'Content-Type': mime['.html'], 'Cache-Control': 'no-cache' });
+    return res.end(login);
+  }
   const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
   const safe = normalize(relative).replace(/^(\.\.[/\\])+/, '');
   let file = join(dist, safe);
@@ -661,7 +728,36 @@ async function serveStatic(req, res) {
 createServer(async (req, res) => {
   try {
     const requestUrl = new URL(req.url, 'http://localhost'), pathname = requestUrl.pathname;
-    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', version: PRODUCT_VERSION, harnessVersion: HARNESS_VERSION, database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health(), agentProfiles: agentRegistryHealth() });
+    // 鉴权门禁在最前：未登录的 /api/* 直接 401，非管理员的设置与账号接口 403。
+    // 匿名模式（未找到 users.json 且未要求鉴权）保持既有本机行为不变。
+    const session = sessionOf(req);
+    if (apiNeedsSession(req.method, pathname) && !session) return json(res, 401, { error: '需要登录后再访问', code: 'AUTH_REQUIRED' });
+    if (apiNeedsAdmin(req.method, pathname) && session?.role !== 'admin') return json(res, 403, { error: '仅管理员可访问', code: 'AUTH_FORBIDDEN' });
+    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', version: PRODUCT_VERSION, harnessVersion: HARNESS_VERSION, auth: auth ? auth.health() : { mode: 'anonymous', users: 0, requireAuth }, database: publicHealth(contentStore.health()), simulation: publicHealth(simulationDashboard.health()), macroSimulation: publicHealth(macroSimulation.health()), agentProfiles: agentRegistryHealth() });
+    if (req.method === 'GET' && req.url === '/api/auth/session') return json(res, 200, sessionView(session));
+    if (req.method === 'POST' && req.url === '/api/auth/login') {
+      if (req.headers['x-worldforge-auth'] !== '1') return json(res, 403, { error: '缺少登录请求标记', code: 'AUTH_HEADER_REQUIRED' });
+      if (!auth) return json(res, 400, { error: '本实例未启用账号（未找到 users.json）', code: 'AUTH_DISABLED' });
+      const payload = await readBody(req);
+      const result = await auth.login({ username: payload?.username, password: payload?.password, ip: clientIp(req), secure: cookieSecure(req) });
+      res.setHeader('Set-Cookie', result.cookie);
+      return json(res, 200, { user: result.user, expiresAt: result.expiresAt });
+    }
+    if (req.method === 'POST' && req.url === '/api/auth/logout') {
+      if (auth && session) await auth.logout({ username: session.username });
+      res.setHeader('Set-Cookie', clearSessionCookie({ secure: cookieSecure(req) }));
+      return json(res, 200, { ok: true });
+    }
+    // 自助改口令：改完立即换发新会话，旧会话（含其他设备）因 sessionVersion 变更而失效。
+    if (req.method === 'POST' && req.url === '/api/auth/password') {
+      if (req.headers['x-worldforge-auth'] !== '1') return json(res, 403, { error: '缺少账号操作请求标记', code: 'AUTH_HEADER_REQUIRED' });
+      if (!auth || !session) return json(res, 401, { error: '需要登录后再修改口令', code: 'AUTH_REQUIRED' });
+      const payload = await readBody(req);
+      const changed = await auth.changePassword({ username: session.username, currentPassword: payload?.currentPassword, newPassword: payload?.newPassword });
+      const renewed = await auth.sessionFor(session.username);
+      res.setHeader('Set-Cookie', sessionCookie(renewed.token, { secure: cookieSecure(req) }));
+      return json(res, 200, sessionView({ username: changed.user.username, role: changed.user.role }));
+    }
     if (req.method === 'GET' && req.url === '/api/macro') return json(res, 200, macroSimulation.view());
     if (req.method === 'POST' && req.url === '/api/macro/step') {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
@@ -677,6 +773,7 @@ createServer(async (req, res) => {
     }
     if (req.method === 'POST' && req.url === '/api/macro/local-proposal') {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });
+      await chargeQuota('ai', session);
       return json(res, 200, await callMacroProposal(await readBody(req)));
     }
     if (req.method === 'GET' && req.url === '/api/simulation') return json(res, 200, simulationDashboard.view());
@@ -695,7 +792,9 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/content') return json(res, 200, contentStore.read());
     if (req.method === 'PUT' && req.url === '/api/content') {
       if (req.headers['x-worldforge-content'] !== '1') return json(res, 403, { error: '缺少内容保存请求标记' });
-      return json(res, 200, contentStore.replace(await readBody(req)));
+      const saved = contentStore.replace(await readBody(req), { actor: session?.username || 'anonymous' });
+      if (auth) await auth.audit({ actor: session?.username || 'anonymous', action: 'content.save', detail: { revision: saved.revision, lore: saved.loreEntries.length, cards: saved.cardDrafts.length, keywords: saved.keywords.length, notes: Object.keys(saved.notes).length } });
+      return json(res, 200, saved);
     }
     if (req.method === 'GET' && req.url === '/api/art-assets') return json(res, 200, { assets: contentStore.listArtAssets() });
     if (req.method === 'POST' && req.url === '/api/reference-assets') {
@@ -715,6 +814,7 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/api/images/status') { const seedream = seedreamConfig(), comfyUi = comfyUiConfig(); return json(res, 200, { seedream: { configured: Boolean(seedream.key), model: seedream.model, baseUrl: seedream.baseUrl }, comfyUi: { configured: Boolean(await loadComfyWorkflow()), baseUrl: comfyUi.baseUrl } }); }
     if (req.method === 'POST' && req.url === '/api/images/generate') {
       if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少图片生成请求标记' });
+      await chargeQuota('image', session);
       const payload = await readBody(req), requestId = String(payload?.clientRequestId || randomUUID()).slice(0, 80), startedAt = Date.now();
       console.log(`[images/generate] start request=${requestId} provider=${payload?.provider === 'comfyui' ? 'comfyui' : 'seedream'} target=${String(payload?.targetId || payload?.cardId || '').slice(0, 160)}`);
       try {
@@ -732,6 +832,7 @@ createServer(async (req, res) => {
     }
     if (req.method === 'POST' && req.url === '/api/images/optimize-prompt') {
       if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少图片生成请求标记' });
+      await chargeQuota('ai', session);
       return json(res, 200, await optimizeImagePrompt(await readBody(req)));
     }
     if (req.method === 'GET' && req.url === '/api/ai/status') { const c = aiConfig(); return json(res, 200, { configured: Boolean(c.key), model: c.model, style: c.style }); }
@@ -750,18 +851,61 @@ createServer(async (req, res) => {
       await saveLocalEnv(values);
       await saveComfyWorkflow(settings.comfyUi.workflow);
       await savePromptSettings(settings.prompts);
+      if (auth) await auth.audit({ actor: session.username, action: 'settings.update', detail: { fields: Object.keys(values) } });
       if (Object.keys(selectionPatch).length) {
         agentSettings = await saveAgentSettings(agentSettingsPath, { selections: { ...agentSettings.selections, ...selectionPatch } });
         console.log(`[agent-settings] updated ${Object.entries(selectionPatch).map(([surface, id]) => `${surface}=${id}`).join(' ')}`);
       }
       const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, ...agentSettingsView() });
     }
-    if (req.method === 'POST' && req.url === '/api/ai/free') return json(res, 200, await callFreeAgent(await readBody(req)));
+    // —— 账号管理（仅管理员；apiNeedsAdmin 已在请求入口拦住非管理员）——
+    // 口令只在校验/哈希后使用：创建与重置时未提供则生成一次性口令并在本次响应里返回一次。
+    if (req.method === 'GET' && req.url === '/api/users') {
+      if (!auth) return json(res, 400, { error: '本实例未启用账号（未找到 users.json）', code: 'AUTH_DISABLED' });
+      return json(res, 200, { users: auth.listUsers(), quotaDefaults: AUTH_DEFAULT_QUOTA });
+    }
+    if (req.method === 'POST' && req.url === '/api/users') {
+      if (req.headers['x-worldforge-auth'] !== '1') return json(res, 403, { error: '缺少账号管理请求标记', code: 'AUTH_HEADER_REQUIRED' });
+      if (!auth) return json(res, 400, { error: '本实例未启用账号（未找到 users.json）', code: 'AUTH_DISABLED' });
+      const payload = await readBody(req);
+      const result = await auth.createUser({ username: payload?.username, password: payload?.password ? String(payload.password) : undefined, role: payload?.role, quota: payload?.quota, actor: session.username });
+      console.log(`[auth] ${session.username} 创建账号 ${result.user.username}（${result.user.role}）`);
+      return json(res, 201, result);
+    }
+    const userPasswordMatch = pathname.match(/^\/api\/users\/([a-z0-9._-]{1,32})\/password$/);
+    if (req.method === 'POST' && userPasswordMatch) {
+      if (req.headers['x-worldforge-auth'] !== '1') return json(res, 403, { error: '缺少账号管理请求标记', code: 'AUTH_HEADER_REQUIRED' });
+      if (!auth) return json(res, 400, { error: '本实例未启用账号（未找到 users.json）', code: 'AUTH_DISABLED' });
+      const payload = await readBody(req);
+      return json(res, 200, await auth.resetPassword({ username: userPasswordMatch[1], password: payload?.password ? String(payload.password) : undefined, actor: session.username }));
+    }
+    const userMatch = pathname.match(/^\/api\/users\/([a-z0-9._-]{1,32})$/);
+    if (req.method === 'PATCH' && userMatch) {
+      if (req.headers['x-worldforge-auth'] !== '1') return json(res, 403, { error: '缺少账号管理请求标记', code: 'AUTH_HEADER_REQUIRED' });
+      if (!auth) return json(res, 400, { error: '本实例未启用账号（未找到 users.json）', code: 'AUTH_DISABLED' });
+      const payload = await readBody(req);
+      return json(res, 200, await auth.updateUser({ username: userMatch[1], patch: { role: payload?.role, disabled: payload?.disabled, quota: payload?.quota }, actor: session.username }));
+    }
+    if (req.method === 'DELETE' && userMatch) {
+      if (req.headers['x-worldforge-auth'] !== '1') return json(res, 403, { error: '缺少账号管理请求标记', code: 'AUTH_HEADER_REQUIRED' });
+      if (!auth) return json(res, 400, { error: '本实例未启用账号（未找到 users.json）', code: 'AUTH_DISABLED' });
+      return json(res, 200, await auth.deleteUser({ username: userMatch[1], actor: session.username }));
+    }
+    if (req.method === 'POST' && req.url === '/api/ai/free') { await chargeQuota('ai', session); return json(res, 200, await callFreeAgent(await readBody(req))); }
     // 卡牌文字 Agent：只返回字段补丁（评审由作者完成），不保存、不生成图片、不改 canon。
-    if (req.method === 'POST' && req.url === '/api/ai/card') return json(res, 200, await callCardAgent(await readBody(req)));
-    if (req.method === 'POST' && req.url === '/api/ai/tools/names') return json(res, 200, await callNameGenerator(await readBody(req)));
-    if (req.method === 'POST' && req.url === '/api/ai') { const payload = await readBody(req); return json(res, 200, await callAi(payload)); }
+    if (req.method === 'POST' && req.url === '/api/ai/card') { await chargeQuota('ai', session); return json(res, 200, await callCardAgent(await readBody(req))); }
+    if (req.method === 'POST' && req.url === '/api/ai/tools/names') { await chargeQuota('ai', session); return json(res, 200, await callNameGenerator(await readBody(req))); }
+    if (req.method === 'POST' && req.url === '/api/ai') { const payload = await readBody(req); await chargeQuota('ai', session); return json(res, 200, await callAi(payload)); }
     if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: '不支持的请求方法' });
-    return serveStatic(req, res);
-  } catch (error) { return json(res, error.status || 500, { error: error.message || '服务器错误' }); }
+    // 必须 await：静态分支里的 readFile 失败要被本 catch 接住，否则会成为未处理的 rejection。
+    return await serveStatic(req, res, session);
+  } catch (error) {
+    // AuthError 等业务错误带稳定 code/status/details；响应只给可读文本与 code，不回显堆栈。
+    // 消息保留 `CODE: ` 前缀：既有 Agent 错误契约与前端诊断都依赖它，登录页自行裁掉前缀显示。
+    const status = Number(error.status) || 500;
+    const body = { error: String(error.message || '服务器错误') };
+    if (typeof error.code === 'string') body.code = error.code;
+    if (error.details && typeof error.details === 'object') Object.assign(body, error.details);
+    return json(res, status, body);
+  }
 }).listen(port, '0.0.0.0', () => console.log(`Worldforge: http://127.0.0.1:${port}`));

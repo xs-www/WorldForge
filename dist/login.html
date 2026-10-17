@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Worldforge 登录">
+  <meta name="theme-color" content="#ffffff">
+  <title>登录 · Worldforge</title>
+  <link rel="stylesheet" href="./styles.css?v=40">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-card" aria-labelledby="loginTitle">
+      <p class="eyebrow">Worldforge</p>
+      <h1 id="loginTitle">登录</h1>
+      <p class="login-hint" id="loginHint">本实例开启了账号保护。请使用管理员分配的用户名与口令登录。</p>
+      <form id="loginForm" class="login-form" method="post" autocomplete="on">
+        <label>用户名
+          <input id="loginUsername" name="username" autocomplete="username" required minlength="2" maxlength="32" autocapitalize="none" spellcheck="false">
+        </label>
+        <label>口令
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="200">
+        </label>
+        <p class="login-error" id="loginError" role="alert" hidden></p>
+        <button class="button primary" id="loginSubmit" type="submit">登录</button>
+      </form>
+      <div class="login-foot">
+        <button class="link-button" id="togglePassword" type="button" aria-pressed="false">显示口令</button>
+        <span class="login-note">连续输错会被临时锁定；忘记口令请联系管理员重置。</span>
+      </div>
+    </section>
+  </main>
+  <script src="./login.js?v=1"></script>
+</body>
+</html>

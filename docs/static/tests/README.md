@@ -16,6 +16,9 @@
 | `agent-settings-ui.test.mjs` | 设置页三个按 surface 过滤的选择器与 `aria-describedby`/`role="alert"`、`agentPresets` 随设置一起提交、自由对话的选择器与 chip、切换前确认并开新对话、两个入口都发送 `presetId`、preset 错误与模型错误分开呈现 | 静态扫描 `dist/index.html`、`dist/app.js`、`dist/styles.css` |
 | `agent-surface-integration.test.mjs` | 三个入口服务端**实际发出**的提示层次（含第二次补生成请求的完整层序）、**补生成第 4 层逐字一致且数量要求与 Schema 的 `minItems/maxItems` 对齐**、**带 `response_format` 的请求返回 400 时三条降级分支仍保持 4→5→6**、preset 快照权威性、非法/跨入口 preset 在模型调用前失败、preset 不能放宽服务端硬限制、system 不含不可信正文 | 真实 `server.mjs` 子进程 + 本地假模型 HTTP 服务记录每次请求；`prompt-settings.json` 预置作者提示以检出第 4 层丢失 |
 | `agent-tools.test.mjs` | 只读、命名空间化的工具集：`search_lore`/`get_lore_entry`/`list_lore`、art 资产工具、过滤与 limit 夹取、超长输出显式裁剪、未知工具与坏参数可恢复 | 内存 library 直接调 `runToolCall`，不联网 |
+| `auth.test.mjs` | 账号层（ADR-0030）：scrypt 口令往返与弱口令拒绝、`users.json` 结构校验、令牌篡改/过期/错密钥、Cookie 属性、登录限速 429、账号 CRUD 与「最后一个 admin」保护、改口令吊销旧会话、配额落盘且重启保留、CLI 改写文件热重载、审计不含口令或令牌 | 临时目录上的真实 `auth.mjs` 服务对象，不起 HTTP |
+| `auth-api.test.mjs` | 真实服务的账号契约：健康检查/登录页公开、未登录 401 `AUTH_REQUIRED`、登录请求标记头、未知账号与错误口令同码、admin/member 门禁（settings/users 403）、内容保存署名 `lastSavedBy`、成员配额 429、账号 CRUD、登出清 Cookie、自助改口令换发 Cookie、`REQUIRE_AUTH=1` 缺账号库拒绝启动、匿名本机模式 | 真实 `server.mjs` 子进程 + 临时 `users.json` + 空闲端口 |
+| `auth-ui.test.mjs` | 登录页独立且不加载应用外壳、401 回登录页、会话决定设置/账号可见性、账号面板覆盖创建/配额/停用/重置/删除、页头改口令、保存内容显示 `lastSavedBy`、服务端鉴权发生在路由分发之前 | 静态扫描 `dist/` 与 `server.mjs` |
 | `card-agent.test.mjs` | 卡牌 Agent 契约：三种类型合法候选、类型互斥、未勾选字段/未知关键词/未知设定 ID/未登记效果/脚本表达式拒绝、非法候选进诊断、禁平衡声明与自动 untested 标记、**评审字段已移除（模型多返回 `review` 被忽略且不失败）**、差额补生成数量一致；**忽略 json_schema 的模型**（裸候选对象、围栏 JSON、顶层数组、漏写 key）仍被收敛为合法候选，`INVALID_ENVELOPE` 诊断必须带模型原文片段，第 5 层响应外壳与安全示例值，真实 `POST /api/ai/card` 的 400 降级 + `fallbackReason`；`node:vm` 真实执行 `dist/card-agent-apply.js` 断言双向类型回填；上下文断言关键词定义正文进入 `<rules_context>`、未被引用的 lore 不进入 `<card_lore>` | 纯函数 + 真实 `server.mjs` + 本地假模型 + `node:vm` 执行前端脚本 |
 | `static-doc-manifest.test.mjs` | 静态文档清单门禁：哈希一致时通过；漂移按条目名报 `HASH_MISMATCH`；`--write` 只重算漂移项并返回新哈希；缺源文件/缺文档分别报 `FILE_MISSING`/`DOC_MISSING`；`counts` 与状态统计不符、非法 `status`、重复 `source`、绝对路径与 `..` 越界均拒绝；空 `files` 视为失败；哈希按原始字节（CRLF≠LF） | 纯内存夹具，不读写真实仓库 |
 | `ai-harness.test.mjs` | 上下文取证（同世界 canon 优先、异世界隔离）、13 类内容块契约、动态 Schema、逐候选校验与「只补缺」、部分失败仍返回可见诊断 | 纯函数 + 可注入的补全实现 |
@@ -39,7 +42,7 @@
 | `world-scope.test.mjs` | 按 `worldId` 分组且世界条目为组头、孤立 `worldId` 进「未分配」而非消失、缺 `worldId` 回落默认世界、`nextWorldId` 取最小空位、搜索字段、`reassign` 只移动非世界条目并报数 | `dist/world-scope.js` 纯函数 |
 
 ## 共享约定
-- 运行方式：仓库根执行 `node --test tests/*.test.mjs`（`npm run check` 的最后一步）。测试运行器为每个文件起子进程，且 `agent-profile-api` / `agent-surface-integration` / `agent-settings-api` / `agent-legacy-rollback` 会再 `spawn` `server.mjs` 并占用临时端口——因此需要**子进程 spawn 与本地监听权限**，无网络的沙箱会失败。
+- 运行方式：仓库根执行 `node --test tests/*.test.mjs`（`npm run check` 的最后一步）。测试运行器为每个文件起子进程，且 `agent-profile-api` / `agent-surface-integration` / `agent-settings-api` / `agent-legacy-rollback` / `auth-api` 会再 `spawn` `server.mjs` 并占用临时端口——因此需要**子进程 spawn 与本地监听权限**，无网络的沙箱会失败。
 - `agent-legacy-rollback.test.mjs` 会主动剔除宿主环境里的 `WORLDFORGE_AGENT_LEGACY_PROMPTS`，避免开发机的 `.env` 让「默认路径」用例误开回滚；需要回滚的用例再显式传入。
 - `tests/fixtures/agent-profiles/legal/`（`fixture-card`/`fixture-free`/`fixture-lore`）是三个可加载的合法投影；`reject/` 是十份单点缺陷夹具（`absolute-path`、`directory-mismatch`、`duplicate-id`、`empty-prompt`、`incompatible-combination`、`missing-prompt`、`oversized-prompt`、`traversal`、`unknown-enum`、`unknown-field`），每份应只触发自己的稳定错误码。
 - `tests/snapshots/agent-prompt-layers.json` 冻结六层提示的 `name`/`priority`/`source`/`replaceableByPreset`；顺序变动必须是一次有意识的修改，并同步 ADR-0029 §7 与快照（`agent-profile-contract.test.mjs` 会同时比对代码常量、快照与 ADR）。

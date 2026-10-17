@@ -108,3 +108,25 @@ test('anchor count must match reference count', () => {
   assert.equal(result.errors.length, 1);
   assert.match(result.errors[0].message, /锚点数.*与 L### 引用数/);
 });
+
+test('rewriting a line never swaps references whose new value equals the next old value', () => {
+  // 回归：源码整体下移时，第一个引用的新行号可能正好等于第二个引用的旧行号。
+  // 旧实现用「第一次出现」替换，会把两个引用对调；必须按原始列位从右到左替换。
+  const swappedSource = [
+    'function beta() {',
+    '}',
+    '}',
+    'function alpha() {'
+  ];
+  const swappedAnchors = {
+    alpha: { lines: ['function alpha('] },
+    beta: { lines: ['function beta('] }
+  };
+  const docLine = '| `alpha` / `beta` | `L1` / `L4` |';
+  const result = verifyDocument({ docText: docLine, sourceLines: swappedSource, anchors: swappedAnchors, rewrite: true });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.updates.length, 1);
+  assert.ok(result.updates[0].text.includes('`L4` / `L1`'), `应改写为 L4 / L1，实际：${result.updates[0].text}`);
+  // 改写后的文档必须能一次通过校验。
+  assert.deepEqual(verifyDocument({ docText: result.updates[0].text, sourceLines: swappedSource, anchors: swappedAnchors }).errors, []);
+});

@@ -2,7 +2,7 @@
 
 原创多世界神性宇宙与策略卡牌内容设计仓库。
 
-当前版本：**0.2.2**（2026-10-17）。该版本把三个 DSH Agent preset 接入设定助手、自由创作与卡牌三个入口，并配套回滚开关、分入口设置、静态文档双门禁与容器化；世界设定与卡牌数值仍为草案 / `untested`，不代表规则定稿。
+当前版本：**0.3.0**（2026-10-18）。该版本加入公网发布所需的账号体系：scrypt 口令、HMAC 签名会话 Cookie、admin/member 两级权限、设置页账号管理面板、每人每日 AI/生图配额与审计（ADR-0030）；世界设定与卡牌数值仍为草案 / `untested`，不代表规则定稿。0.2.2 把三个 DSH Agent preset 接入设定助手、自由创作与卡牌三个入口，并配套回滚开关、分入口设置、静态文档双门禁与容器化。
 
 仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。每个 preset 额外携带 WorldForge 产品侧的只读投影：`worldforge.runtime.json`（契约见 [`docs/schemas/agent-runtime.schema.json`](docs/schemas/agent-runtime.schema.json)）与 `runtime/system.md`。产品只读这两个纯数据文件，永不解析或执行含 `!!js` 的 `agent.cordis.yml`，该边界由 [ADR-0029](docs/adr/ADR-0029-agent-profile-runtime-projection.md) 固定。
 
@@ -107,18 +107,31 @@ docker compose -f compose.nas.yaml up -d
 
 群晖 Container Manager / QNAP Container Station 新建「项目」时，把 `compose.nas.yaml` 的内容粘贴进 YAML 编辑框即可，拉取与重启语义相同。数据目录通过 `WORLDFORGE_DATA_DIR` 指向 NAS 本地磁盘卷上的目录；不要用 SMB/NFS 共享或 CloudSync 之类的同步目录，SQLite 依赖 POSIX 文件锁。
 
-`compose.nas.yaml` 与 `compose.yaml` 的差异只在部署形态：前者拉取 GHCR 镜像并绑定全部网卡，后者从本地源码构建并绑定 `127.0.0.1`。两者共用同一套环境变量契约。ComfyUI 通道保留，`COMFYUI_BASE_URL` 与 `extra_hosts: host.docker.internal:host-gateway` 都在，真要在这台机器上出图时改成能访问到 ComfyUI 主机的地址即可。注意 `compose.nas.yaml` 绑定全部网卡是为了局域网与 tailnet 访问；本应用没有登录与权限控制，设置页可直接改写 API Key，不要把它映射到公网。
+`compose.nas.yaml` 与 `compose.yaml` 的差异只在部署形态：前者拉取 GHCR 镜像并默认只绑回环（公网经 Tailscale Funnel / Serve 进入），后者从本地源码构建并绑定 `127.0.0.1`。两者共用同一套环境变量契约。`compose.nas.yaml` 开启 `WORLDFORGE_REQUIRE_AUTH=1` 与 `WORLDFORGE_COOKIE_SECURE=1`：缺少 `users.json` 时容器会拒绝启动，而不是以匿名模式对外服务；账号与会话细节见 ADR-0030。ComfyUI 通道保留，`COMFYUI_BASE_URL` 与 `extra_hosts: host.docker.internal:host-gateway` 都在，真要在这台机器上出图时改成能访问到 ComfyUI 主机的地址即可。
 
 升级：CI 推完新的 `latest` 后在 NAS 上重跑上面两条命令，或用 NAS 自带的任务计划定时执行。镜像内已带 `HEALTHCHECK`，健康端点异常时 `docker ps` 会显示 `unhealthy`。
 
-### Tailscale 访问
+### Tailscale 访问与公网 Funnel
 
-当前开发机已将 Docker 服务以 tailnet-only HTTPS 路由发布到：
-
-<https://sisi-laptop.tail921448.ts.net/worldforge/>
-
-该地址只对已获准加入当前 tailnet 的设备开放，不是公网 Funnel。Docker 端口仍只绑定 `127.0.0.1:4173`。在本机重新配置该子路径可使用：
+tailnet 内访问沿用 `tailscale serve`（开发机上已按此发布，Docker 端口仍只绑定 `127.0.0.1:4173`）：
 
 ```powershell
 tailscale serve --bg --set-path /worldforge http://127.0.0.1:4173
 ```
+
+要公开到公网时用 Funnel，但**必须先在 NAS 上建好账号库**，否则 `compose.nas.yaml` 会按 fail-closed 拒绝启动：
+
+```powershell
+# 1) 建首个管理员（只需一次；首次口令只打印这一次）
+docker compose -f compose.nas.yaml exec worldforge node scripts/auth-cli.mjs add alice --admin
+# 2) 把回环端口发布到公网（Funnel 只支持 443 / 8443 / 10000）
+tailscale funnel --bg --set-path /worldforge http://127.0.0.1:4173
+```
+
+发布后的地址形如 `https://<nas>.<tailnet>.ts.net/worldforge/`：任何拿到 URL 的人都能打开登录页，但只有持账号的人能读内容，`admin` 才能改设置与管账号。补充说明：
+
+- Funnel 的 TLS 由 Tailscale 终结，容器内看到的是明文 HTTP，因此 `compose.nas.yaml` 固定 `WORLDFORGE_COOKIE_SECURE=1`。
+- 账号与会话的完整边界、限制与验证见 [ADR-0030](docs/adr/ADR-0030-local-accounts-and-public-funnel.md)：登出只清浏览器 Cookie，令牌在 30 天有效期内仍可用；发现泄露应重置该账号口令或停用账号。
+- `users.json`、`worldforge-usage.json`、`worldforge-audit.jsonl` 与 SQLite 同在 `/data`，均已被 `.gitignore` 排除；备份 `/data` 即包含账号与配额。
+- 常用账号命令：`list`、`reset <用户名>`、`role <用户名> admin|member`、`quota <用户名> ai|image <次数|unlimited>`、`disable` / `enable <用户名>`、`remove <用户名>`。
+- 本机 `npm start` 或 `docker compose up` 在没有 `users.json` 时仍是匿名模式（启动日志会明确警告），只应在本机或 tailnet 内部使用。

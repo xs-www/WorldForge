@@ -9,7 +9,7 @@
 | `resolveAnchor(name, anchor, sourceLines)` | 期望子串必须**同时**出现在同一行；命中行数必须等于 `count`（默认 1），否则抛 `ANCHOR_MISSING`/`ANCHOR_AMBIGUOUS`；`nth` 在同构行中定位 |
 | `resolveAnchors(anchors, sourceLines)` | 预解析全部锚点，名称 → 行号 |
 | `scanLine(line, anchors)` | 从文档行提取 `L###` 引用与锚点候选；优先 `<!-- anchor:a b -->`，其次「方法 + 路径」路由，最后反引号符号名 |
-| `verifyDocument({docText, sourceLines, anchors, rewrite})` | 校验或重写；单行验证全部锚点，区间（`–` 连接）要求起点早于终点，独立引用允许递减 |
+| `verifyDocument({docText, sourceLines, anchors, rewrite})` | 校验或重写；单行验证全部锚点，区间（`–` 连接）要求起点早于终点，独立引用允许递减。重写按原始列位从右到左替换，不用「第一次出现」替换——否则当前引用的新值恰好等于后一引用的旧值时会两两对调 |
 
 ## 命令行
 

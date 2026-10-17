@@ -2,6 +2,39 @@
 
 本文件记录 Worldforge 的重要变更。日期采用 `YYYY-MM-DD`。
 
+## [0.3.0] - 2026-10-18
+
+为 Tailscale Funnel 公网发布增加本机账号体系（ADR-0030），应用从「无鉴权的单用户本机工具」变为「可公网部署的多人工作区」。
+
+### Added
+- `auth.mjs`：scrypt 口令（N=16384 / r=8 / p=1 / keylen=64）、HMAC-SHA256 签名会话 Cookie（`wf_session`，30 天）、`admin` / `member` 两级角色、`sessionVersion` 即时吊销、按用户名与来源 IP 双维度的登录限速、按 UTC 自然日的 AI/生图配额（落盘 `worldforge-usage.json`）与 `worldforge-audit.jsonl` 审计。
+- `scripts/auth-cli.mjs` 与 `npm run auth`：`add` / `bootstrap` / `list` / `reset` / `role` / `quota` / `enable` / `disable` / `remove`，用于 NAS 上创建首个管理员与救急重置；首次口令只打印一次。
+- `dist/login.html` + `dist/login.js`：独立登录页，用 `document.currentScript` 解析挂载路径，Funnel 的 `--set-path` 无需改 URL。
+- 设置页「账号」面板（仅管理员）：创建账号、分配角色、调整每人每日配额、停用/启用、重置口令、删除；一次性口令只在生成时显示。
+- 页头显示当前账号与角色，新「改口令」对话框支持自助换口令（换发新 Cookie，其他设备失效）。
+- `GET /api/auth/session`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/password`、`GET/POST /api/users`、`PATCH/DELETE /api/users/:name`、`POST /api/users/:name/password`。
+- `/api/content` 返回 `lastSavedBy`，保存时写入 `metadata.last_saved_by`；页头状态显示「SQLite 已保存 · 用户名」。
+- `/api/health` 增加 `auth: { mode, users, requireAuth }` 摘要（不含用户名）。
+- `compose.nas.yaml` 开启 `WORLDFORGE_REQUIRE_AUTH=1` / `WORLDFORGE_COOKIE_SECURE=1`，端口默认只绑回环（`WORLDFORGE_BIND` 可改）；`Dockerfile` 复制 `auth.mjs` 与账号 CLI。
+- 新测试 30 项：`tests/auth.test.mjs`（13）、`tests/auth-api.test.mjs`（10）、`tests/auth-ui.test.mjs`（7）。
+
+### Changed
+- 存在 `users.json` 即启用账号模式：除健康检查、会话查询、登录与登出外，所有 `/api/*` 要求会话；`/api/settings` 与 `/api/users*` 要求 `admin`。
+- 未登录的页面导航直接返回登录页，不再把应用外壳发给匿名访客；带扩展名的静态资源仍可匿名取用（登录页需要样式与脚本）。
+- `PUT /api/content` 与 `POST /api/settings` 写入审计，日志不记录口令、令牌或 API Key 值。
+- 版本号升至 `0.3.0`（`package.json`、页面 meta、`README`）。
+
+### Security
+- `WORLDFORGE_REQUIRE_AUTH=1` 且 `users.json` 缺失或损坏时**拒绝启动**（`AUTH_USERS_MISSING` / `AUTH_USERS_INVALID`），避免“忘了建账号就暴露公网”。
+- 登录失败对未知账号与错误口令返回同一错误码；未知账号也执行一次等价的 scrypt 校验，避免用时间枚举账号。
+- 错误响应不回显堆栈；`AuthError` 只暴露稳定 `code` 与可读文本。
+- `.gitignore` 排除 `users.json`、`worldforge-usage.json`、`worldforge-audit.jsonl`。
+
+### Known limitations
+- 登出只清除浏览器 Cookie，签名令牌在 30 天有效期内仍可用；泄露时应重置口令或停用账号。
+- 配额在模型调用前计数，模型失败也计一次；登录失败计数在内存中，进程重启后清零。
+- 成员没有「编辑偏好」入口（设置对话框对成员隐藏）；仍无「只读访客」角色与邮箱找回口令。
+
 ## [0.2.2] - 2026-10-17
 
 修复 0.2.1 之后 CI 仍红的第二个原因：测试里有一条**只在 Windows 成立**的断言。

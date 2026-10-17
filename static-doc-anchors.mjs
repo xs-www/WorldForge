@@ -97,7 +97,9 @@ export function verifyDocument({ docText, sourceLines, anchors, rewrite = false 
       errors.push({ line: index + 1, message: `锚点数（${candidates.length}）与 L### 引用数（${lineRefs.length}）不一致；区间引用需要两个锚点` });
       return;
     }
-    let text = line;
+    // 重写必须按原始列位替换：同一行里前一个引用的新值可能正好等于后一个引用的旧值，
+    // 用 `text.replace` 做「第一次出现」替换会把两个引用对调（行号整体 +1 时必现）。
+    const replacements = [];
     lineRefs.forEach((ref, offset) => {
       const name = candidates[offset];
       const actual = resolved.get(name);
@@ -110,10 +112,14 @@ export function verifyDocument({ docText, sourceLines, anchors, rewrite = false 
         return;
       }
       if (ref.value !== actual) {
-        if (rewrite) text = text.replace(`${BACKTICK}L${ref.value}${BACKTICK}`, `${BACKTICK}L${actual}${BACKTICK}`);
+        if (rewrite) replacements.push({ index: ref.index, length: `${BACKTICK}L${ref.value}${BACKTICK}`.length, text: `${BACKTICK}L${actual}${BACKTICK}` });
         else errors.push({ line: index + 1, message: `位置索引与锚点不符：文档 L${ref.value} → 实际 L${actual}（锚点 ${name}）` });
       }
     });
+    let text = line;
+    for (const replacement of replacements.sort((left, right) => right.index - left.index)) {
+      text = text.slice(0, replacement.index) + replacement.text + text.slice(replacement.index + replacement.length);
+    }
     if (rewrite && text !== line) updates.push({ line: index + 1, text });
   });
 

@@ -90,6 +90,8 @@ export function createContentStore(databasePath) {
       initialized: meta('initialized') === '1',
       revision: Number(meta('revision', '0')),
       updatedAt: meta('updated_at'),
+      // 多人协作的署名：最后一次整库保存的账号。旧库没有该键时为 null，不代表数据损坏。
+      lastSavedBy: meta('last_saved_by'),
       loreEntries: selectLore.all().map(row => JSON.parse(row.payload_json)),
       cardDrafts: selectCards.all().map(row => JSON.parse(row.payload_json)),
       keywords: selectKeywords.all().map(row => JSON.parse(row.payload_json)),
@@ -97,7 +99,7 @@ export function createContentStore(databasePath) {
     };
   }
 
-  function replace(value) {
+  function replace(value, { actor = '' } = {}) {
     const snapshot = validateContentSnapshot(value);
     const expectedRevision = value.expectedRevision;
     const now = new Date().toISOString();
@@ -113,6 +115,7 @@ export function createContentStore(databasePath) {
       putMeta.run('initialized', '1');
       putMeta.run('revision', String(revision + 1));
       putMeta.run('updated_at', now);
+      putMeta.run('last_saved_by', actor || 'anonymous');
       db.exec('COMMIT');
       return read();
     } catch (error) {

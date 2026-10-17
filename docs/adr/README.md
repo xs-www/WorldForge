@@ -29,5 +29,6 @@
 - [ADR-0027：AI 设定助手浮动化，候选可覆盖当前条目，候选数可为 1](ADR-0027-ai-assistant-dock-and-overwrite.md) — canon（技术边界）
 - [ADR-0028：以 W97 合成套牌建立实验对战纵切](ADR-0028-experimental-card-battle.md) — canon（技术边界），对战规则与关键词仍为 experimental
 - [ADR-0029：产品内 Agent Profile 使用只读产品投影，不执行 DSH 组装](ADR-0029-agent-profile-runtime-projection.md) — canon（技术边界），§10 五项已由作者逐条签字接受
+- [ADR-0030：以本机账号体系支撑 Tailscale Funnel 公网发布](ADR-0030-local-accounts-and-public-funnel.md) — canon（技术边界），共享工作区 + admin/member + 每人每日配额
 
-新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0030` 开始。
+新增提案请使用 `templates/adr.md`，后续编号从 `ADR-0031` 开始。

@@ -230,7 +230,7 @@
     },
     "static-fallback": {
       "lines": [
-        "return serveStatic(req, res)"
+        "return await serveStatic(req, res, session);"
       ]
     },
     "boot-start": {
@@ -240,9 +240,8 @@
     },
     "boot-end": {
       "lines": [
-        "process.exit(1);"
-      ],
-      "count": 1
+        "const AUTH_PUBLIC_API = new Set("
+      ]
     },
     "content-store": {
       "lines": [
@@ -661,6 +660,77 @@
     "saveLocalEnv-def": {
       "lines": [
         "function saveLocalEnv("
+      ]
+    },
+    "apiNeedsSession": {
+      "lines": [
+        "function apiNeedsSession("
+      ]
+    },
+    "apiNeedsAdmin": {
+      "lines": [
+        "function apiNeedsAdmin("
+      ]
+    },
+    "sessionOf": {
+      "lines": [
+        "function sessionOf("
+      ]
+    },
+    "sessionView": {
+      "lines": [
+        "function sessionView("
+      ]
+    },
+    "clientIp": {
+      "lines": [
+        "function clientIp("
+      ]
+    },
+    "cookieSecure": {
+      "lines": [
+        "function cookieSecure("
+      ]
+    },
+    "chargeQuota": {
+      "lines": [
+        "async function chargeQuota("
+      ]
+    },
+    "GET /api/auth/session": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/auth/session'"
+      ]
+    },
+    "POST /api/auth/login": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/auth/login'"
+      ]
+    },
+    "POST /api/auth/logout": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/auth/logout'"
+      ]
+    },
+    "POST /api/auth/password": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/auth/password'"
+      ]
+    },
+    "GET /api/users": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/users'"
+      ]
+    },
+    "POST /api/users": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/users'"
       ]
     }
   }

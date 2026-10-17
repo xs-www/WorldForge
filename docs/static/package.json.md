@@ -1,13 +1,14 @@
 # `package.json`
 
-> 作用：零依赖 ESM 应用的唯一 manifest——三个脚本、Node 下限；没有 `dependencies`/`devDependencies`。
+> 作用：零依赖 ESM 应用的唯一 manifest——四个脚本、Node 下限；没有 `dependencies`/`devDependencies`。
 
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `start` | `node server.mjs`；端口由 `PORT` 决定，缺省 8080（`server.mjs` L86），`.env.local` 由服务自己读 | L6 |
-| `compile:world` | 转发到 `scripts/compile-world-package.mjs`，需自带 `<manifest.json> <output.json>` 两个位置参数 | L7 |
-| `check` | 唯一一道关：先 36 条手写 `node --check <file>` 语法检查（根模块、`simulation/`、`dist/`、`scripts/`），再依次跑两道静态文档门禁 —— `node static-doc-anchors.mjs --check`（每个 `L###` 必须唯一命中锚点）与 `node static-doc-manifest.mjs --check`（清单哈希、文档路径与计数必须与磁盘一致），最后 `node --test tests/*.test.mjs` | L8 |
-| `engines.node` | `>=22.5`——下限来自 `node:sqlite` 的 `DatabaseSync` 与内建测试运行器；CI 固定 22.23.2（`ci.yml` L37） | L10 |
+| `start` | `node server.mjs`；端口由 `PORT` 决定，缺省 8080（`server.mjs` L206），`.env.local` 由服务自己读 | L7 |
+| `auth` | `node scripts/auth-cli.mjs`：账号运维入口（ADR-0030），等价于直接运行该脚本 | L8 |
+| `compile:world` | 转发到 `scripts/compile-world-package.mjs`，需自带 `<manifest.json> <output.json>` 两个位置参数 | L9 |
+| `check` | 唯一一道关：先手写 `node --check`（含 `auth.mjs`、`scripts/auth-cli.mjs`、`dist/login.js`），再跑两道静态文档门禁——`node static-doc-anchors.mjs --check`（每个 `L###` 必须唯一命中锚点）与 `node static-doc-manifest.mjs --check`（清单哈希、文档路径与计数必须与磁盘一致），最后 `node --test tests/*.test.mjs` | L10 |
+| `engines.node` | `>=22.5`——下限来自 `node:sqlite` 的 `DatabaseSync` 与内建测试运行器；CI 固定 22.23.2（`ci.yml` L37） | L12 |
 
 ## 重要约束
 - `node --check` 列表是**手工维护**的白名单，新增模块不会自动纳入；镜像 `COPY` 闭包另有 `tests/docker-packaging.test.mjs` 兜底，但两者是独立口径。

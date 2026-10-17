@@ -2,3 +2,7 @@
 node_modules/
 *.log
 .data/
+# 账号库与运行期审计/用量：含口令哈希与会话密钥，永远不提交。
+users.json
+worldforge-usage.json
+worldforge-audit.jsonl
