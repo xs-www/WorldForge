@@ -294,13 +294,13 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "68602b04e62dcab9258477246ffffaaf5511d54e4a3a56e6fc29338bf5f69f93"
+      "sha256": "f1112b2e3fd695c506ec32be3f40b3ec915184c1db585ff368f32a21fb8af418"
     },
     {
       "source": "dist/login.html",
       "doc": "docs/static/dist/login.html.md",
       "status": "documented",
-      "sha256": "54ac2619590f9de767c0bc1c1fb39014f34a0847b03d4577bcff580e13679d44"
+      "sha256": "37c4d85501c5d214924edcdfde37dbd57ccf4dbaf11173762b968c4ee446849c"
     },
     {
       "source": "dist/login.js",
@@ -330,7 +330,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "c07b8d9c81b0586e9439debaecc687b173139cb51a2648183b30b928a82723a8"
+      "sha256": "cd889e3dfd2f97e0973b515f25f08c02d8ac7c88fec65f7663d7e8339ba5e1ff"
     },
     {
       "source": "dist/world-scope.js",
@@ -930,7 +930,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "6fa48a4353ce7f7495d1db2d61d23d4b4b52de229df1e359ff1a24216697690c"
+      "sha256": "4fa4f3f9251012cdfe37ae02d026953bec8b35355359a68dd35f2712e5dc4e96"
     },
     {
       "source": "tests/world-package.test.mjs",

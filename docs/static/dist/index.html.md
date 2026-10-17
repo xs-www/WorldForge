@@ -24,7 +24,7 @@
 
 ## 脚本装配顺序与缓存版本
 
-`<head>`：`styles.css?v=41`（`L14`）。`</body>` 前（`L454–L464`）依次为
+`<head>`：`styles.css?v=42`（`L14`）。`</body>` 前（`L454–L464`）依次为
 `geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=1` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=54`。
 
 - 顺序不可调整：`app.js` 末尾同步执行 `bootstrap()`，依赖前 5 个脚本暴露的 `Worldforge*` 全局；`battle-ui.js` 依赖 `battle.js`。

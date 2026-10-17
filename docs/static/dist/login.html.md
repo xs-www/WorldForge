@@ -11,7 +11,7 @@
 | `#loginError` | `role="alert"`，登录失败与限速提示都在这里显示 |
 | `#loginSubmit` | 提交期间禁用并显示「正在登录…」 |
 | `#togglePassword` | 显示/隐藏口令，`aria-pressed` 同步 |
-| `styles.css?v=40` / `login.js?v=1` | 改样式或脚本必须同步递增 `?v=`，否则再次登录会拿到旧资源 |
+| `styles.css?v=42` / `login.js?v=1` | 改样式或脚本必须同步递增 `?v=`（index.html 与 login.html 两处都要改），否则再次登录会拿到旧资源 |
 
 ## 重要约束
 - 全部资源使用相对路径，Funnel 的 `--set-path /worldforge` 无需修改页面。

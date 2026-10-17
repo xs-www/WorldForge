@@ -18,7 +18,7 @@ test('browser API requests follow the script mount path', () => {
   }
   assert.match(htmlSource, /app\.js\?v=54/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=41/);
+  assert.match(htmlSource, /styles\.css\?v=42/);
   assert.match(htmlSource, /cards\.js\?v=7/);
   assert.match(htmlSource, /world-scope\.js\?v=2/);
   assert.match(htmlSource, /relation-picker\.js\?v=2/);

@@ -17,7 +17,7 @@
 | 8 | `macro.js`（`?v=3`） | `WorldforgeMacro`（仅 `refresh`） | W98 宏观模拟前端，自带 IIFE 与事件绑定 | `L440` |
 | 10 | `app.js`（`?v=54`） | 无导出（组合根） | 世界观/卡牌/自由创作/W99 诊断的 DOM、状态、API 与持久化 | `L462` |
 
-`styles.css?v=41` 在 `<head>`（`L14`）。登录页 `login.html` 不在脚本装配表内：它是独立文档，只加载 `styles.css?v=41` 与 `login.js?v=1`。
+`styles.css?v=42` 在 `<head>`（`L14`）。登录页 `login.html` 不在脚本装配表内：它是独立文档，只加载 `styles.css?v=42` 与 `login.js?v=1`。
 
 ## 全局耦合规则
 
@@ -46,7 +46,7 @@ const apiUrl = path => new URL(path, API_ROOT);
 - **会话快照决定可见性**：`bootstrap()` 先 `loadSession()`（`L263`，请求 `auth/session`），账号模式下没有会话就直接返回；`applySessionUi()` 按 `sessionMode` / `currentUser` 隐藏成员不可用的入口（`#openSettings`、`#settingsUsersTab`），并驱动页头用户名、改口令与退出按钮（`L261–L284`）。
 - **账号面板**：设置里的 `data-settings-panel="users"` 由 `refreshUsers` / `userRow` / `patchUser` / `createUserFromForm` / `resetUserPassword` / `removeUser` 驱动（`L271–L276`）；创建与重置返回的一次性口令只写入 `#userSecret`，刷新列表即清空。
 - **自助改口令**：页头「改口令」打开 `#passwordDialog`，提交到 `auth/password`；成功后服务端换发 Cookie，其他设备因 `sessionVersion` 变更失效。
-- **登录页资源**：`login.js` 只使用 `SCRIPT_ROOT` / `API_ROOT` 相对路径；`styles.css?v=40` 同时服务两个页面，改样式要同时递增两处 `?v=`。
+- **登录页资源**：`login.js` 只使用 `SCRIPT_ROOT` / `API_ROOT` 相对路径；`styles.css?v=42` 同时服务两个页面，改样式要同时递增两处 `?v=`（0.4.0 之前 login.html 曾停在 `?v=40` 与 index.html 不一致，已统一）。
 
 ## 数据边界：SQLite 为真值，localStorage 仅缓存/迁移
 
@@ -69,7 +69,7 @@ const apiUrl = path => new URL(path, API_ROOT);
 - **富文本白名单**：卡面描述只识别 `<b>`/`</b>`/`<i>`/`</i>`/`**`/`*`（`cards.js L34–L51`），其余字符按纯文本收进 run；DOM 侧一律 `createElement` + `textContent` 渲染（`app.js L147`），`app.js` 中唯一的 `innerHTML` 是 `L167` 的静态空状态串。`battle-ui.js`、`macro.js` 使用模板字符串 `innerHTML`，其内容来自内置测试卡牌/服务端模拟数据，源码中未见转义。
 - **预览与 PNG 同源**：`renderCardKeywordPreview`（`app.js L147`）与 `compileCardPng`（`L129`，660×920 canvas，经 `drawCompiledDescription` L125）都消费 `WorldforgeCards.compileDescription()` 的 `runs`，因此排版随 run 列表变化，改其一必须同步改另一侧。
 - **付费生图不自动重试**：`requestGeneratedAsset`（`app.js L7`）为每次请求生成 `clientRequestId` 并只 POST 一次；仅在响应为空/非 JSON/网络中断时，通过轮询 `art-assets`（最多 8 次、间隔 1.5s）按 `clientRequestId` 找回已生成的资产（`L6`），失败时把请求 ID 写进错误文案。
-- **缓存版本耦合**：新增或改动任一脚本/样式后必须同步递增 `index.html`（以及登录页 `login.html`）中对应的 `?v=`（当前 `styles 41 / app 54 / cards 7 / macro 3 / geography 2 / battle 1 / battle-ui 1 / chronicle 1 / world-scope 2 / relation-picker 2 / lore-groups 1 / card-agent-apply 1 / login 1`），顺序不变，否则浏览器可能复用旧脚本并与新 DOM 契约错位。
+- **缓存版本耦合**：新增或改动任一脚本/样式后必须同步递增 `index.html`（以及登录页 `login.html`）中对应的 `?v=`（当前 `styles 42 / app 54 / cards 7 / macro 3 / geography 2 / battle 1 / battle-ui 1 / chronicle 1 / world-scope 2 / relation-picker 2 / lore-groups 1 / card-agent-apply 1 / login 1`），顺序不变，否则浏览器可能复用旧脚本并与新 DOM 契约错位。
 - **没有默认世界**：`readLore()` 会滤掉早期 `seeded` 的默认世界条目，`normalizeLore` 不再把缺失的 `worldId` 改写成 `W01`；世界由作者新建，第一条取 `nextWorldId()` 的最小可用编号。
 - **资料组驱动界面**：标签页、表单形态、AI 内容块与地理/编年史作用域全部来自资料组；固定组只有世界、世界信息、角色、编年史、背景故事五项。
 - **状态分级由前端强制**：`cards.js L66` 把卡牌 `status` 固定为 `proposed`、`balanceStatus` 固定为 `untested`；资料条目的 `canon` 只能在 UI 中人工选择（`index.html L99`）。
