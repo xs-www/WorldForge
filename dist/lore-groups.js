@@ -17,8 +17,8 @@
   const IMAGE_KEYS=Object.freeze(['card','world','location','character','timeline','story','other']);
 
   const field=(key,label,kind='text',hint='')=>({key,label,kind,hint});
-  // 每个组默认只有「详细设定」；摘要、属性、约束、开放问题都要作者自己加。
-  const DEFAULT_FIELDS=Object.freeze([field('details','详细设定','multiline')]);
+  // 「名称」与「详细设定」是每个条目内置的两项，不占组字段位；这里只描述组额外的块。
+  const DEFAULT_FIELDS=Object.freeze([]);
   const FIXED_GROUPS=Object.freeze([
     Object.freeze({id:'world',label:'世界',icon:'◎',form:'generic',fixed:true,defaultFields:DEFAULT_FIELDS}),
     Object.freeze({id:'location',label:'世界地图',icon:'地',form:'geography',fixed:true,defaultFields:DEFAULT_FIELDS}),
@@ -64,15 +64,17 @@
     return{key,label:text(source.label,ATTRIBUTE_LIMIT)||key,kind:normalizeKind(source.kind),hint:text(source.hint,HINT_LIMIT)};
   }
   /** 字段列表：去重（同 key 只留第一个）、限长、至少一个。 */
-  function normalizeFields(value,fallback=MINIMAL_FIELDS){
-    const list=Array.isArray(value)?value:[],seen=new Set(),out=[];
+  function normalizeFields(value,fallback=DEFAULT_FIELDS){
+    const list=Array.isArray(value)?value:[],seen=new Set(['details']),out=[];
     list.forEach((raw,index)=>{
       const item=normalizeField(raw,index);
-      if(seen.has(item.key)||out.length>=MAX_FIELDS)return;
+      // 「详细设定」是内置块，不允许作为自定义字段重复出现
+      if(item.key==='details'||seen.has(item.key)||out.length>=MAX_FIELDS)return;
       seen.add(item.key);out.push(item);
     });
     if(out.length)return out;
-    return (Array.isArray(fallback)?fallback:MINIMAL_FIELDS).map((raw,index)=>normalizeField(raw,index));
+    // 允许「没有额外内容块」：只有内置的名称与详细设定
+    return (Array.isArray(fallback)?fallback:[]).map((raw,index)=>normalizeField(raw,index));
   }
   function normalizeGroup(raw){
     const source=raw&&typeof raw==='object'?raw:{},id=text(source.id,32);
@@ -124,7 +126,8 @@
       return normalizeGroup({...fixed,fields:override?override.fields:fixed.defaultFields,prompt:override?override.prompt:''});
     });
   }
-  function allGroups(custom){const groups=normalizeStoredGroups(custom);return[...materializeFixed(groups),...groups.filter(group=>!group.fixed&&Boolean(group.worldId))]}
+  // 自定义组要全部带出：worldId 为空的是「所有世界共享」的组，不能在这里被过滤掉
+  function allGroups(custom){const groups=normalizeStoredGroups(custom);return[...materializeFixed(groups),...groups.filter(group=>!group.fixed)]}
   function isFixedGroup(id){return FIXED_IDS.has(String(id||''))}
   function groupOf(groups,id){
     const target=String(id||'').trim();
@@ -149,10 +152,11 @@
   }
   /** 只保留与某个世界相关的组：本世界的排在共享组之前，同 id 时本世界的优先。 */
   function groupsForWorld(customGroups,worldId){
-    const world=text(worldId,WORLD_LIMIT),groups=normalizeGroups(customGroups),seen=new Set(),out=[];
+    const world=text(worldId,WORLD_LIMIT),all=normalizeStoredGroups(customGroups),overrides=all.filter(group=>group.fixed),groups=all.filter(group=>!group.fixed),seen=new Set(),out=[];
     groups.filter(group=>!group.fixed&&world&&group.worldId===world).forEach(group=>{if(seen.has(group.id))return;seen.add(group.id);out.push(group)});
-    groups.filter(group=>!group.fixed&&!group.worldId).forEach(group=>{if(seen.has(group.id))return;seen.add(group.id);out.push(group)});
-    return out;
+    groups.filter(group=>!group.worldId).forEach(group=>{if(seen.has(group.id))return;seen.add(group.id);out.push(group)});
+    // 固定组的覆盖行（字段/提示）必须一并带回去，否则 allGroups 只能看到默认字段
+    return [...overrides,...out];
   }
   /**
    * 旧数据迁移（0.3.1 之前）：组没有 worldId / fields / prompt。
@@ -181,6 +185,8 @@
         }else if(legacy)next.fields=legacy.defaultFields;
       }
       if(typeof group.prompt!=='string')next.prompt='';
+      // 「详细设定」现在是内置块，从旧字段列表里去掉
+      if(Array.isArray(next.fields))next.fields=next.fields.filter(item=>String(item?.key||'')!=='details');
       return next;
     });
   }
@@ -190,7 +196,7 @@
    */
   function deriveGroups(entries,customGroups,worldId){
     const scoped=worldId!==undefined&&worldId!==null,world=text(worldId,WORLD_LIMIT);
-    const groups=scoped?groupsForWorld(customGroups,world):normalizeStoredGroups(customGroups).filter(group=>!group.fixed);
+    const groups=scoped?groupsForWorld(customGroups,world):normalizeStoredGroups(customGroups);
     const used=new Set([...FIXED_IDS,...groups.map(group=>group.id)]);
     (Array.isArray(entries)?entries:[]).forEach(entry=>{
       if(scoped&&text(entry?.worldId,WORLD_LIMIT)!==world)return;
@@ -207,11 +213,14 @@
     return groupOf(allGroups(deriveGroups(entries,customGroups,worldId)),type)||groupOf(allGroups([]),'world');
   }
   /** 字段 → agent 的返回 JSON 约束（与 ai-content-specs 的 blockSchema 同源）。 */
+  /** 字段 → JSON Schema；description 用作者写的块名，避免 Agent 只看到 field3 这种键。 */
   function fieldSchema(item){
-    if(item.kind==='lines')return{type:'array',items:{type:'string'},maxItems:12};
-    if(item.kind==='number')return{type:['number','null']};
-    if(item.kind==='multiline')return{type:'string',maxLength:16000};
-    return{type:'string',maxLength:2000};
+    const description=text(item.label,ATTRIBUTE_LIMIT)||item.key,hint=text(item.hint||'',HINT_LIMIT);
+    const base=item.kind==='lines'?{type:'array',items:{type:'string'},maxItems:12}
+      :item.kind==='number'?{type:['number','null']}
+      :item.kind==='multiline'?{type:'string',maxLength:16000}
+      :{type:'string',maxLength:2000};
+    return{...base,description:hint?description+'：'+hint:description};
   }
   function groupResponseSchema(group){
     const fields=(group&&group.fields)||MINIMAL_FIELDS;
@@ -228,7 +237,7 @@
             required:['key','content'],
             properties:{
               key:{type:'string'},
-              content:{type:'object',additionalProperties:false,required:['name',...fields.map(item=>item.key)],properties:{name:{type:'string'},...Object.fromEntries(fields.map(item=>[item.key,fieldSchema(item)]))}}
+              content:{type:'object',additionalProperties:false,required:['name','details',...fields.map(item=>item.key)],properties:{name:{type:'string',description:'条目名称'},details:{type:'string',maxLength:16000,description:'详细设定（每个条目内置）'},...Object.fromEntries(fields.map(item=>[item.key,fieldSchema(item)]))}}
             }
           }
         }

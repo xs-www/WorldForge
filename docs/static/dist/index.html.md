@@ -9,7 +9,8 @@
 | `header.app-header` + `nav.module-tabs` | 5 个 `[data-module]` 标签（world/cards/battle/free/simulation）、`#storageStatus`（SQLite 状态徽标）、`#appVersion`、账号相关 `#currentUser` / `#changePasswordButton` / `#logoutButton`、`#openSettings`、`#exportData` | `L17–L27` |
 | `section#worldModule[data-page=world]` | 内含两级视图：`#worldHub`（世界卡片网格）与 `#worldDetail`（资料工作区），二者用 `hidden` 互斥 | `L30–L183` |
 | `#worldDetail` 三栏 | `lore-library-panel`（列表 + 地理/编年史入口）｜`lore-editor-panel`（`#loreForm`）｜`ai-panel`（AI 助手，含收起态 `#openAiPanel`） | `L74–L181` |
-| `#loreFields` | 资料编辑器的内容块容器：字段完全由所属资料组定义（每块一行/一块），旧的固定摘要/正文/约束/开放问题输入已移除 | `L113` |
+| `#loreDetails` | 「详细设定」是内置块：固定在名称下方的多行输入框，不随资料组字段变化 | `L113` |
+| `#loreFields` | 资料组自定义内容块容器：字段完全由所属资料组定义，可以为空（只有名称与详细设定） | `L114` |
 | `#loreTabs` + `.lore-group-bar` | 标签页**由 `app.js` 的 `renderLoreTabs()` 动态生成**（五项固定组 + 作者自定义组），HTML 里是空容器；旁边是 `#newLoreGroup` / `#manageLoreGroup` 与固定组说明 | `L59–L60` |
 | `section#cardsModule[data-page=cards]` | `[data-card-tab]` 二级页签 + 三块 `[data-card-panel]`：`library` / `editor` / `artwork`，同时只有一块可见 | `L185–L241` |
 | `#cardPreview`（`.editable-card`） | 可编辑卡面预览；脚本写 `data-card-type` 供 CSS 按类型调整画框（`styles.css L56`），与 `compileCardPng` 输出保持同一排布 | `L213–L222` |
@@ -27,7 +28,7 @@
 ## 脚本装配顺序与缓存版本
 
 `<head>`：`styles.css?v=44`（`L14`）。`</body>` 前（`L454–L464`）依次为
-`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=58`。
+`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=60`。
 
 - 顺序不可调整：`app.js` 末尾同步执行 `bootstrap()`，依赖前 5 个脚本暴露的 `Worldforge*` 全局；`battle-ui.js` 依赖 `battle.js`。
 - 所有脚本都必须位于 `</body>` 前，因为 `battle-ui.js`、`macro.js`、`app.js` 在加载时就查询 DOM 并绑定事件。

@@ -16,9 +16,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=58/);
+  assert.match(htmlSource, /app\.js\?v=60/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=44/);
+  assert.match(htmlSource, /styles\.css\?v=45/);
   assert.match(htmlSource, /cards\.js\?v=7/);
   assert.match(htmlSource, /world-scope\.js\?v=2/);
   assert.match(htmlSource, /relation-picker\.js\?v=2/);
@@ -240,11 +240,13 @@ test('编辑器表单由资料组字段驱动，旧的固定字段 id 已全部�
   assert.match(appSource, /qa\('#loreFields \[data-field-key\]'\)/);
   assert.match(appSource, /function loadLore\(id\)\{const e=readLore\(\)\.find/);
   // 旧固定字段既不在标记里，也不在脚本里被引用（否则会拿到 null 并静默失效）。
-  for (const id of ['loreSummary', 'loreDetails', 'loreDetailsLabel', 'loreConstraints', 'loreQuestions', 'attributeA', 'attributeB', 'attributeC', 'locationEnvironment']) {
+  for (const id of ['loreSummary', 'loreDetailsLabel', 'loreConstraints', 'loreQuestions', 'attributeA', 'attributeB', 'attributeC', 'locationEnvironment']) {
     assert.doesNotMatch(htmlSource, new RegExp(`id="${id}"`), `index.html 不应再有 #${id}`);
     assert.ok(!appSource.includes(`q('#${id}')`), `app.js 不应再引用 #${id}`);
   }
   assert.match(htmlSource, /<div class="lore-fields" id="loreFields"><\/div>/);
+  // 详细设定是内置块：固定输入框必须出现在 #loreFields 之前，不随组字段变化
+  assert.match(htmlSource, /id="loreDetails"[\s\S]*id="loreFields"/);
 });
 
 test('the free agent reaches lore and art through read-only server-side tools', () => {

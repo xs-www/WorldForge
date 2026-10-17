@@ -5,7 +5,7 @@
 ## 关键符号
 | 符号 | 作用 / 契约 | 位置 |
 | --- | --- | --- |
-| `NAME_BLOCK` / `RELATIONS_BLOCK` | 唯一两个非字段块：名称（恒有）与关联建议（背景故事以外恒有） | `L6` / `L7` |
+| `NAME_BLOCK` / `DETAILS_BLOCK` / `RELATIONS_BLOCK` | 三个内置块：名称与详细设定恒有，关联建议在背景故事以外恒有 | `L6`–`L8` |
 | `KIND_TO_BLOCK` / `KIND_INSTRUCTION` | 字段类型 → 块 `kind`（text/multiline→string、lines→array、number→number）与缺省写作指引 | `L8` / `L9` |
 | `fieldToBlock(item)` | 单个字段 → 内容块；字段自带 `hint` 时优先用它 | `L17` |
 | `contentSpec(type, draft, group)` | 解析本次契约：优先用请求里（已清洗的）组，缺失时按 type 回落固定组/旧组的默认字段 | `L26` |

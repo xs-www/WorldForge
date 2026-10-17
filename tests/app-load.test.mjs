@@ -114,6 +114,7 @@ test('app.js 与前置脚本可以真正加载并进入世界视图', async () =
   assert.equal(sandbox.document.querySelector('#groupBackRow').hidden, false, '编辑态应能回到列表');
   assert.match(String(sandbox.document.querySelector('#groupDialogTitle').textContent), /^编辑：/, '编辑态标题应写清在编辑哪个组');
   assert.doesNotThrow(() => sandbox.fillLoreGroupDialog('list'), '返回列表不应抛错');
+  await assert.doesNotReject(sandbox.openSettings(), '打开设置不应抛错（含已移除控件的旧调用）');
   assert.equal(sandbox.document.querySelector('#groupFormBody').hidden, true, '返回列表后表单隐藏');
 });
 
@@ -122,7 +123,8 @@ test('资料组字段与旧字段回填在真实数据形态下可见', async ()
   sandbox.enterWorld('W01');
   sandbox.loadLore('W01');
   const fields = sandbox.loreGroup('world').fields.map(item => item.key);
-  assert.equal(fields[0], 'details', '详细设定恒在');
+  assert.ok(!fields.includes('details'), '详细设定是内置块，不该出现在组字段里');
+  assert.equal(fields[0], 'summary', '旧字段被回填到组字段');
   assert.ok(fields.includes('summary'), '应补回摘要');
   assert.ok(fields.includes('attributeA'), '应补回旧属性');
   const values = sandbox.entryValues(sandbox.readLore().find(entry => entry.id === 'W01'));

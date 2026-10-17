@@ -3,6 +3,7 @@ import { fallbackGroup, fieldSchema as loreFieldSchema, sanitizeLoreGroup } from
 // 内容块契约不再由产品写死：默认取「该资料组自己的字段」，只有请求没带组时才回落到
 // 固定组的默认字段。因此作者可以给一个组只留名称与详细设定，也可以加任意块。
 const NAME_BLOCK = { key: 'name', label: '名称', kind: 'string', instruction: '给出可直接使用、具有辨识度且不依赖解释的名称。' };
+const DETAILS_BLOCK = { key: 'details', label: '详细设定', kind: 'string', instruction: '直接撰写可进入条目正文的内容：写清事实、运作方式、因果与边界，不写“本候选”“设计意图”等元说明。' };
 const RELATIONS_BLOCK = { key: 'relations', label: '关联建议', kind: 'relations', instruction: '只从本次上下文已有 ID 中选择确有价值的关联，并说明关系如何影响当前条目。' };
 const KIND_TO_BLOCK = { text: 'string', multiline: 'string', lines: 'array', number: 'number' };
 const KIND_INSTRUCTION = {
@@ -24,7 +25,8 @@ export function contentSpec(type = 'world', draft = {}, group = null) {
   const safe = sanitizeLoreGroup(group);
   const base = safe || fallbackGroup(type);
   const story = base.form === 'story';
-  const blocks = [NAME_BLOCK, ...base.fields.map(fieldToBlock)];
+  // 「名称」与「详细设定」是每个条目内置的两块，其余来自组字段
+  const blocks = [NAME_BLOCK, DETAILS_BLOCK, ...base.fields.map(fieldToBlock)];
   if (!story) blocks.push(RELATIONS_BLOCK);
   return {
     label: base.label,

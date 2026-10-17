@@ -192,7 +192,7 @@
       "source": "ai-content-specs.mjs",
       "doc": "docs/static/ai-content-specs.mjs.md",
       "status": "documented",
-      "sha256": "dbb93cdcf14c2ecb0262e84f9bf145acc2ba808c2874a0ca8526c5da73cdab11"
+      "sha256": "92ad60be06be599fa152031a682045d321f95aeb548905e7446dfa05991ed919"
     },
     {
       "source": "ai-harness.mjs",
@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "081cf3efc14a2773d26feefc0ac9ef47e0168d7e592166ea80ab676bfb5fdfb4"
+      "sha256": "b9a249faf8a91e93bf1a5369621c2b8255f31446b7ca3ae6870fd673b33249ce"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,13 +294,13 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "9fc44a4e827d16cbb3d56809a79959b46add3bc25a8ccb7e130c70c5fbcf0d77"
+      "sha256": "640b316ad58730ee568554a7150048175c044fe572585e79cd67c9f5473bfd25"
     },
     {
       "source": "dist/login.html",
       "doc": "docs/static/dist/login.html.md",
       "status": "documented",
-      "sha256": "69eaf94519bfe4ff2e2c3c948aab6c6018defedeab92e3eb9db685053eda5b82"
+      "sha256": "2d0a8751a0dc6ade59964601a6497626b81156ee8ad0b554725263f1938d666a"
     },
     {
       "source": "dist/login.js",
@@ -312,7 +312,7 @@
       "source": "dist/lore-groups.js",
       "doc": "docs/static/dist/lore-groups.js.md",
       "status": "documented",
-      "sha256": "0d3cded74b1826cdff782f2829987033919c31dce8d2855753ad66fcfac7ea4d"
+      "sha256": "d17f0ff0c60bed1ca8ae77c54e0cb8dc7fb26337734df9d86a1bce76ac07a19a"
     },
     {
       "source": "dist/macro.js",
@@ -834,7 +834,7 @@
       "source": "tests/frontend-dom-contract.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "57258a0594841d39ebc946398c0abcf2b7305449d78f98b6c39109d943c423ca"
+      "sha256": "b047e333583299a5bb50aa9ba235b445b826f370037862d714fa6d3fa657a5b7"
     },
     {
       "source": "tests/geography.test.mjs",
@@ -852,7 +852,7 @@
       "source": "tests/lore-groups.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "369f90b1d6cca71af1a384285e5bae9634f0e2b36d28eb715eb38a812358b749"
+      "sha256": "a6e401d7fc41e059b7ec378b1c91d9d6dc695a6c1adaf0facc78f5accc450cb9"
     },
     {
       "source": "tests/macro-simulation.test.mjs",
@@ -930,7 +930,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "5def90a66f2df5d4cf140e05a9e0b5d54062a51cc44b8cdd5c397391f1671002"
+      "sha256": "b9a44e3f4cdb681028eadc85d4a174ea9c114373adff43d24c8af3d4e59e60b3"
     },
     {
       "source": "tests/world-package.test.mjs",
