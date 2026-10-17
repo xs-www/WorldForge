@@ -1,0 +1,135 @@
+name: Publish WorldForge to ACR
+
+# 把 CI 已发布到 GHCR 的镜像复制一份到阿里云 ACR。
+#
+# 触发器：CI 工作流完成后（不是 push），这样镜像一定已经构建并推送成功，
+# 而且拿到的就是同一个 commit 的镜像，不会出现「ACR 先于 GHCR 拉取」的竞态。
+# 本工作流不 checkout 代码、不构建镜像，只做 registry → registry 的复制。
+#
+# 复制用 `docker buildx imagetools create` 而不是 `docker pull` + `docker push`：
+# 后者只能搬运当前平台的单架构镜像，会把 GHCR 里的 amd64+arm64 manifest list 降级成 amd64；
+# `imagetools create` 在 registry 之间直接复制 manifest list，两个架构原样保留。
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要复制的 GHCR 标签（例如 latest 或 sha-abc1234）
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+  packages: read
+
+# 串行执行：并发复制 latest 时，后完成的旧运行可能把 latest 覆盖回旧镜像。
+concurrency:
+  group: publish-acr
+  cancel-in-progress: false
+
+env:
+  # ACR 实例地址与命名空间分开配置：ACR_REGISTRY 是 registry 主机（登录也要用），
+  # 命名空间不保证与 GitHub owner 同名，因此显式写死在这里，改一处即可。
+  ACR_NAMESPACE: xs-www
+  IMAGE_NAME: worldforge
+
+jobs:
+  publish:
+    name: 复制 GHCR 镜像到 ACR
+    # CI 成功才复制；PR 触发的 CI 不产出镜像，直接跳过。
+    # 非 main / 非发布标签的分支即使 CI 成功也没有 publish 镜像，脚本里会再判一次。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # 先把「没配 ACR」与「配了但同步失败」分开：没配时整条流水线保持绿色并给出提示，
+      # 配了才真正执行，这样忘加 secret 不会让每次推送都红。
+      - name: 检查 ACR 凭据
+        id: creds
+        env:
+          ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          if [ -z "${ACR_REGISTRY}" ] || [ -z "${ACR_USERNAME}" ] || [ -z "${ACR_PASSWORD}" ]; then
+            echo "::notice::未配置 ACR_REGISTRY / ACR_USERNAME / ACR_PASSWORD，跳过 ACR 同步"
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: 登录 GHCR
+        if: steps.creds.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 登录阿里云 ACR
+        if: steps.creds.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: 准备 Buildx（imagetools 需要）
+        if: steps.creds.outputs.configured == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: 复制镜像（保留多架构 manifest）
+        if: steps.creds.outputs.configured == 'true'
+        env:
+          GHCR_IMAGE: ghcr.io/${{ github.repository }}
+          ACR_IMAGE: ${{ secrets.ACR_REGISTRY }}/${{ env.ACR_NAMESPACE }}/${{ env.IMAGE_NAME }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch || inputs.tag }}
+          MANUAL_TAG: ${{ inputs.tag }}
+        run: |
+          set -Eeuo pipefail
+
+          # 手动触发：复制指定标签，不再推断。
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tags=("${MANUAL_TAG}")
+          else
+            short="${HEAD_SHA:0:7}"
+            tags=("sha-${short}")
+            if [ "${HEAD_BRANCH}" = "main" ]; then
+              tags+=("latest")
+            elif [[ "${HEAD_BRANCH}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              # CI 的 semver 规则会去掉 v 前缀：v0.3.2 → 0.3.2。
+              tags+=("${HEAD_BRANCH#v}")
+            else
+              echo "::notice::${HEAD_BRANCH} 不是 main 或发布标签，该 CI 运行没有产出镜像，本次不复制"
+              exit 0
+            fi
+          fi
+
+          copied=0
+          for tag in "${tags[@]}"; do
+            if ! docker buildx imagetools inspect "${GHCR_IMAGE}:${tag}" > /dev/null 2>&1; then
+              echo "::warning::GHCR 上没有 ${GHCR_IMAGE}:${tag}，跳过"
+              continue
+            fi
+            docker buildx imagetools create --tag "${ACR_IMAGE}:${tag}" "${GHCR_IMAGE}:${tag}"
+            copied=$((copied + 1))
+          done
+
+          if [ "${copied}" -eq 0 ]; then
+            echo "::error::没有复制任何标签：请确认 CI 的 publish 任务成功，且 GHCR 上有对应的镜像标签"
+            exit 1
+          fi
+
+          {
+            echo '## 已镜像到 ACR'
+            echo
+            echo '```'
+            for tag in "${tags[@]}"; do echo "${ACR_IMAGE}:${tag}"; done
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

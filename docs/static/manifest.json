@@ -8,8 +8,8 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17T13:59:24.942Z",
   "counts": {
-    "sources": 163,
-    "documented": 71,
+    "sources": 164,
+    "documented": 72,
     "aggregated": 91,
     "config": 1
   },
@@ -145,6 +145,12 @@
       "doc": "docs/static/.github/workflows/ci.yml.md",
       "status": "documented",
       "sha256": "e248a5ae2105f7e3b8e3811e00188df8e4b9516decda73c8874df80f27164b13"
+    },
+    {
+      "source": ".github/workflows/acr-mirror.yml",
+      "doc": "docs/static/.github/workflows/acr-mirror.yml.md",
+      "status": "documented",
+      "sha256": "362dc7350986b0adfa03fa749619017e5e570c3f42af91d411896bbbb51ec2dc"
     },
     {
       "source": ".openai/hosting.json",

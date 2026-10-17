@@ -103,9 +103,10 @@ SQLite 使用 Node 22 内置驱动，本机运行需要 Node.js 22.5 或更高�
 
 | 任务 | 触发条件 | 内容 |
 | --- | --- | --- |
-| `check` | 所有 push 与 PR | `npm run check`：全部源码语法检查 + 两道静态文档门禁 + 324 项单元测试 |
+| `check` | 所有 push 与 PR | `npm run check`：全部源码语法检查 + 两道静态文档门禁 + 412 项单元测试（未安装 `pg` 时真库往返用例 skip，不阻塞） |
 | `image-smoke` | 所有 push 与 PR | 真实构建镜像，用 compose 同款参数（`--read-only` + `/data` 挂载）启动容器，再由 `scripts/ci/smoke-container.mjs` 断言健康端点、三个 preset 投影、静态界面、SQLite 与模拟存档 |
 | `publish` | 仅 `main` 推送与 `v*` 标签，且前两关已通过 | 构建 `linux/amd64` + `linux/arm64`，推送 `ghcr.io/xs-www/worldforge` |
+| `acr-mirror`（独立工作流） | 上面三道关全部成功后（`workflow_run`） | 不重新构建：用 `docker buildx imagetools` 把本次 commit 的 `sha-<短哈希>` 与 `latest` 从 GHCR 原样复制到阿里云 ACR，`amd64+arm64` manifest 原样保留 |
 
 `image-smoke` 存在的理由：`Dockerfile` 用显式白名单 `COPY` 服务端模块，漏登记时镜像仍能构建成功，但容器启动即 `ERR_MODULE_NOT_FOUND`；Preset 投影漏拷则会被 Registry 的完整性门拒绝启动。只检查「构建成功」会把这两类问题留到 NAS 上才暴露。
 
@@ -115,7 +116,8 @@ SQLite 使用 Node 22 内置驱动，本机运行需要 Node.js 22.5 或更高�
 
 1. 仓库推到 GitHub（`origin`）后，在 Settings → Actions → General 允许 Actions 运行；Workflow permissions 保持默认的 `GITHUB_TOKEN` 即可，`publish` 用 job 级 `packages: write` 推送镜像。
 2. 首次发布后 Packages 里会出现 `worldforge`。要免登录拉取就在包设置中改为 public；保持私有则在 NAS 上先 `docker login ghcr.io`（PAT 勾选 `read:packages`）。
-3. NAS 上使用只含 `image:` 的 `compose.nas.yaml`：
+3. 要把镜像同步到阿里云 ACR：在仓库 Secrets 里配置 `ACR_REGISTRY`（如 `registry.cn-hangzhou.aliyuncs.com`）、`ACR_USERNAME`、`ACR_PASSWORD`，然后推一次 `main`。`.github/workflows/acr-mirror.yml` 会在 CI 成功后自动把 `sha-<短哈希>` 与 `latest` 复制到 `$ACR_REGISTRY/xs-www/worldforge`（命名空间可在该工作流的 `env.ACR_NAMESPACE` 改），NAS 侧也可以改为 `docker pull` ACR 地址。
+4. NAS 上使用只含 `image:` 的 `compose.nas.yaml`：
 
 ```powershell
 docker compose -f compose.nas.yaml pull
