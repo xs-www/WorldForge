@@ -366,7 +366,7 @@
       "source": "docs/static/anchors.json",
       "doc": "docs/static/server.mjs.md",
       "status": "config",
-      "sha256": "a144c949458be7f65db39099676744b6a29a30dc43316d1ad265407fd8d5e87a"
+      "sha256": "e05e667d45558a136b4cbd7b130bce5f3b690925244f063e203dfbdc00990850"
     },
     {
       "source": "static-doc-anchors.mjs",

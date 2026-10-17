@@ -526,7 +526,8 @@
     "GET /api/ai/presets": {
       "lines": [
         "req.method === 'GET'",
-        "'/api/ai/presets'"
+        "'/api/ai/presets'",
+        "publicRegistryView"
       ]
     },
     "GET /api/settings": {
@@ -544,25 +545,29 @@
     "POST /api/ai/card": {
       "lines": [
         "req.method === 'POST'",
-        "'/api/ai/card'"
+        "'/api/ai/card'",
+        "callCardAgent"
       ]
     },
     "POST /api/ai/free": {
       "lines": [
         "req.method === 'POST'",
-        "'/api/ai/free'"
+        "'/api/ai/free'",
+        "callFreeAgent"
       ]
     },
     "POST /api/ai/tools/names": {
       "lines": [
         "req.method === 'POST'",
-        "'/api/ai/tools/names'"
+        "'/api/ai/tools/names'",
+        "callNameGenerator"
       ]
     },
     "POST /api/ai": {
       "lines": [
         "req.method === 'POST'",
-        "'/api/ai'"
+        "'/api/ai'",
+        "callAi"
       ]
     },
     "GET /api/art-assets/:id/file": {

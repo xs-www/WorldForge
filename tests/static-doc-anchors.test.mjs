@@ -81,6 +81,28 @@ test('independent references may decrease when they are not a range', () => {
   assert.deepEqual(result.errors, []);
 });
 
+test('a route whose handler changed no longer matches its anchor', () => {
+  // 路径与方法都不变，只把处理器换掉：锁定 handler 的锚点必须失配。
+  const routeSource = [
+    "if (req.method === 'POST' && req.url === '/api/ai/card') return json(res, 200, await callCardAgent(x));",
+    "if (req.method === 'POST' && req.url === '/api/ai/card') return json(res, 200, await callFreeAgent(x));"
+  ];
+  const pathOnly = { lines: ["req.method === 'POST'", "'/api/ai/card'"] };
+  const card = { lines: ["req.method === 'POST'", "'/api/ai/card'", 'callCardAgent'] };
+  // 只看路径会歧义；加上 handler 才唯一。
+  assert.throws(() => resolveAnchor('card', pathOnly, routeSource), (error) => {
+    assert.equal(error.code, 'ANCHOR_AMBIGUOUS');
+    return true;
+  });
+  assert.equal(resolveAnchor('card', card, routeSource), 1);
+  // 路由被误接到 callFreeAgent 时，锁定 callCardAgent 的锚点不得再命中。
+  const wrongHandler = [routeSource[1]];
+  assert.throws(() => resolveAnchor('card', card, wrongHandler), (error) => {
+    assert.equal(error.code, 'ANCHOR_MISSING');
+    return true;
+  });
+});
+
 test('anchor count must match reference count', () => {
   const result = verifyDocument({ docText: '三个引用（`L1`–`L4`、`L7`） <!-- anchor:alpha beta -->', sourceLines, anchors });
   assert.equal(result.errors.length, 1);
