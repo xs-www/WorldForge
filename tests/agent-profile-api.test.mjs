@@ -144,6 +144,9 @@ test('GET /api/ai/presets returns sanitized metadata and defaults', async t => {
 
     const health = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
     assert.equal(health.status, 'ok');
+    // 版本来自 package.json，供前端识别「页面与运行实例是否同一版本」。
+    assert.match(health.version, /^\d+\.\d+\.\d+/);
+    assert.match(health.harnessVersion, /^\d+\.\d+\.\d+$/);
     assert.equal(health.agentProfiles.count, 3);
     assert.deepEqual(health.agentProfiles.ids, ['card-designer', 'free-creator', 'lore-writer']);
     assert.deepEqual(health.agentProfiles.diagnostics, []);

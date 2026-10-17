@@ -11,6 +11,11 @@
         "function saveLocalEnv("
       ]
     },
+    "readProductVersion": {
+      "lines": [
+        "async function readProductVersion("
+      ]
+    },
     "readBody": {
       "lines": [
         "function readBody("

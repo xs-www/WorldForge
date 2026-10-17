@@ -21,6 +21,7 @@
 | `scheduleContentSync()` / `persistContent()` | 160ms 去抖后 `PUT api/content`；并发时排队而非并行；409 时停同步并提示导出 | `L25` / `L26` |
 | `hydrateContent()` | 启动时 GET `api/content`：未初始化→推送本地；已初始化且本地有内容且未迁移→备份、合并、再推送；否则以服务端覆盖本地缓存 | `L27` |
 | `showToast(m)` / `setStorageStatus(text,state)` | 2s toast；页头 SQLite 状态徽标 | `L28` / `L24` |
+| `refreshVersionBadge()` | 读 `api/health` 的 `version` 填 `#appVersion`，并与 `<meta name="worldforge-version">` 比对：不一致时加 `stale` 类并提示「页面已过期，请刷新」；`title` 附带页面版本、harness 版本、persona 来源与是否降级 | `L257` |
 | `readPreferences()` / `applyPreferences()` | 偏好读写并落到 `<html data-theme/data-density>` | `L29` / `L30` |
 | `captureTypePrompt` / `showTypePrompt` / `captureImagePrompt` / `showImagePrompt` | 设置面板里“多分类提示词草稿”的切换，未保存前只存在内存 `promptProfileDrafts`/`imagePromptDrafts` | `L31–L34` |
 | `openSettings()` / `saveSettingsWithVisuals(event)` | 设置：密钥永不回填（留空=不改），`clearApiKey`/`clearSeedreamApiKey` 显式清除。**`#settingsSave` 最终绑定到 `saveSettingsWithVisuals`**，Agent 选择（`agentPresets: agentSettingsPatchFromForm()`）与生图提示词都在这条路径上；`openSettingsWithVisuals` 先调用 `openSettings` 再补视觉提示词 | `L35` / `L218` |

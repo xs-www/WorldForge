@@ -51,6 +51,10 @@ const simulationDashboard = createSimulationDashboardService(simulationDatabaseP
 const macroSimulation = createMacroSimulationService(simulationDatabasePath);
 await mkdir(assetsPath, { recursive: true });
 
+// 产品版本来自 package.json（镜像内随 COPY 交付）。启动读一次，请求期不再读盘；
+// 前端用它判断「页面打包的版本」与「正在运行的实例」是否一致（stale 缓存诊断）。
+const PRODUCT_VERSION = await readProductVersion();
+
 // 回滚开关（计划 §12.4）：默认关闭，只有精确的 `1` 才启用。启用后三个入口改用代码内
 // 固定 persona；第 1 层安全边界、第 3 层入口契约、Schema、工具白名单与 canon 纪律不变。
 const legacyPrompts = legacyPromptsEnabled();
@@ -148,6 +152,14 @@ async function saveLocalEnv(values) {
 }
 
 const port = Number(process.env.PORT || 8080);
+// 产品版本只用于显示与诊断：读不到 package.json 时回落到 0.0.0，不阻止启动。
+async function readProductVersion() {
+  try {
+    const parsed = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
+    if (typeof parsed?.version === 'string' && parsed.version.trim()) return parsed.version.trim();
+  } catch { /* 版本不是启动前提 */ }
+  return '0.0.0';
+}
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 const securityHeaders = { 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()' };
 function json(res, status, value) { res.writeHead(status, { ...securityHeaders, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); }
@@ -649,7 +661,7 @@ async function serveStatic(req, res) {
 createServer(async (req, res) => {
   try {
     const requestUrl = new URL(req.url, 'http://localhost'), pathname = requestUrl.pathname;
-    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health(), agentProfiles: agentRegistryHealth() });
+    if (req.method === 'GET' && req.url === '/api/health') return json(res, 200, { status: 'ok', version: PRODUCT_VERSION, harnessVersion: HARNESS_VERSION, database: contentStore.health(), simulation: simulationDashboard.health(), macroSimulation: macroSimulation.health(), agentProfiles: agentRegistryHealth() });
     if (req.method === 'GET' && req.url === '/api/macro') return json(res, 200, macroSimulation.view());
     if (req.method === 'POST' && req.url === '/api/macro/step') {
       if (req.headers['x-worldforge-simulation'] !== '1') return json(res, 403, { error: '缺少模拟推进请求标记' });

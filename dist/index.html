@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Worldforge 世界观与卡牌设计工具">
   <meta name="theme-color" content="#ffffff">
+  <meta name="worldforge-version" content="0.2.0">
   <script>
     const pageSegment = location.pathname.split('/').pop();
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=38">
+  <link rel="stylesheet" href="./styles.css?v=39">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -23,7 +24,7 @@
       <button class="module-tab" type="button" data-module="free"><span class="tab-icon" aria-hidden="true">✦</span>自由创作</button>
       <button class="module-tab" type="button" data-module="simulation"><span class="tab-icon" aria-hidden="true">◉</span>世界模拟</button>
     </nav>
-    <div class="header-actions"><span class="local-status saving" id="storageStatus"><i></i><span>正在连接 SQLite…</span></span><button class="button secondary compact" id="openSettings" type="button">设置</button><button class="button secondary compact" id="exportData" type="button">导出数据</button></div>
+    <div class="header-actions"><span class="local-status saving" id="storageStatus"><i></i><span>正在连接 SQLite…</span></span><span class="version-chip" id="appVersion" title="Worldforge 版本">v—</span><button class="button secondary compact" id="openSettings" type="button">设置</button><button class="button secondary compact" id="exportData" type="button">导出数据</button></div>
   </header>
 
   <main id="main">
@@ -456,6 +457,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=51"></script>
+  <script src="./app.js?v=52"></script>
 </body>
 </html>

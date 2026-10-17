@@ -13,17 +13,31 @@ const harnessSource = await readFile(new URL('../ai-harness.mjs', import.meta.ur
 test('browser API requests follow the script mount path', () => {
   assert.match(appSource, /new URL\('\.\/api\/',document\.currentScript\.src\)/);
   assert.doesNotMatch(appSource, /fetch\('\/api\//);
-  for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
+  for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=51/);
+  assert.match(htmlSource, /app\.js\?v=52/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=38/);
+  assert.match(htmlSource, /styles\.css\?v=39/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /world-scope\.js\?v=1/);
   assert.match(htmlSource, /relation-picker\.js\?v=1/);
   assert.match(htmlSource, /geography\.js\?v=2/);
   assert.match(htmlSource, /chronicle\.js\?v=1/);
+});
+
+test('the header shows the running version and flags a stale page', () => {
+  // 版本号同时是诊断信号：页面打包的版本来自 meta，运行版本来自 /api/health。
+  assert.match(htmlSource, /<meta name="worldforge-version" content="\d+\.\d+\.\d+"/);
+  assert.match(htmlSource, /id="appVersion"/);
+  const redirectIndex = htmlSource.indexOf('id="appVersion"');
+  assert.ok(redirectIndex > 0, '页头必须有版本 chip');
+  const badge = appSource.slice(appSource.indexOf('async function refreshVersionBadge'));
+  assert.ok(badge.includes("apiUrl('health')"), '版本必须读服务端真值');
+  assert.ok(badge.includes('worldforge-version'), '必须与页面打包版本比对');
+  assert.ok(badge.includes('页面已过期'), '版本不一致时必须提示刷新');
+  assert.match(styleSource, /\.version-chip\{/);
+  assert.match(styleSource, /\.version-chip\.stale\{/);
 });
 
 test('macro simulator exposes a map-first UI and subpath-safe local proposal flow', () => {

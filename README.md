@@ -2,9 +2,11 @@
 
 原创多世界神性宇宙与策略卡牌内容设计仓库。
 
+当前版本：**0.2.0**（2026-10-17）。该版本把三个 DSH Agent preset 接入设定助手、自由创作与卡牌三个入口，并配套回滚开关、分入口设置、静态文档双门禁与容器化；世界设定与卡牌数值仍为草案 / `untested`，不代表规则定稿。
+
 仓库级 DSH 智能体预设位于 [`.agent-presets/`](.agent-presets/README.md)。当前包含卡牌设计、结构化设定写作与自由创作聊天三种模式；它们以相对路径携带 persona、最小工具组合和专项技能，可作为 DSH Agent preset root 使用或复制到用户 preset 目录。每个 preset 额外携带 WorldForge 产品侧的只读投影：`worldforge.runtime.json`（契约见 [`docs/schemas/agent-runtime.schema.json`](docs/schemas/agent-runtime.schema.json)）与 `runtime/system.md`。产品只读这两个纯数据文件，永不解析或执行含 `!!js` 的 `agent.cordis.yml`，该边界由 [ADR-0029](docs/adr/ADR-0029-agent-profile-runtime-projection.md) 固定。
 
-将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。该文档当前为 `proposed`，不代表相关运行时选择器已经实现。
+将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。Sprint 0–5 已全部签收（Sprint 5 于 2026-10-17 正式签字），三个入口的选择器、回滚开关与降级启动均已上线；该文档保留为实施与验收记录。
 
 Sprint 0–2 已完成：产品侧 `agent-profile-registry.mjs` 在启动时扫描固定根目录 `.agent-presets/`，用 [`agent-runtime.schema.json`](agent-runtime.schema.json)（`docs/schemas/` 的部署副本，两份由测试断言一致）严格校验每份投影，拒绝未知枚举、额外字段、目录名不符、重复 ID、绝对路径、路径穿越、符号链接逃逸与超长 prompt，并为每个 preset 计算确定性 SHA-256 指纹。`GET /api/ai/presets` 返回脱敏元数据与三个入口的默认映射，`GET /api/health` 增加 `agentProfiles` 摘要；投影损坏或任一入口缺少 preset 时服务拒绝启动并打印稳定错误码，不会静默改用其他 persona。
 
