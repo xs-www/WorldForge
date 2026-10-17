@@ -168,13 +168,13 @@
       "source": "tests/card-agent.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "77f260f9dd7a4e72380cfb36eefe04f655423c7344dc4cb51b598e6a06db30d5"
+      "sha256": "62f137bf71229fd658c6f72db758e63397712352999c1f05b2944168b8278de4"
     },
     {
       "source": "card-agent.mjs",
       "doc": "docs/static/card-agent.mjs.md",
       "status": "documented",
-      "sha256": "85768627c0cdd87c944b6ca544de86b55e76415a5e10a32ae69d0ce82d36379c"
+      "sha256": "6ddb0f9d2f90c8499426c7e46beed7ecdccb19e147ffc5f6e9583f49c702aecf"
     },
     {
       "source": "agent-settings.mjs",
@@ -210,7 +210,7 @@
       "source": "ai-harness.mjs",
       "doc": "docs/static/ai-harness.mjs.md",
       "status": "documented",
-      "sha256": "4d27fc74db44856df0ca3cb0012170a24a4ee6a3e1a158100b2f6d457451d808"
+      "sha256": "826c34f6a5e9c5f3f3a67c75edc48db582f8eb58ad2e7f42a65a5c9116097c5b"
     },
     {
       "source": "ai-tools.mjs",
@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "b6382bd7f907f80b9d0b89e6215e4368483012a398ec8bff3b567931f2b3903e"
+      "sha256": "e6bf612bab056f293289b057079240d46f500a5e2c751756bc9fdbd7d4457543"
     },
     {
       "source": "dist/battle.js",
@@ -288,7 +288,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "7d4d859be309857259bd7575a808468b67f2b2f387b5544b240e49df0807b731"
+      "sha256": "c7f557770b1b7fa6d15a47910b01024940cd34927a8261bff6b817ccc7d21679"
     },
     {
       "source": "dist/macro.js",
@@ -384,7 +384,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "5c2accc042ab9f00b03489ef133f7667b19594e9ab1eb2c321c3799367932be0"
+      "sha256": "ef72465359da3a9a4f1874b82e873774570a1ca6dbaadd3860e0c31b4e9e20f1"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -570,7 +570,7 @@
       "source": "tests/agent-settings-ui.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "842aa23fca6530d4fa8e44bfd96b95239605d6db606d2d0ec19cffe06576affc"
+      "sha256": "b2afe7074c1feb25e48d69a7835b322051ff9ae162944f89ce4e9adc51cb0a2f"
     },
     {
       "source": "tests/agent-settings-api.test.mjs",
@@ -822,7 +822,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "1deb697c0cee55864d70c4fe9e5f3d18da492518df4e519f9972b29df5596581"
+      "sha256": "968d477997b0c1ba273ea325b0f5431882d830b0614d140f86836b0bbcddf5b4"
     },
     {
       "source": "tests/world-package.test.mjs",

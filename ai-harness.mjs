@@ -4,6 +4,49 @@ import { AGENT_PROMPT_RESERVED_TAGS, AGENT_UNTRUSTED_TAGS } from './agent-profil
 const TEXT_LIMITS = { name: 100, summary: 1200, details: 6000, listItem: 500 };
 export const HARNESS_VERSION = '2.1.0';
 
+// ── 模型返回的宽松收敛 ──────────────────────────────────────────────────────
+// 兼容接口常忽略 response_format/json_schema：它们会把 Schema 里 items 的结构
+// 直接当根对象返回、漏写 key、或在 JSON 前后夹带说明与围栏。这些形状应当被
+// 收敛成 `{ variants: [...] }`，而不是整次生成失败。
+
+/** 诊断里带一小段模型原文，避免「缺少 variants」这类无法复现的提示。 */
+export function previewOf(value, max = 240) {
+  const raw = typeof value === 'string' ? value : JSON.stringify(value ?? null);
+  return String(raw || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/** 从可能夹带说明文字或 Markdown 围栏的文本里取出最外层 JSON；解析失败返回 undefined。 */
+export function parseLooseJson(text) {
+  const unfenced = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  const candidates = [unfenced];
+  const start = unfenced.search(/[[{]/);
+  const end = Math.max(unfenced.lastIndexOf('}'), unfenced.lastIndexOf(']'));
+  if (start >= 0 && end > start) candidates.push(unfenced.slice(start, end + 1));
+  for (const candidate of candidates) {
+    try { return JSON.parse(candidate); } catch { /* 继续尝试下一种切法 */ }
+  }
+  return undefined;
+}
+
+/**
+ * 把模型返回收敛成 `{ variants: [...] }`：数组、`variants` 外壳、以及
+ * 「把 items 当根对象返回」的裸候选都接受。`discriminators` 用于确认裸对象
+ * 确实是候选（卡牌为 patch/review，设定写作为 content）。
+ */
+export function coerceVariants(value, discriminators = []) {
+  if (Array.isArray(value)) return { variants: value };
+  if (!value || typeof value !== 'object') return null;
+  if (Array.isArray(value.variants)) return value;
+  if (discriminators.some(key => key in value)) return { variants: [value] };
+  return null;
+}
+
+/** 模型漏写候选 key 时补一个稳定编号；key 只是客户端标识，不该否掉整条候选。 */
+export function withFallbackKey(candidate, index) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return candidate;
+  return String(candidate.key ?? '').trim() ? candidate : { ...candidate, key: `candidate-${index + 1}` };
+}
+
 // ── 提示词层次（ADR-0029 §7）────────────────────────────────────────────────
 // 第 1 层与第 3 层由产品固定，preset 只能贡献第 2 层；第 4–6 层（作者提示、
 // 任务要求、不可信上下文）仍由 buildPrompt 与请求体拼装。
@@ -49,7 +92,7 @@ export const CARD_ENTRY_CONTRACT = `你只返回卡牌字段补丁与静态评�
  * 第 4 层沿用作者保存的个性化提示；第 5 层是本次任务；第 6 层是卡牌草案与可用引用。
  */
 export function buildCardPrompt(payload, context = {}, { requireJson = false } = {}) {
-  const jsonInstruction = requireJson ? '\n严格只返回 JSON 对象。' : '';
+  const jsonInstruction = requireJson ? '\n不要在 JSON 前后添加任何解释文字或 Markdown 代码围栏。' : '';
   const authorPrompts = `<author_personalized_style>\n${text(payload?.personalizedPrompt || '无额外统一风格要求', 8000)}\n</author_personalized_style>`;
   const actionGuide = ({
     brainstorm: '按勾选字段提出彼此有实质差异的候选。',
@@ -60,7 +103,13 @@ export function buildCardPrompt(payload, context = {}, { requireJson = false } =
   })[payload?.action] || '按勾选字段提出彼此有实质差异的候选。';
   const fields = Array.isArray(payload?.selectedFields) ? payload.selectedFields : [];
   const count = Math.min(3, Math.max(1, Number(payload?.variantCount) || 1));
-  const taskRequest = `任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n本次允许改写的字段（patch 只能出现这些键）：${fields.length ? fields.join('、') : '（空，只能返回评审）'}\n作者补充要求：${text(payload?.requirements || '无', 4000)}\n每条候选都要给出 review；数值只能标为 untested。${jsonInstruction}`;
+  // 响应外壳必须写进第 5 层：不少兼容接口会忽略 response_format/json_schema，
+  // 只在 Schema 里描述结构会让模型交出「单个候选对象」或其它形状（INVALID_ENVELOPE）。
+  // 示例值取安全值：数组用空数组、字符串用占位文案，避免模型照抄成未提供的 ID。
+  const shapeExamples = { name: '"新卡名"', cost: '3', attack: '2', health: '3', durability: '2', rulesText: '"（效果文本）"', type: '"minion"', rarity: '"rare"', tribeId: '""', spellSchoolId: '""', keywordIds: '[]', loreRefs: '[]', notes: '[]', effects: '[]' };
+  const shapeSkeleton = `{"variants":[{"key":"candidate-1","patch":{${fields.map(field => `"${field}":${shapeExamples[field] || '""'}`).join(',')}},"review":{"legalTargets":"…","timing":"…","effectOrder":"…","duration":"…","counterplay":"…","edgeCases":["…"]}}]}`;
+  const responseShape = `响应格式（必须严格遵守，只返回这一个 JSON 对象）：\n${shapeSkeleton}\n- variants 恰好 ${count} 项；每项的 key 必须是非空且互不重复的短字符串（如 candidate-1）。\n- patch 只能出现上面列出的键；不要返回整张卡牌，也不要新增字段。\n- 数值字段写数字（如 cost: 3），不要写成字符串或带单位。\n- review 六项必填；规则尚未裁定时另附 dependencies 或 openQuestions。`;
+  const taskRequest = `任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n本次允许改写的字段（patch 只能出现这些键）：${fields.length ? fields.join('、') : '（空，只能返回评审）'}\n作者补充要求：${text(payload?.requirements || '无', 4000)}\n每条候选都要给出 review；数值只能标为 untested。${jsonInstruction}\n${responseShape}`;
   const untrusted = `<card_draft>\n${JSON.stringify(context.draft || {}, null, 2)}\n</card_draft>\n<allowed_references>\n${JSON.stringify({ loreIds: context.loreIds || [], keywordIds: context.keywordIds || [], mechanicIds: context.mechanicIds || [] }, null, 2)}\n</allowed_references>\n<card_lore>\n${JSON.stringify(context.loreEntries || [], null, 2)}\n</card_lore>\n<rules_context>\n${JSON.stringify(context.rules || {}, null, 2)}\n</rules_context>`;
   return `${authorPrompts}\n${taskRequest}\n${untrusted}`;
 }
@@ -183,7 +232,11 @@ function lorePromptSections(payload, bundle, { requireJson = false } = {}) {
   const context = { harnessVersion: bundle.harnessVersion, projectRules: bundle.projectRules, currentDraft: bundle.currentDraft, entries: bundle.entries, contextMeta: bundle.contextMeta };
   const authorPrompts = `<author_type_prompt>\n${text(payload?.typePrompt || '无额外分类提示', 8000)}\n</author_type_prompt>\n<author_personalized_style>\n${text(payload?.personalizedPrompt || '无额外统一风格要求', 8000)}\n</author_personalized_style>`;
   const jsonInstruction = requireJson ? '\n严格只返回 JSON 对象。' : '';
-  const taskRequest = `目标模块：${contract.label}\n任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n只生成以下已勾选内容块，content 中不得出现其他键：\n${blockGuide}\n模块写作重点：${contract.focus}\n作者补充要求：${text(payload?.prompt || '无', 4000)}\n每个字段都直接输出可回填的成品内容；禁止输出“本候选”“层次位置”“设计说明”等元话语，也不要解释字段、Schema、候选策略或设计过程。关联建议不得使用上下文中不存在的 ID。${jsonInstruction}`;
+  // 与卡牌入口同理：外壳必须写进第 5 层，否则忽略 json_schema 的接口会让模型
+  // 直接返回 content 对象本身（INVALID_ENVELOPE）。示例正文写成占位说明，避免照抄。
+  const shapeContent = contract.blocks.map(item => `"${item.key}":"（此处写 ${item.label} 的成品正文）"`).join(',');
+  const responseShape = `响应格式（必须严格遵守，只返回这一个 JSON 对象）：\n{"variants":[{"key":"candidate-1","content":{${shapeContent}}}]}\n- variants 恰好 ${count} 项；每项的 key 必须是非空且互不重复的短字符串（如 candidate-1）。\n- content 只能出现上面列出的键，且每个键都是可直接回填的成品正文（字符串），不要嵌套对象或数组。`;
+  const taskRequest = `目标模块：${contract.label}\n任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n只生成以下已勾选内容块，content 中不得出现其他键：\n${blockGuide}\n模块写作重点：${contract.focus}\n作者补充要求：${text(payload?.prompt || '无', 4000)}\n每个字段都直接输出可回填的成品内容；禁止输出“本候选”“层次位置”“设计说明”等元话语，也不要解释字段、Schema、候选策略或设计过程。关联建议不得使用上下文中不存在的 ID。${jsonInstruction}\n${responseShape}`;
   const untrusted = `<worldforge_examples>\n${JSON.stringify(examples, null, 2)}\n</worldforge_examples>\n<worldforge_context>\n${JSON.stringify(context, null, 2)}\n</worldforge_context>`;
   return { authorPrompts, taskRequest, untrusted };
 }
@@ -237,25 +290,27 @@ function responseContract(payload) {
 }
 
 export function inspectAiResponse(raw, payload = {}, stage = 'initial') {
-  const cleaned = typeof raw === 'string' ? raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '') : raw;
-  let value;
-  try { value = typeof cleaned === 'string' ? JSON.parse(cleaned) : cleaned; }
-  catch { return { variants: [], receivedCount: 0, contract: responseContract(payload), issues: [{ stage, index: null, code: 'INVALID_JSON', message: '模型没有返回有效 JSON', preview: preview(raw) }] }; }
-  if (!value || typeof value !== 'object' || !Array.isArray(value.variants)) {
-    return { variants: [], receivedCount: 0, contract: responseContract(payload), issues: [{ stage, index: null, code: 'INVALID_ENVELOPE', message: '返回值缺少 variants 数组', preview: preview(value) }] };
+  const value = typeof raw === 'string' ? parseLooseJson(raw) : raw;
+  if (value === undefined) {
+    return { variants: [], receivedCount: 0, contract: responseContract(payload), issues: [{ stage, index: null, code: 'INVALID_JSON', message: '模型没有返回有效 JSON', preview: previewOf(raw) }] };
+  }
+  const envelope = coerceVariants(value, ['content']);
+  if (!envelope) {
+    return { variants: [], receivedCount: 0, contract: responseContract(payload), issues: [{ stage, index: null, code: 'INVALID_ENVELOPE', message: '返回值缺少 variants 数组', preview: previewOf(value) }] };
   }
   const variants = [], issues = [], keys = new Set();
-  value.variants.forEach((candidate, index) => {
+  envelope.variants.forEach((candidate, index) => {
+    const normalized = withFallbackKey(candidate, index);
     try {
-      const validated = validateAiResponse({ variants: [candidate] }, payload).variants[0];
+      const validated = validateAiResponse({ variants: [normalized] }, payload).variants[0];
       if (keys.has(validated.key)) throw new Error(`候选 key 重复：${validated.key}`);
       keys.add(validated.key);
       variants.push(validated);
     } catch (error) {
-      issues.push({ stage, index, code: 'INVALID_VARIANT', message: error.message, preview: preview(candidate) });
+      issues.push({ stage, index, code: 'INVALID_VARIANT', message: error.message, preview: preview(normalized) });
     }
   });
-  return { variants, receivedCount: value.variants.length, contract: responseContract(payload), issues };
+  return { variants, receivedCount: envelope.variants.length, contract: responseContract(payload), issues };
 }
 
 /**

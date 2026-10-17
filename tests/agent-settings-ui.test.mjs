@@ -116,6 +116,8 @@ test('the card agent panel covers the five actions, field selection and apply/sa
   assert.ok(draft.includes('activeCardId=null'), '独立草案必须新建 id');
   assert.ok(draft.includes('proposed / untested'));
   assert.match(styles, /\.card-agent-variant\{/);
+  // 接口不支持 json_schema 时的降级必须在界面上可见，而不是静默降级。
+  assert.ok(functionBody(app, 'renderCardAgentResults').includes('fallbackReason'), '降级原因必须显示给作者');
 });
 
 test('preset failures are distinguished from model failures and styled as text', () => {

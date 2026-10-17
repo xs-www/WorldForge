@@ -30,7 +30,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 ## 主要数据流
 
 1. **作者编辑**：`dist/*.js` 从 `document.currentScript` 解析出 `api/` 前缀 → `fetch` 到 `server.mjs` 的 `/api/content` → `storage.mjs` 写入 SQLite（`WORLDFORGE_DATA_DIR`，默认 `.data/`）。浏览器 `localStorage` 只作缓存与旧数据迁移来源，不是真值。
-2. **AI 生成**：入口（设定助手 / 自由创作）→ `server.mjs` 解析 preset 并拼三层指令 + 用户侧 `<untrusted_context>` → `ai-agent.mjs` 调用外部模型（轮次与工具硬上限）→ 逐候选校验 → 回填表单；候选不会自动晋升 `canon`。
+2. **AI 生成**：入口（设定助手 / 自由创作 / 卡牌 Agent）→ `server.mjs` 解析 preset 并拼三层指令 + 用户侧 `<untrusted_context>` → `ai-agent.mjs` 调用外部模型（轮次与工具硬上限）→ 逐候选校验 → 回填表单；候选不会自动晋升 `canon`。
 3. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID；连接中断只按请求 ID 找回，不自动重发付费请求。
 4. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
 
@@ -39,6 +39,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 - **作者主权**：`canon` / `proposed` / `deprecated` 与 `objective` / `in_world_belief` / `unknown` 由作者裁定；代码只在 `proposed` 一侧生成候选。
 - **模拟域隔离**：模拟只读 Git 投影出的 JSON 发布清单，不写作者内容表；W97/W98/W99 是合成实验，不是正史。
 - **不可信内容不上指令层**：作者笔记、资料库正文、示例只能出现在用户消息侧；preset 伪造分层标记会被注册表拒绝加载。
+- **输出外壳不依赖供应商支持**：`response_format` / `text.format` 只是加固，不是外壳的唯一来源。设定与卡牌入口都必须把 `{"variants":[…]}`、`key`、已勾选键写进 prompt 第 5 层，解析侧再宽松收敛（裸候选对象、顶层数组、夹带围栏）+ 候选缺 `key` 时补 `candidate-N`；只支持 `json_object` 的兼容接口不得让整次生成失败，降级原因由响应里的 `fallbackReason` 如实回显。
 - **付费请求不自动重试**：生图长连接中断时前端只查询同一次请求已落盘的结果。
 - **启动 fail-fast**：preset 投影或 Registry 有缺陷时服务拒绝启动并打印稳定错误码，不静默换 persona。唯一例外是显式回滚开关：只有 `WORLDFORGE_AGENT_LEGACY_PROMPTS` 精确等于 `1` 才降级启动，并由 `/api/health` 明确报告 `degraded`。
 - **回滚只换 persona**：回滚模式下第 1 层安全边界、第 3 层入口契约、Schema、工具白名单、轮次上限与 canon 纪律全部不变；`presetHash` 回显为空串、版本固定为 `0.0.0-legacy`。

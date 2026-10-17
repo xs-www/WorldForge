@@ -11,15 +11,15 @@
 | `loadLocalEnv()` / `saveLocalEnv(values)` | 读/写 `.env.local`；写盘用临时文件 + `rename`、`mode 0600`，只重写托管键并保留其余行 | `L31` / `L131` |
 | `readBody(req, maxLength = 2000000)` | 累积请求体并 `JSON.parse`；超限抛「请求内容过长」，空体解析为 `{}` | `L155` |
 | `buildCardContext(payload)` | 卡牌受限上下文：草案、引用 lore 内容（与 `draft.loreRefs` 交集）、关键词定义（按 `draft.keywordIds` ∪ `allowedKeywordIds` 过滤）、W97 `experimental` 规则摘要 | `L511` |
-| `callCardAgent(payload)` | 卡牌入口：`structured_card` + `toolPolicy=none`，返回补丁与静态评审、`agent` 快照与 `diagnostics`；补生成沿用同一 system | `L555` |
+| `callCardAgent(payload)` | 卡牌入口：`structured_card` + `toolPolicy=none`，返回补丁与静态评审、`agent` 快照与 `diagnostics`；补生成沿用同一 system；结构化请求被 400/404/422 拒绝时降级并以 `fallbackReason`（+ `structured:false`）如实告知 | `L555` |
 | `validateSettings(payload)` | 校验 baseUrl/model/apiKey，并合并 Seedream、ComfyUI、提示词设置 | `L165` |
 | `createReferenceAsset` / `createArtAsset` / `serveArtAsset` | 参考图上传、生图落盘、资产文件读取 | `L205` / `L241` / `L294` |
 | `resolveAgentImages(value, maximum)` | Agent 取图；单张失败只记入 `missing`，不影响其余图片 | `L221` |
 | `resolveSurfaceProfile(surface, presetId)` / `toolsForPolicy` | 按「请求快照 > `agent-settings.json` 保存值 > Registry 默认」解析 preset；回滚模式下直接返回 legacy profile，不解析 presetId；把 `toolPolicy` 映射为服务端工具白名单 | `L341` / `L372` |
 | `agentSystemPrompt(profile, options)` | 拼装第 1–3 层；legacy profile 不传 `presetPrompt`，第 2 层退回代码内固定 persona | `L366` |<!-- anchor:agent-system-prompt-def -->
 | `agentDefaults` / `agentRegistryHealth` / `agentPresetsView` / `agentSettingsView` / `agentSelectionPatch` | 回滚与降级路径的对外视图：`/api/health` 摘要、`/api/ai/presets`、`/api/settings` 片段，以及设置写入守卫 | `L94` / `L99` / `L106` / `L122` / `L111` |<!-- anchor:agent-defaults-def agent-registry-health-def agent-presets-view-def agent-settings-view-def agent-selection-patch-def -->
-| `callAi` / `callFreeAgent` / `callNameGenerator` / `callMacroProposal` | 四个 AI 入口，均先做 preset 解析或规则降级 | `L381` / `L426` / `L599` / `L611` |
-| `serveStatic` | 服务 `dist/`；文件不存在时回退 `index.html` | `L631` |
+| `callAi` / `callFreeAgent` / `callNameGenerator` / `callMacroProposal` | 四个 AI 入口，均先做 preset 解析或规则降级 | `L381` / `L426` / `L604` / `L616` |
+| `serveStatic` | 服务 `dist/`；文件不存在时回退 `index.html` | `L636` |
 
 ## 路由表
 
@@ -27,37 +27,37 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 
 | 方法 | 路径 | 位置 | 作用 | 关键错误码/状态 |
 | --- | --- | --- | --- | --- |
-| GET | `/api/health` | `L647` | 内容库、模拟、宏观模拟 health + Agent Registry 摘要；回滚/降级时附带 `promptSource` / `degraded` | 200 |
-| GET | `/api/macro` | `L648` | 宏观模拟视图 | 200 |
-| POST | `/api/macro/step` 🔒`x-worldforge-simulation` | `L649` | 宏观推进一步 | 403 |
-| POST | `/api/macro/run` 🔒 | `L653` | 宏观连续推进 | 403 |
-| POST | `/api/macro/reset` 🔒 | `L657` | 宏观重置 | 403 |
-| POST | `/api/macro/local-proposal` 🔒 | `L661` | LLM 逐区提案，任何失败降级为 `rule_fallback` | 403 |
-| GET | `/api/simulation` | `L665` | 仪表盘视图 | 200 |
-| POST | `/api/simulation/advance` 🔒 | `L666` | 推进 | 403 |
-| POST | `/api/simulation/run` 🔒 | `L670` | 批量运行 | 403 |
-| POST | `/api/simulation/reset` 🔒 | `L674` | 重置 | 403 |
-| GET | `/api/content` | `L678` | 读取整库快照 | 200 |
-| PUT | `/api/content` 🔒`x-worldforge-content` | `L679` | 全量替换，支持 `expectedRevision` 乐观锁 | 403 / 409 |
-| GET | `/api/art-assets` | `L683` | 美术资产列表 | 200 |
-| POST | `/api/reference-assets` 🔒`x-worldforge-image` | `L684` | 上传参考图（body 上限 12 MB） | 201 / 403 |
-| GET | `/api/art-assets/:id/file` | `L689` | 读资产文件；`?download=1` 加 `Content-Disposition` | 404 / 403 |
-| POST | `/api/art-assets/:id/unbind` 🔒`x-worldforge-image` | `L693` | 解除资产绑定 | 200 / 404 / 403 |
-| GET | `/api/seedream/status` | `L697` | Seedream 配置状态 | 200 |
-| GET | `/api/images/status` | `L698` | Seedream + ComfyUI 状态（是否已配置 workflow） | 200 |
-| POST | `/api/images/generate` 🔒`x-worldforge-image` | `L699` | 生图并落盘，`clientRequestId` 幂等 | 403 / `error.status` 或 500 |
-| POST | `/api/images/compose-prompt` 🔒 | `L712` | 按卡片/设定上下文合成提示词 | 403 |
-| POST | `/api/images/optimize-prompt` 🔒 | `L716` | 用 LLM 改写提示词 | 403 / 500 |
-| GET | `/api/ai/status` | `L720` | LLM 配置状态（不含 key） | 200 |
-| GET | `/api/ai/presets` | `L722` | `agentPresetsView`：默认走 `publicRegistryView` 脱敏视图；回滚时保持结构并带 `fallback: 'legacy-fixed-prompts'` | 200 |
-| GET | `/api/settings` | `L723` | 设置 + 提示词默认值 + workflow 文本 + `agentPresets` / `agentPresetDefaults` / `agentSettingsSource`（回滚时另有 `agentPromptSource`） | 200 |
-| POST | `/api/settings` 🔒`x-worldforge-settings` | `L724` | 写 `.env.local`、workflow、提示词设置；`agentPresets` 部分更新 `agent-settings.json`，回滚模式携带该字段直接 400 | 400 / 403 |
-| POST | `/api/ai/card` | `L744` | 卡牌文字 Agent：只返回字段补丁与静态评审，不保存、不生成图片、不改 canon | 400 / 500 |
-| POST | `/api/ai/free` | `L742` | 自由创作 Agent（可选工具循环） | 200 |
-| POST | `/api/ai/tools/names` | `L745` | 名称生成 | 200 |
-| POST | `/api/ai` | `L746` | 结构化设定补全 | 200 |
-| 非 GET/HEAD | 未匹配任何分支 | `L747` | 405「不支持的请求方法」 | 405 | <!-- anchor:bad-method-fallback -->
-| GET/HEAD | 未匹配任何分支 | `L748` | `serveStatic`，文件缺失回退 `index.html` | 200（无 404 兜底） | <!-- anchor:static-fallback -->
+| GET | `/api/health` | `L652` | 内容库、模拟、宏观模拟 health + Agent Registry 摘要；回滚/降级时附带 `promptSource` / `degraded` | 200 |
+| GET | `/api/macro` | `L653` | 宏观模拟视图 | 200 |
+| POST | `/api/macro/step` 🔒`x-worldforge-simulation` | `L654` | 宏观推进一步 | 403 |
+| POST | `/api/macro/run` 🔒 | `L658` | 宏观连续推进 | 403 |
+| POST | `/api/macro/reset` 🔒 | `L662` | 宏观重置 | 403 |
+| POST | `/api/macro/local-proposal` 🔒 | `L666` | LLM 逐区提案，任何失败降级为 `rule_fallback` | 403 |
+| GET | `/api/simulation` | `L670` | 仪表盘视图 | 200 |
+| POST | `/api/simulation/advance` 🔒 | `L671` | 推进 | 403 |
+| POST | `/api/simulation/run` 🔒 | `L675` | 批量运行 | 403 |
+| POST | `/api/simulation/reset` 🔒 | `L679` | 重置 | 403 |
+| GET | `/api/content` | `L683` | 读取整库快照 | 200 |
+| PUT | `/api/content` 🔒`x-worldforge-content` | `L684` | 全量替换，支持 `expectedRevision` 乐观锁 | 403 / 409 |
+| GET | `/api/art-assets` | `L688` | 美术资产列表 | 200 |
+| POST | `/api/reference-assets` 🔒`x-worldforge-image` | `L689` | 上传参考图（body 上限 12 MB） | 201 / 403 |
+| GET | `/api/art-assets/:id/file` | `L694` | 读资产文件；`?download=1` 加 `Content-Disposition` | 404 / 403 |
+| POST | `/api/art-assets/:id/unbind` 🔒`x-worldforge-image` | `L698` | 解除资产绑定 | 200 / 404 / 403 |
+| GET | `/api/seedream/status` | `L702` | Seedream 配置状态 | 200 |
+| GET | `/api/images/status` | `L703` | Seedream + ComfyUI 状态（是否已配置 workflow） | 200 |
+| POST | `/api/images/generate` 🔒`x-worldforge-image` | `L704` | 生图并落盘，`clientRequestId` 幂等 | 403 / `error.status` 或 500 |
+| POST | `/api/images/compose-prompt` 🔒 | `L717` | 按卡片/设定上下文合成提示词 | 403 |
+| POST | `/api/images/optimize-prompt` 🔒 | `L721` | 用 LLM 改写提示词 | 403 / 500 |
+| GET | `/api/ai/status` | `L725` | LLM 配置状态（不含 key） | 200 |
+| GET | `/api/ai/presets` | `L727` | `agentPresetsView`：默认走 `publicRegistryView` 脱敏视图；回滚时保持结构并带 `fallback: 'legacy-fixed-prompts'` | 200 |
+| GET | `/api/settings` | `L728` | 设置 + 提示词默认值 + workflow 文本 + `agentPresets` / `agentPresetDefaults` / `agentSettingsSource`（回滚时另有 `agentPromptSource`） | 200 |
+| POST | `/api/settings` 🔒`x-worldforge-settings` | `L729` | 写 `.env.local`、workflow、提示词设置；`agentPresets` 部分更新 `agent-settings.json`，回滚模式携带该字段直接 400 | 400 / 403 |
+| POST | `/api/ai/card` | `L749` | 卡牌文字 Agent：只返回字段补丁与静态评审，不保存、不生成图片、不改 canon | 400 / 500 |
+| POST | `/api/ai/free` | `L747` | 自由创作 Agent（可选工具循环） | 200 |
+| POST | `/api/ai/tools/names` | `L750` | 名称生成 | 200 |
+| POST | `/api/ai` | `L751` | 结构化设定补全 | 200 |
+| 非 GET/HEAD | 未匹配任何分支 | `L752` | 405「不支持的请求方法」 | 405 | <!-- anchor:bad-method-fallback -->
+| GET/HEAD | 未匹配任何分支 | `L753` | `serveStatic`，文件缺失回退 `index.html` | 200（无 404 兜底） | <!-- anchor:static-fallback -->
 
 ## 重点逻辑
 

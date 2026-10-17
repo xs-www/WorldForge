@@ -570,11 +570,16 @@ async function callCardAgent(payload) {
   const prompt = buildCardPrompt(promptPayload, context);
 
   let structured = true;
+  // 兼容接口常忽略 response_format/json_schema：记录降级原因，便于在响应与日志里看清
+  //「模型没接受结构化约束」，而不是把它伪装成模型输出不合格。
+  let fallbackReason = null;
   let raw;
   try { raw = await requestModel(config, prompt, { structured: true, schema, payload: promptPayload, ...modelOptions }); }
   catch (error) {
     if (![400, 404, 422].includes(error.status)) throw error;
     structured = false;
+    fallbackReason = `结构化请求被拒绝（HTTP ${error.status}）：${error.message}`;
+    console.warn(`[ai/card] ${fallbackReason}；改用非结构化 JSON 约束重试。`);
     raw = await requestModel(config, buildCardPrompt(promptPayload, context, { requireJson: true }), { structured: false, payload: promptPayload, ...modelOptions });
   }
   const result = await completeCardVariants({
@@ -593,7 +598,7 @@ async function callCardAgent(payload) {
       }
     }
   });
-  return { ...result, action, model: config.model, agent, contextMeta: { loreIds: context.loreIds, keywordIds: context.keywordIds, selectedFields } };
+  return { ...result, action, model: config.model, agent, structured, ...(fallbackReason ? { fallbackReason } : {}), contextMeta: { loreIds: context.loreIds, keywordIds: context.keywordIds, selectedFields } };
 }
 
 async function callNameGenerator(payload) {

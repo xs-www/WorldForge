@@ -751,6 +751,12 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 容器内故障注入（不计费）：`WORLDFORGE_AGENT_PRESETS_DIR=/nope` 时，默认启动 `exit 1` 并打印 `AGENT_ROOT_UNREADABLE` + 「拒绝启动」；加 `WORLDFORGE_AGENT_LEGACY_PROMPTS=1` 后降级启动，`/api/health` 返回 `degraded: true`、`promptSource: legacy-fixed-prompts`、`diagnostics[0].code = AGENT_ROOT_UNREADABLE`，`/api/ai/presets` 返回 `fallback: legacy-fixed-prompts` 且 `presets` 为空，`/api/settings` 的 `agentPromptSource` 为 `legacy-fixed-prompts`。
 
+#### 作者实测缺陷修复（Sprint 5 期间，2026-10-17）
+
+作者在真实配置（`deepseek-flash` + `responses` 风格）下实测卡牌 Agent，界面显示「验收 0/1 条」并带三条诊断：「整体：返回值缺少 variants 数组」「初次仅验收 0/1 条，将只补充剩余 1 条」「第 1 条：key 必须是非空字符串」。定位为**响应外壳只写在 strict `json_schema` 里**：该端点不支持 `json_schema`，带 `response_format` 的请求被 400 拒绝后降级，而降级 prompt 只说「严格只返回 JSON 对象」，模型于是把 Schema 的 `items` 当根对象返回，补生成时又漏写 `key`。
+
+修复（不改契约、不改安全边界）：两个入口始终在第 5 层写出响应外壳与键要求（示例值取安全占位，不得出现真实 ID）；解析侧新增 `parseLooseJson` / `coerceVariants` / `withFallbackKey` 宽松收敛；`INVALID_JSON`/`INVALID_ENVELOPE` 诊断带模型原文片段；`callCardAgent` 降级时回传 `fallbackReason` + `structured:false` 并由面板 chip 显示。新增 4 项测试（含 provider 返回 400 的降级分支与端到端可用性），`npm run check` 248 项全绿，镜像已重建并在容器内确认 `app.js?v=50`。真实付费模型的复测仍待作者执行（见下节）。
+
 #### 仍未验证
 
 - 真实付费模型的设定候选 / 自由工具检索 / 卡牌候选各一次（§12.3 第 5 项）；

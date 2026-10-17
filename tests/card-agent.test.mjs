@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { completeCardVariants, createCardResponseSchema, inspectCardResponse, validateCardVariant } from '../card-agent.mjs';
+import { buildCardPrompt } from '../ai-harness.mjs';
 import { loadAgentProfiles } from '../agent-profile-registry.mjs';
 
 // Sprint 4：卡牌文字 Agent 的受限契约（字段白名单、类型互斥、引用白名单、评审完整性）
@@ -78,6 +79,34 @@ test('incomplete reviews are diagnostics, not silent passes', () => {
   assert.match(inspected.issues[0].message, /duration|edgeCases/);
   assert.equal(inspectCardResponse('not json', basePayload()).issues[0].code, 'INVALID_JSON');
   assert.equal(inspectCardResponse({ variants: [] }, basePayload()).variants.length, 0);
+});
+
+test('a model that ignores the response schema is still accepted', () => {
+  // 兼容接口常忽略 json_schema，把 items 当根对象返回、或漏写 key；
+  // 这些形状应当被收敛而不是整次失败（DeepSeek 等只支持 json_object 的端点）。
+  const bare = inspectCardResponse({ patch: { name: '甲' }, review: review() }, basePayload({ selectedFields: ['name'] }));
+  assert.equal(bare.variants.length, 1);
+  assert.equal(bare.variants[0].key, 'candidate-1');
+  const fenced = inspectCardResponse(`说明如下：\n\`\`\`json\n${JSON.stringify({ key: '', patch: { name: '乙' }, review: review() })}\n\`\`\``, basePayload({ selectedFields: ['name'] }));
+  assert.equal(fenced.variants.length, 1);
+  assert.equal(fenced.variants[0].patch.name, '乙');
+  const wrapped = inspectCardResponse([{ key: 'a', patch: { name: '丙' }, review: review() }], basePayload({ selectedFields: ['name'] }));
+  assert.equal(wrapped.variants.length, 1);
+  // 真正跑偏的返回仍然只产出诊断，并附带原文片段便于定位。
+  const wrong = inspectCardResponse({ name: '丁' }, basePayload({ selectedFields: ['name'] }));
+  assert.equal(wrong.variants.length, 0);
+  assert.equal(wrong.issues[0].code, 'INVALID_ENVELOPE');
+  assert.ok(wrong.issues[0].preview.includes('丁'), '诊断必须带模型原文片段');
+  assert.match(inspectCardResponse('我认为应该更便宜', basePayload()).issues[0].preview, /更便宜/);
+});
+
+test('the card prompt states the JSON envelope inside layer 5', () => {
+  const prompt = buildCardPrompt({ ...basePayload(), selectedFields: ['name', 'cost', 'keywordIds'], variantCount: 2 }, { draft: { name: '草案' } });
+  for (const key of ['"variants"', '"key"', '"patch"', '"review"']) assert.ok(prompt.includes(key), `缺少 ${key}`);
+  assert.ok(prompt.includes('"name":"新卡名"') && prompt.includes('"cost":3'), '示例值必须是安全的类型占位');
+  assert.ok(prompt.includes('"keywordIds":[]'), 'ID 数组示例必须为空，避免模型照抄未提供的 ID');
+  assert.ok(prompt.indexOf('响应格式') < prompt.indexOf('<card_draft>'), '外壳说明属于第 5 层');
+  assert.ok(prompt.trimEnd().endsWith('</rules_context>'), '提示仍以第 6 层结尾');
 });
 
 test('balance claims are rejected while untested markers are added', () => {
@@ -209,6 +238,43 @@ test('illegal model output is reported as diagnostics instead of reaching the cl
   assert.equal(data.variants.length, 0);
   assert.equal(data.diagnostics.status, 'partial');
   assert.ok(data.diagnostics.issues.some(issue => /未勾选字段/.test(issue.message)));
+});
+
+test('a schema-ignoring model still yields a usable candidate end to end', async () => {
+  model.reset();
+  // 只支持 json_object 的兼容接口：没有 variants 外壳、也没有 key。
+  model.set(() => ({ status: 200, json: { choices: [{ message: { content: JSON.stringify({ patch: { name: '灰烬匠', cost: 3 }, review: review() }) } }] } }));
+  const response = await fetch(`http://127.0.0.1:${port}/api/ai/card`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...basePayload(), selectedFields: ['name', 'cost'], variantCount: 1 })
+  });
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.variants.length, 1);
+  assert.equal(data.variants[0].key, 'candidate-1');
+  assert.equal(data.variants[0].patch.name, '灰烬匠');
+  assert.equal(data.diagnostics.status, 'complete');
+  assert.equal(data.diagnostics.issues.length, 0);
+});
+
+test('a provider that rejects the json schema falls back and reports why', async () => {
+  model.reset();
+  model.set(parsed => (parsed.response_format
+    ? { status: 400, json: { error: { message: 'response_format is not supported' } } }
+    : { status: 200, json: { choices: [{ message: { content: JSON.stringify({ key: 'candidate-1', patch: { name: '甲' }, review: review() }) } }] } }));
+  const response = await fetch(`http://127.0.0.1:${port}/api/ai/card`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...basePayload(), selectedFields: ['name'], variantCount: 1 })
+  });
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.structured, false);
+  assert.match(data.fallbackReason, /400/);
+  assert.equal(data.variants.length, 1);
+  // 降级后的第二次请求不再带 response_format，但仍然写明 JSON 外壳。
+  assert.equal(model.requests.length, 2);
+  assert.equal(model.requests[1].response_format, undefined);
+  assert.ok(model.requests[1].messages[1].content.includes('"variants"'));
 });
 
 test('cross-type patches apply the target type stats (both directions)', async () => {

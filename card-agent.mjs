@@ -1,6 +1,8 @@
 // 卡牌文字 Agent 的受限契约（Sprint 4）：只接受字段补丁与静态评审。
 // 所有校验都在服务端、返回浏览器之前完成；AI 不能保存、不能改 canon、不能调用图像生成。
 
+import { coerceVariants, parseLooseJson, previewOf, withFallbackKey } from './ai-harness.mjs';
+
 const TEXT = { name: 100, rulesText: 2000, listItem: 500, note: 300, statement: 1200 };
 export const CARD_FIELDS = Object.freeze(['name', 'cost', 'type', 'rarity', 'attack', 'health', 'durability', 'tribeId', 'spellSchoolId', 'keywordIds', 'effects', 'rulesText', 'notes', 'loreRefs']);
 export const CARD_TYPES = Object.freeze(['minion', 'spell', 'equipment']);
@@ -166,22 +168,24 @@ export function validateCardVariant(variant, payload = {}) {
 
 /** 逐候选校验并收集诊断；结构损坏也不抛到路由层。 */
 export function inspectCardResponse(raw, payload = {}, stage = 'initial') {
-  const cleaned = typeof raw === 'string' ? raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '') : raw;
-  let value;
-  try { value = typeof cleaned === 'string' ? JSON.parse(cleaned) : cleaned; }
-  catch { return { variants: [], issues: [{ stage, index: null, code: 'INVALID_JSON', message: '模型没有返回有效 JSON' }] }; }
-  if (!value || typeof value !== 'object' || !Array.isArray(value.variants)) {
-    return { variants: [], issues: [{ stage, index: null, code: 'INVALID_ENVELOPE', message: '返回值缺少 variants 数组' }] };
+  const value = typeof raw === 'string' ? parseLooseJson(raw) : raw;
+  if (value === undefined) {
+    return { variants: [], issues: [{ stage, index: null, code: 'INVALID_JSON', message: '模型没有返回有效 JSON', preview: previewOf(raw) }] };
+  }
+  const envelope = coerceVariants(value, ['patch', 'review']);
+  if (!envelope) {
+    return { variants: [], issues: [{ stage, index: null, code: 'INVALID_ENVELOPE', message: '返回值缺少 variants 数组', preview: previewOf(value) }] };
   }
   const variants = [], issues = [], keys = new Set();
-  value.variants.forEach((candidate, index) => {
+  envelope.variants.forEach((candidate, index) => {
+    const normalized = withFallbackKey(candidate, index);
     try {
-      const validated = validateCardVariant(candidate, payload);
+      const validated = validateCardVariant(normalized, payload);
       if (keys.has(validated.key)) throw new Error(`候选 key 重复：${validated.key}`);
       keys.add(validated.key);
       variants.push(validated);
     } catch (error) {
-      issues.push({ stage, index, code: 'INVALID_VARIANT', message: error.message, preview: String(candidate?.key || '') });
+      issues.push({ stage, index, code: 'INVALID_VARIANT', message: error.message, preview: String(normalized?.key || '') });
     }
   });
   return { variants, issues };
