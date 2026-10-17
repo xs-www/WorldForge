@@ -76,7 +76,7 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 ### 生图与资产落盘（`createArtAsset` `L191`、`serveArtAsset` `L244`）
 - `clientRequestId` 先按 `^[A-Za-z0-9-]{8,80}$` 校验，再用 `listArtAssets()` 全表扫描找同 ID 资产，命中直接返回旧资产（`L192`–`L192`）。
 - 参考图经 `resolveReferenceImages` 校验 ID、确认资产存在、按 `assetsPath` 前缀校验并读盘；ComfyUI 通道在不支持参考图时直接抛错（`L164`）。
-- 文件先写 `*.tmp`（`mode 0600`）再 `rename`（`L203`–`L204`）；DB 插入失败会 `unlink` 已写文件（`L226`–`L227`）。
+- 文件先写 `*.tmp`（`mode 0600`）再 `rename`（`L217`–`L218`）；DB 插入失败会 `unlink` 已写文件（`L241`）。
 - `serveArtAsset` 以 `file.startsWith(assetsPath)` 做前缀校验（失败 403），`ENOENT` 返回 404，成功响应带 `immutable` 一年缓存与安全响应头。
 
 ### 设置读写与安全边界（`validateSettings` `L115`、`saveLocalEnv` `L81`）
