@@ -2,6 +2,14 @@
 
 本文件记录 Worldforge 的重要变更。日期采用 `YYYY-MM-DD`。
 
+## [0.2.1] - 2026-10-17
+
+修复 0.2.0 的首个 CI：静文档门禁在 GitHub Actions（Linux 检出 LF）上必然变红。
+
+### Fixed
+- 清单哈希改为**内容哈希**（先归一化 CRLF/CR 为 LF 再求 SHA-256）。0.2.0 按原始字节计算，而本地 Windows 工作树是「部分 LF、部分 CRLF」的混合状态，同一个提交在 Linux 与 Windows 检出下会得到不同哈希：`npm run check` 在本地绿、在 CI 红（`HASH_MISMATCH` 118 处）。现在两种检出都通过；行尾差异交由 Git 规范化负责。用「整树转 LF 的副本」与真实克隆分别复跑 `npm run check` 验证。
+- `docs/static/static-doc-manifest.mjs.md` 记录该取舍（内容哈希 vs 字节哈希）与 0.2.0 的事故；`package.json.md` 补一条跨平台说明；版本号升至 `0.2.1`（`package.json`、页面 `<meta name="worldforge-version">`、`README`、`PROJECT_DESIGN` 同步）。
+
 ## [0.2.0] - 2026-10-17
 
 首个带产品版本号的发布：把仓库内三个 DSH Agent preset 接入 WorldForge 的设定助手、自由创作与卡牌 Agent 三个入口，并配套回滚基线、分入口设置、静态文档双门禁与容器化。规则与卡牌数值仍为 `untested`，世界设定与卡牌均为草案——0.2.0 声明的是**能力可交付**，不是规则定稿。

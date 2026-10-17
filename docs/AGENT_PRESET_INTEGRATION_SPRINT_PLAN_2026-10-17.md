@@ -788,8 +788,10 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | 变更记录 | `CHANGELOG.md` 的 `[0.2.0] - 2026-10-17` |
 | 镜像 | `worldforge:0.2.0`（同镜像另打 `worldforge:local`），ID `14efdefb7a88`；容器 `Up (healthy)` |
 | 容器自证 | `/api/health` 返回 `status=ok`、`version=0.2.0`、`harnessVersion=2.1.0`；容器内 `server.mjs` / `dist/app.js` / `dist/index.html` / `dist/styles.css` / `package.json` 与工作树哈希一致 |
-| 质量门 | `npm run check` 262 项全绿；锚点 101 处唯一命中；清单 139 个条目哈希/文档路径/计数一致 |
-| Git 标签 | `v0.2.0`（注释标签，**未推送远端**） |
+| 质量门 | 本地 `npm run check` 262 项全绿；锚点 101 处唯一命中；清单 139 个条目一致 |
+| Git 标签 | `v0.2.0`（推送至 `nas` 与 `origin`） |
+
+**CI 事故与 0.2.1（同日）**：0.2.0 推送后 GitHub Actions 的 `check` 关变红（`image-smoke` 通过，`publish` 被跳过），原因是清单哈希按**原始字节**计算，而本地 Windows 工作树是「部分 LF、部分 CRLF」的混合状态——同一个提交在 Linux（LF）检出下得到不同哈希，报 118 处 `HASH_MISMATCH`。复现方式：把整树转为 LF 后重跑，确认除该门外其余 262 项测试全绿。修复为内容哈希（先归一化 CRLF/CR 为 LF 再求 SHA-256），重算 24 个条目哈希，并用「整树 LF 副本」与真实克隆各验证一次；随后发布 `0.2.1`（`package.json`、页面 meta、`README`、`PROJECT_DESIGN` 同步，标签 `v0.2.1`）。
 
 #### 仍未验证
 

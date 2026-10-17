@@ -72,7 +72,7 @@
       "source": ".agent-presets/free-creator/runtime/system.md",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "84bb3eb9cd6c720f771301ef428c0fa7819ce671e7f2e1d281d7058b51f8100d"
+      "sha256": "ba0c42facf16fab627b4a193ec506fa80f9835050416da10c491697d4c171d2b"
     },
     {
       "source": ".agent-presets/free-creator/skills/worldforge-free-creation/SKILL.md",
@@ -84,7 +84,7 @@
       "source": ".agent-presets/free-creator/worldforge.runtime.json",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "0620f02d2b7a409ba1a1f376adebaaf23ad1e120798277176505e2759ad09b43"
+      "sha256": "7ffe7a2e4e364da858cb052f2a7dc2e1440adfcd665edc5a440e1d4d9263b63c"
     },
     {
       "source": ".agent-presets/lore-writer/agent.cordis.yml",
@@ -102,7 +102,7 @@
       "source": ".agent-presets/lore-writer/runtime/system.md",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "20328bd64938af93b38c59d4a07cc6cfda4df9f4cb7aa1d4ba6c08a146fc5f0c"
+      "sha256": "d6f395163b39ecd7824ac1748176da420516ca8b43b17eb71c415992016ec4b3"
     },
     {
       "source": ".agent-presets/lore-writer/skills/worldforge-lore-writing/reference/content-blocks.md",
@@ -120,19 +120,19 @@
       "source": ".agent-presets/lore-writer/worldforge.runtime.json",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "f2209c5e75f5d86aac89f3d3d0497249599a71912c39e8a65194d911250666d9"
+      "sha256": "66387a4bb2aac215ad702cfb65363c5d4b2354c0ced4d2beb5b640370fcd7b3c"
     },
     {
       "source": ".agent-presets/README.md",
       "doc": "docs/static/.agent-presets/README.md",
       "status": "aggregated",
-      "sha256": "e470df54e82e28694a2c83fae879b94240665476d86ab4a22bd46100f62efc11"
+      "sha256": "0ac782d646b38feafd090b9a7d72ed4a97dec4a51bc3d7b7e317a77f506fcbcc"
     },
     {
       "source": ".dockerignore",
       "doc": "docs/static/.dockerignore.md",
       "status": "documented",
-      "sha256": "748d33968924be5c79cb2f5d295b85a3eb72568b8971fb587e2740c6e61d856c"
+      "sha256": "9d75026a6a2572024a5d44b301a1f2a185f4b3c256faf5877388c9cb272a4ff9"
     },
     {
       "source": ".env.example",
@@ -144,7 +144,7 @@
       "source": ".github/workflows/ci.yml",
       "doc": "docs/static/.github/workflows/ci.yml.md",
       "status": "documented",
-      "sha256": "6d523136ca3391edd2766ad4b12b18be8fbf94fbfaf68351ce45c09732e6e0ce"
+      "sha256": "ab1d185b71d68d71b39906f7078e2c1733aff719425d5f00aa5fd134e6c7fc50"
     },
     {
       "source": ".openai/hosting.json",
@@ -162,13 +162,13 @@
       "source": "agent-profile-contract.mjs",
       "doc": "docs/static/agent-profile-contract.mjs.md",
       "status": "documented",
-      "sha256": "a7717d456e63c7b8df3bc139e278e1f10085f4bef802568956615c2954fc2dcf"
+      "sha256": "357bffe94e973960f8b8e17bb72863fa218b1c4a13a75b96a7bbde97af6f3de2"
     },
     {
       "source": "static-doc-manifest.mjs",
       "doc": "docs/static/static-doc-manifest.mjs.md",
       "status": "documented",
-      "sha256": "368f838688d80bfbe3415aa9287c3eb367109311081ddc70e117ec304b8456d5"
+      "sha256": "171f7ff7c8580933c72b1fe230aee1ad33eb34356fcc9cdf215faf7a254ccf6e"
     },
     {
       "source": "tests/card-agent.test.mjs",
@@ -192,7 +192,7 @@
       "source": "agent-profile-registry.mjs",
       "doc": "docs/static/agent-profile-registry.mjs.md",
       "status": "documented",
-      "sha256": "1a5c891c7f6e849ed7c23558682d5faf9e5bf71bf2c467308cacfba73a41ec13"
+      "sha256": "2a532274227d5cbe9ae20f28e32807b109938473546de963ad199e5ed2ff583c"
     },
     {
       "source": "agent-runtime.schema.json",
@@ -216,7 +216,7 @@
       "source": "ai-harness.mjs",
       "doc": "docs/static/ai-harness.mjs.md",
       "status": "documented",
-      "sha256": "90d7a10dbcfc7549c50ee02f94ba6decf68198e9d674495a33ada8b6a131da38"
+      "sha256": "a54abae83354fbd1adb0e3086757c7f6654905b10208cd804c859269cc3ab926"
     },
     {
       "source": "ai-tools.mjs",
@@ -240,7 +240,7 @@
       "source": "compose.nas.yaml",
       "doc": "docs/static/compose.nas.yaml.md",
       "status": "documented",
-      "sha256": "445d8f1f042c930af01f8ba93d7d9672de161a223b291fd687ddb1b85c774388"
+      "sha256": "4b1b1c0d69394a7100eae97653a3ae0040289154d896caaabcbf58ce13bf9a88"
     },
     {
       "source": "compose.yaml",
@@ -258,7 +258,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "eb3463b3840ee2114d131ad55fd91897173f26f200fe39c642db5d6e0674d1d6"
+      "sha256": "16bca90ea7d20cecd78174dbf19d470fe18f20e1a45f3ba6f581484c9b8aa715"
     },
     {
       "source": "dist/battle.js",
@@ -294,7 +294,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "56e0737fcad1bf9630733560de0d99dd4ad22bc00770dfb20b2c464700dd9a07"
+      "sha256": "cc2d9ca0b1a468f15b7564647d12ede738bb13ca8a6f07a1dfbbe043afef0a87"
     },
     {
       "source": "dist/macro.js",
@@ -312,7 +312,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "1a037f4b4f7ddfcb755364a9c9162cd91952582ec63f6caa05e568a10d030eee"
+      "sha256": "24364dd083802d4132954b0854ca191c77a3809a38ef726a1abcd4db45ceef85"
     },
     {
       "source": "dist/world-scope.js",
@@ -342,7 +342,7 @@
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "479db9500eb60e41618c125b941a8cfb696aeb25292108f65a0664d3e1736b82"
+      "sha256": "c675f58eb8dd7a0c27039fe83bc01c75f63356e4232bf462a8d3c8542944b289"
     },
     {
       "source": "prompt-settings.mjs",
@@ -360,7 +360,7 @@
       "source": "scripts/ci/smoke-container.mjs",
       "doc": "docs/static/scripts/ci/smoke-container.mjs.md",
       "status": "documented",
-      "sha256": "8b7f99ed51b24141548630bd1154fa268da635554fad02df63afce19ebc0e05e"
+      "sha256": "b991e838aecdf256c24d0d6ba0b9f6c42a9e81b84a44fb6c53c42f9a24a1e173"
     },
     {
       "source": "scripts/compile-world-package.mjs",
@@ -390,7 +390,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "d0f8c10754a140795bb4970ad89b74826e5f065b78e87b44b466589549f3d56e"
+      "sha256": "2ad817f5eba21e76ba7d8a57e513600a3d4d41884069e5e63d05cf26eaa2c5a5"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -558,7 +558,7 @@
       "source": "tests/agent-profile-contract.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "b6c31d3258a880d49e917514474578e052bcce61088395da63842cf7f643ddcf"
+      "sha256": "19440162de5684c6874c94f9df1d4666f066eb0124e259251eade6de5d96b896"
     },
     {
       "source": "tests/agent-profile-registry.test.mjs",
@@ -570,7 +570,7 @@
       "source": "tests/agent-prompt-layers.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "6d18b27395ceff3294967566ea3f7777e2e7c339d73d0fdb080cd90bc0a66d90"
+      "sha256": "6d6784ee2627e73c08262a49c7fa08f7392a0081346edbda9633822505ad8bc0"
     },
     {
       "source": "tests/agent-settings-ui.test.mjs",
@@ -588,7 +588,7 @@
       "source": "tests/agent-surface-integration.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "35baffb6eb9c0c0e3a87b80f454db12533c4ddda5ab94db033ee312b2fda789b"
+      "sha256": "3735a3bcd91620255dc98e686cca8953abca15a97715da16dc55ac24e0b50166"
     },
     {
       "source": "tests/agent-tools.test.mjs",
@@ -726,7 +726,7 @@
       "source": "tests/fixtures/agent-profiles/reject/oversized-prompt/runtime/system.md",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "c887d722e28638784debb8d5e5cf8b341b7e18c34a039b1a1cecdff766f69406"
+      "sha256": "9f448badb96e7cc3b2948d535c87a0b8e6d602b4eebdafd384edd05742c6c6ca"
     },
     {
       "source": "tests/fixtures/agent-profiles/reject/oversized-prompt/worldforge.runtime.json",
@@ -822,7 +822,7 @@
       "source": "tests/static-doc-manifest.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "c11375fa4107ad51014601edab087736821609933c5759f464d6d4eaf907e484"
+      "sha256": "bc3c14795003aff723c94bc207563a7ec60d880ad558a72884a606308b2b1510"
     },
     {
       "source": "tests/storage.test.mjs",
@@ -834,7 +834,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "abef43456ecbd8c591b01608d28f2465863e34c68e03702083a0419e37d6ed0b"
+      "sha256": "e835785f35acc6e1d83a98ac3723c23c4f44f1beaf6e093b8ef847428acce9a7"
     },
     {
       "source": "tests/world-package.test.mjs",

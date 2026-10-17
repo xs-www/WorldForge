@@ -19,8 +19,16 @@ const moduleRoot = dirname(fileURLToPath(import.meta.url));
 const STATUSES = Object.freeze(['documented', 'aggregated', 'config']);
 const DEFAULT_MANIFEST = 'docs/static/manifest.json';
 
-export function hashBytes(buffer) {
-  return createHash('sha256').update(buffer).digest('hex');
+/**
+ * 文本内容哈希：先把 CRLF/CR 归一化为 LF，再求 SHA-256。
+ *
+ * 为什么不按原始字节：CI 在 Linux 检出 LF，Windows 默认 `core.autocrlf` 检出 CRLF，
+ * 同一提交在两处会算出不同哈希——门禁会在其中一个平台恒红。文档清单关心的是内容，
+ * 不是行尾；行尾差异本来就由 Git 的规范化负责。
+ */
+export function contentHash(content) {
+  const text = Buffer.isBuffer(content) ? content.toString('utf8') : String(content ?? '');
+  return createHash('sha256').update(text.replace(/\r\n?/g, '\n'), 'utf8').digest('hex');
 }
 
 /** 诊断里只显示短哈希；非字符串也安全格式化，避免结构损坏时抛 TypeError。 */
@@ -79,7 +87,7 @@ export function verifyManifest({ manifest, contents, rewrite = false } = {}) {
     } else if (!hasHash) {
       // 结构已坏：不再比较哈希（上面已记 MANIFEST_INVALID）。`--write` 也不修，缺失/空白字段属于需要人工确认的问题。
     } else {
-      const actual = hashBytes(Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8'));
+      const actual = contentHash(body);
       if (actual !== entry.sha256) {
         if (rewrite) updates.push({ source: entry.source, sha256: actual });
         else errors.push({ code: 'HASH_MISMATCH', message: `${entry.source} 哈希漂移：清单 ${shortHash(entry.sha256)} → 实际 ${shortHash(actual)}` });

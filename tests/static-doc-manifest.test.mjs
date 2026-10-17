@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { hashBytes, nonEmptyString, shortHash, verifyManifest } from '../static-doc-manifest.mjs';
+import { contentHash, nonEmptyString, shortHash, verifyManifest } from '../static-doc-manifest.mjs';
 
-// 静态文档清单门禁：清单哈希必须与磁盘字节一致，否则文档会静默过期。
+// 静态文档清单门禁：清单哈希必须与磁盘内容一致，否则文档会静默过期。
 // 这些用例只在内存里构造清单与内容，不读写真实仓库。
 
-const sha = text => createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex');
+const sha = text => contentHash(text);
 
 function fixture({ drift = false } = {}) {
   const sources = { 'a.mjs': 'export const a = 1;\n', 'b.mjs': 'export const b = 2;\n' };
@@ -131,6 +130,10 @@ test('short hashes are formatted safely for non-string values', () => {
   assert.match(shortHash(42), /非字符串/);
 });
 
-test('hashBytes hashes bytes, not a normalized string', () => {
-  assert.notEqual(hashBytes(Buffer.from('a\r\nb')), hashBytes(Buffer.from('a\nb')));
+test('content hashes ignore line endings but still detect content changes', () => {
+  // CRLF、LF、单独 CR 归一化后必须同值：CI 在 Linux 检出 LF，Windows 默认检出 CRLF。
+  assert.equal(contentHash(Buffer.from('a\r\nb')), contentHash(Buffer.from('a\nb')));
+  assert.equal(contentHash('a\rb'), contentHash('a\nb'));
+  assert.notEqual(contentHash('a\nb'), contentHash('a\nc'));
+  assert.notEqual(contentHash('abc'), contentHash('abcd'));
 });
