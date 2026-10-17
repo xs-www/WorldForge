@@ -824,6 +824,31 @@
         "req.method === 'POST'",
         "'/api/lore-import/extract'"
       ]
+    },
+    "extract-model-text": {
+      "lines": [
+        "function extractModelText("
+      ]
+    },
+    "describe-model-body": {
+      "lines": [
+        "function describeModelBody("
+      ]
+    },
+    "empty-model-error": {
+      "lines": [
+        "function emptyModelError("
+      ]
+    },
+    "request-model-text": {
+      "lines": [
+        "async function requestModelText("
+      ]
+    },
+    "request-model": {
+      "lines": [
+        "async function requestModel("
+      ]
     }
   }
 }

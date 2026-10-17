@@ -39,7 +39,7 @@
 | `inspectAiResponse(raw, payload, stage)` | 不抛错的诊断版校验，收集 `INVALID_JSON`/`INVALID_ENVELOPE`/`INVALID_VARIANT` | `L292` |
 | `buildSupplementPrompt(payload, bundle, {missingCount, acceptedVariants, issues})` | 补生成请求；与初次共用同一层结构，补生成指令并入第 5 层 | `L323` |
 | `completeAiVariants({raw, payload, expectedCount, requestSupplement})` | 初次验收 + 一次补充 + `diagnostics` 汇总 | `L331` |
-| `createModelBody(config, prompt, options)` | 按 `config.style` 产出 chat 或 responses 请求体 | `L376` |
+| `createModelBody(config, prompt, options)` | 按 `config.style` 产出 chat 或 responses 请求体；`options.thinking`（`'disabled'` / `'enabled'`）会写成 `thinking: {type}`，不传即供应商默认 | `L376` |
 | `buildCardPrompt(payload, context, {requireJson})` | 卡牌入口第 4–6 层；第 5 层含 JSON 响应外壳与字段示例 | `L94` |
 | `NAME_RESPONSE_SCHEMA` / `parseNameResponse(raw, n)` | 命名请求的 Schema 与数量严格校验（数量不等即抛错） | `L384` / `L385` |
 
@@ -94,6 +94,7 @@
 ### `createModelBody(config, prompt, options)`
 - `options` 允许直接传布尔值（视作 `structured`）；`structured === false` 时不发 `response_format` / `text.format`。
 - `config.style === 'chat'` 走 `messages` + `response_format.json_schema`，否则走 `instructions` + `input` + `text.format` 且 schema 置于 `format` 顶层。
+- `options.thinking` 为 `'disabled'` / `'enabled'` 时在两种风格下都追加顶层 `thinking: {type}`；不传则完全不带该字段，交给供应商默认。是否真正被接受由 `server.mjs` 的调用层探测并在 400/422 时去掉重试。
 - 仅当 `options.images` 非空时把用户内容改为 `text`/`input_text` + 图片分片数组，图片 `detail` 固定 `auto`。
 
 ## 重要约束

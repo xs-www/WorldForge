@@ -198,7 +198,7 @@
       "source": "ai-harness.mjs",
       "doc": "docs/static/ai-harness.mjs.md",
       "status": "documented",
-      "sha256": "5fd18fa3be14d4230f3dc464f3ae0a24c381097c9c1c376633a2e332dee1ebc7"
+      "sha256": "1d4c309a69b541256321c2f3d8817f5d20a6cf036d740c9e6a03179461ff1be8"
     },
     {
       "source": "ai-tools.mjs",
@@ -354,7 +354,7 @@
       "source": "docs/static/anchors.json",
       "doc": "docs/static/server.mjs.md",
       "status": "config",
-      "sha256": "d311d92054cfcd7f2afbc9782df92b05e50648f538a9a9c457cc515d3a66e73f"
+      "sha256": "7a7c8b308fc6b8e0a689a2c7d6abe4976fde754665e4d90c77d83469fcdd5ee6"
     },
     {
       "source": "image-context.mjs",
@@ -432,7 +432,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "53d29d6b8829853f1a984041fe642fdff9905159e38b94dd8c23e44fb48b62d3"
+      "sha256": "760835c13518274e5ef7e619ecaa0f3b79f1d96218df81365fa7f2423feaf2a5"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -882,7 +882,7 @@
       "source": "tests/lore-import-api.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "237b9064bdeb396240b6320604e88d9e13d6cbaa4012bed0d98fe4731a67f59f"
+      "sha256": "649b3b8bd648f0f1ef6e9f2577bf0d10cbac7a84a2148ee5083f69ac19d50748"
     },
     {
       "source": "tests/lore-import-files.test.mjs",

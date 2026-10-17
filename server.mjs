@@ -401,19 +401,134 @@ async function serveArtAsset(id, res, download = false) {
   } catch (error) { if (error.code === 'ENOENT') return json(res, 404, { error: '美术文件不存在' }); throw error; }
 }
 
-async function requestModel(config, prompt, options = {}) {
-  const endpoint = config.style === 'chat' ? `${config.baseUrl}/chat/completions` : `${config.baseUrl}/responses`;
-  const body = createModelBody(config, prompt, options);
-  const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) { const error = new Error(data.error?.message || `模型服务返回 ${response.status}`); error.status = response.status; throw error; }
-  if (config.style === 'chat') {
-    // 兼容接口可能把内容按多模态分片返回（[{type:'text',text:…}]）：直接 String() 会得到 "[object Object]"。
-    const content = data.choices?.[0]?.message?.content;
-    if (Array.isArray(content)) return content.map(part => (typeof part === 'string' ? part : part?.text || '')).join('');
-    return content || '';
+/** 把 `text` / `output_text` / 多模态分片等任意「文本容器」压平成字符串。 */
+function modelTextOf(value) {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(item => modelTextOf(item)).join('');
+  if (value && typeof value === 'object') return modelTextOf(value.text ?? value.output_text ?? value.content ?? '');
+  return '';
+}
+
+/** 有的网关把 OpenAI 响应再包一层（{data:{choices}} 或 {result:{output}}）；这里只解一层半。 */
+function unwrapModelPayload(data) {
+  let body = data;
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) break;
+    if (body.choices || body.output || body.output_text) break;
+    const wrapper = body.data ?? body.result;
+    if (!wrapper || typeof wrapper !== 'object') break;
+    body = wrapper;
   }
-  return data.output_text || data.output?.flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('\n') || '';
+  return body;
+}
+
+/**
+ * 从任意 OpenAI 兼容响应里取出正文：chat 的 choices[].message.content、responses 的
+ * output_text / output[].content[]，以及被网关改写过的 text / completion / 分片数组。
+ * 供应商把答案放在哪一层不该由调用方猜，所以这里一次覆盖所有已知形状。
+ */
+function extractModelText(data) {
+  const body = unwrapModelPayload(data);
+  if (!body || typeof body !== 'object') return '';
+  for (const key of ['output_text', 'text', 'completion']) {
+    const text = modelTextOf(body[key]);
+    if (text.trim()) return text;
+  }
+  for (const choice of Array.isArray(body.choices) ? body.choices : []) {
+    const text = modelTextOf(choice?.message?.content) || modelTextOf(choice?.text) || modelTextOf(choice?.delta?.content);
+    if (text.trim()) return text;
+  }
+  const output = Array.isArray(body.output) ? body.output : body.output ? [body.output] : [];
+  for (const item of output) {
+    const text = modelTextOf(item?.content) || modelTextOf(item?.text) || modelTextOf(item);
+    if (text.trim()) return text;
+  }
+  return '';
+}
+
+/** 空响应诊断：字段名、finish_reason、是否只有 reasoning_content，都如实回报。 */
+function describeModelBody(data, options = {}) {
+  const body = unwrapModelPayload(data) || {};
+  const choice = Array.isArray(body.choices) ? body.choices[0] : null;
+  const reasoning = choice?.message?.reasoning_content ?? choice?.message?.reasoning ?? body.reasoning_content;
+  return {
+    style: options.style || '',
+    json: options.json !== false,
+    keys: Object.keys(body).slice(0, 8),
+    finishReason: String(choice?.finish_reason ?? body.status ?? ''),
+    hasChoices: Array.isArray(body.choices) && body.choices.length > 0,
+    outputItems: Array.isArray(body.output) ? body.output.length : 0,
+    reasoningCharacters: typeof reasoning === 'string' ? reasoning.length : 0
+  };
+}
+
+/**
+ * 发一次模型请求并取出正文；不抛「空内容」错误，交给调用方决定是否换 API 类型重试。
+ * 返回 `{text, meta}`：meta 用于空响应诊断与 style 回显。
+ *
+ * 需要「不思考」的入口会带 `thinking: 'disabled'`。供应商是否认这个参数未知，
+ * 因此遇到 400/422 时去掉该参数重试一次，并把结论缓存在进程内，避免每次都撞一遍。
+ */
+let modelThinkingSupport = 'unknown';
+
+async function sendModelBody(config, body) {
+  const endpoint = config.style === 'chat' ? `${config.baseUrl}/chat/completions` : `${config.baseUrl}/responses`;
+  const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
+  let data = {}, parsed = true;
+  try { data = await response.json(); } catch { parsed = false; }
+  return { response, data, parsed };
+}
+
+async function requestModelText(config, prompt, options = {}) {
+  // 结论先行：结构化/机械型入口默认关掉思考（`thinking: {type:'disabled'}`），
+  // 只有显式 `thinking: 'enabled'` 才保留，`'default'` 交给供应商。自由对话不走这里。
+  const requested = options.thinking === 'enabled' ? 'enabled' : options.thinking === 'default' ? undefined : 'disabled';
+  const thinking = requested && modelThinkingSupport !== 'unsupported' ? requested : undefined;
+  let { response, data, parsed } = await sendModelBody(config, createModelBody(config, prompt, { ...options, thinking }));
+  // 只有错误信息确实指向 thinking 参数时才去掉重试：不能把任意 400（例如供应商不支持
+  // json_schema）都当成「不认识 thinking」，否则每次结构化失败都会多一次无效调用。
+  const failureDetail = JSON.stringify(data?.error ?? data?.message ?? '').slice(0, 600);
+  const blamesThinking = /thinking/i.test(failureDetail);
+  if (!response.ok && thinking && blamesThinking && [400, 422].includes(response.status)) {
+    const retry = await sendModelBody(config, createModelBody(config, prompt, { ...options, thinking: undefined }));
+    if (retry.response.ok) {
+      modelThinkingSupport = 'unsupported';
+      console.warn(`[ai] 供应商不接受 thinking 参数，已按「不发送」处理（HTTP ${response.status}）`);
+      ({ response, data, parsed } = retry);
+    }
+  } else if (response.ok && thinking) {
+    modelThinkingSupport = 'supported';
+  }
+  if (!response.ok) {
+    const error = new Error(data?.error?.message || `模型服务返回 ${response.status}`);
+    error.status = response.status;
+    error.modelMeta = describeModelBody(data, { style: config.style, json: parsed });
+    throw error;
+  }
+  const text = parsed ? extractModelText(data) : '';
+  return { text, meta: describeModelBody(data, { style: config.style, json: parsed }) };
+}
+
+function emptyModelError(meta, fallbackMeta) {
+  const parts = [
+    `style=${meta.style || '未知'}`,
+    `finish=${meta.finishReason || '未知'}`,
+    `返回字段=${meta.keys.length ? meta.keys.join('/') : '空'}`,
+    meta.json ? '' : '响应不是 JSON',
+    meta.reasoningCharacters ? `reasoning_content ${meta.reasoningCharacters} 字` : ''
+  ].filter(Boolean);
+  const suffix = fallbackMeta ? `；改用 ${fallbackMeta.style} 重试仍然为空` : '';
+  return new Error(`模型没有返回内容（${parts.join('，')}）${suffix}`);
+}
+
+/**
+ * 既有调用方的入口：返回正文；空内容直接抛错，并在错误信息里带上响应形状，
+ * 而不是让下游一个泛泛的「不是 JSON」把真实原因掩盖掉。
+ */
+async function requestModel(config, prompt, options = {}) {
+  const { text, meta } = await requestModelText(config, prompt, options);
+  if (!text.trim()) throw emptyModelError(meta);
+  return text;
 }
 
 async function optimizeImagePrompt(payload) {
@@ -424,14 +539,9 @@ async function optimizeImagePrompt(payload) {
   const card = payload?.card && typeof payload.card === 'object' ? payload.card : {};
   const target=payload?.target&&typeof payload.target==='object'?payload.target:{};
   const instruction = `将下列世界观视觉原型或卡牌插画要求整理为一段可直接交给文生图模型的中文提示词。忠实保留已给设定与作者要求，强化主体、构图、环境、尺度、材质、色彩和光影；不要把模型补充细节写成确定事实。只能使用原创表达，不引入商业 IP 专有角色、地名、标志或画风模仿。不要生成卡框、文字、数字、Logo 或 UI。只返回优化后的提示词，不要解释。\n目标名称：${String(target.name||card.name||'').slice(0,100)}\n目标类型：${String(payload?.targetType==='lore'?target.type:card.type||'card').slice(0,40)}\n完整要求：${original}`;
-  const endpoint = config.style === 'chat' ? `${config.baseUrl}/chat/completions` : `${config.baseUrl}/responses`;
-  const body = config.style === 'chat'
-    ? { model: config.model, messages: [{ role: 'system', content: '你是原创游戏卡牌插画提示词编辑器。' }, { role: 'user', content: instruction }] }
-    : { model: config.model, instructions: '你是原创游戏卡牌插画提示词编辑器。', input: instruction };
-  const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error?.message || `语言模型返回 ${response.status}`);
-  const optimized = String(config.style === 'chat' ? data.choices?.[0]?.message?.content : (data.output_text || data.output?.flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('\n')) || '').trim().replace(/^```(?:text)?\s*/i, '').replace(/\s*```$/, '');
+  // 走统一的模型调用层：形状兼容、thinking 开关与空响应诊断都和三个 Agent 入口一致。
+  const { text } = await requestModelText(config, instruction, { structured: false, system: '你是原创游戏卡牌插画提示词编辑器。' });
+  const optimized = String(text).trim().replace(/^```(?:text)?\s*/i, '').replace(/\s*```$/, '');
   if (!optimized || optimized.length > 5000) throw new Error('语言模型未返回有效提示词');
   return { prompt: optimized.slice(0, 3000), model: config.model, contextMeta:{promptKey:composed.key,contextIds:composed.contextIds,truncated:composed.truncated} };
 }
@@ -794,23 +904,49 @@ async function callLoreImport(payload, session) {
     instruction: instructions,
     personalizedPrompt: promptSettings.personalizedPrompt
   });
+  // 有的网关在某个 API 形状下只回空内容（配置了 Responses 却只认 chat，或反过来）。
+  // 首段探测一次：空内容就换另一种形状重试，成功则本请求余下各段都沿用它。
+  const activeStyle = { value: config.style, switched: false };
   const runChunk = async chunk => {
-    await chargeQuota('ai', session);
-    let raw;
-    try {
-      raw = await requestModel(config, promptFor(chunk), { structured: false, system });
-    } catch (error) {
+    const attemptOnce = async style => {
+      await chargeQuota('ai', session);
+      return requestModelText({ ...config, style }, promptFor(chunk), { structured: false, system });
+    };
+    let attempt;
+    try { attempt = await attemptOnce(activeStyle.value); }
+    catch (error) {
       // 配额不足是整体性错误：继续跑后面的段只会继续撞 429。
       if (error.code === 'AUTH_QUOTA_EXCEEDED' || error.status === 429) throw error;
       return { chunk, error };
     }
-    const normalized = normalizeExtraction(raw, { chunkIndex: chunk.index });
-    return { chunk, ...normalized };
+    if (!attempt.text.trim()) {
+      const other = activeStyle.value === 'chat' ? 'responses' : 'chat';
+      let second;
+      try { second = await attemptOnce(other); }
+      catch (error) {
+        if (error.code === 'AUTH_QUOTA_EXCEEDED' || error.status === 429) throw error;
+        return { chunk, error: emptyModelError(attempt.meta, { style: other }) };
+      }
+      if (!second.text.trim()) return { chunk, error: emptyModelError(attempt.meta, second.meta) };
+      activeStyle.value = other;
+      activeStyle.switched = true;
+      attempt = second;
+    }
+    const normalized = normalizeExtraction(attempt.text, { chunkIndex: chunk.index });
+    return { chunk, ...normalized, style: attempt.meta.style };
   };
-  const outcomes = await mapLimited(chunks, LORE_IMPORT_LIMITS.concurrency, runChunk);
+  // 第一段单独跑：形状不匹配只需切换一次，其余段直接使用成功的那种，不重复多计配额。
+  const outcomes = [await runChunk(chunks[0])];
+  if (chunks.length > 1) outcomes.push(...await mapLimited(chunks.slice(1), LORE_IMPORT_LIMITS.concurrency, runChunk));
   const extractions = [], warnings = [], issues = [];
   const formats = new Set();
   let repairedChunks = 0;
+  if (activeStyle.switched) {
+    warnings.push({
+      code: 'STYLE_FALLBACK',
+      message: `当前 API 类型（${config.style === 'chat' ? 'Chat Completions' : 'Responses API'}）返回了空内容，已自动改用 ${activeStyle.value === 'chat' ? 'Chat Completions' : 'Responses API'} 兼容端点；该段多计 1 次 AI 配额。建议在「设置 → 语言模型 → API 类型」改选对应值`
+    });
+  }
   for (const outcome of outcomes) {
     if (outcome.error) {
       issues.push({ code: 'CHUNK_FAILED', message: `第 ${outcome.chunk.index + 1}/${chunks.length} 段解析失败：${String(outcome.error.message || outcome.error).slice(0, 300)}` });
@@ -851,7 +987,7 @@ async function callLoreImport(payload, session) {
     agent,
     model: config.model,
     harnessVersion: HARNESS_VERSION,
-    normalization: { formats: [...formats], repairedChunks }
+    normalization: { formats: [...formats], repairedChunks, style: activeStyle.value }
   };
 }
 

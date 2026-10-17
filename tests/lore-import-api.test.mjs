@@ -254,9 +254,83 @@ test('解析：模型返回不可解析内容或空内容时，告警带段号�
   fakeModel.reset();
   fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '' } }] } }));
   const empties = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '另一段设定文本。' } });
-  assert.equal(empties.status, 200, empties.body);
-  const empty = parse(empties);
-  assert.equal(empty.warnings.some(item => /空内容/.test(item.message)), true);
+  // 每段都拿不到正文 = 全部段落失败，整体报错；错误里必须带响应形状，供作者判断是 key 错位、模型思考还是配置错。
+  assert.equal(empties.status, 500, empties.body);
+  const emptyError = String(parse(empties).error);
+  assert.match(emptyError, /没有返回内容/);
+  assert.match(emptyError, /返回字段=/);
+  assert.match(emptyError, /style=/);
+});
+
+test('解析：默认关闭思考（thinking: disabled），避免思考把输出预算吃光', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '@@ 条目\n类型：info\n名称：灰烬议会\n正文：七名议员。\n' } }] } }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '炉心为城邦提供余热。' } });
+  assert.equal(response.status, 200, response.body);
+  assert.deepEqual(fakeModel.requests[0].body.thinking, { type: 'disabled' }, '导入这类机械请求默认关闭思考');
+  assert.deepEqual(parse(response).entries.map(item => item.name), ['灰烬议会']);
+});
+
+test('解析：供应商把正文放在 responses 形状里，chat 配置也能读到', async () => {
+  fakeModel.reset();
+  // 请求按 chat 发出（messages），响应却是 responses 形状（output[].content[]）——网关常见改写。
+  fakeModel.setBehavior(() => ({
+    status: 200,
+    json: { output: [{ content: [{ type: 'text', text: '@@ 条目\n类型：info\n名称：灰烬议会\n正文：七名议员。\n' }] }] }
+  }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '炉心为城邦提供余热。' } });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  assert.deepEqual(data.entries.map(item => item.name), ['灰烬议会']);
+  assert.equal(fakeModel.requests.length, 1, '形状兼容应一次命中，不应触发风格回退');
+});
+
+test('解析：当前 API 类型返回空内容时自动换另一种形状重试并告警', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(body => {
+    // 只认 Responses（有 instructions 且没有 messages），chat 形状一律空内容。
+    if (!body.messages) return { status: 200, json: { output: [{ content: [{ type: 'output_text', text: '@@ 条目\n类型：info\n名称：灰烬议会\n正文：七名议员。\n' }] }] } };
+    return { status: 200, json: { choices: [{ message: { content: '' }, finish_reason: 'length' }] } };
+  });
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '炉心为城邦提供余热。' } });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  assert.deepEqual(data.entries.map(item => item.name), ['灰烬议会']);
+  assert.equal(fakeModel.requests.length, 2, '首段 chat 空内容 + responses 重试');
+  assert.equal(data.normalization.style, 'responses');
+  assert.equal(data.warnings.some(item => item.code === 'STYLE_FALLBACK'), true);
+  assert.match(data.warnings.find(item => item.code === 'STYLE_FALLBACK').message, /API 类型/);
+});
+
+test('解析：只有 reasoning_content 没有正文时，诊断指出这一点', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '', reasoning_content: '思考过程……'.repeat(20) }, finish_reason: 'length' }] } }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '一段设定文本。' } });
+  assert.equal(response.status, 500, response.body);
+  const error = String(parse(response).error);
+  assert.match(error, /reasoning_content \d+ 字/);
+  assert.match(error, /finish=length/);
+});
+
+test('解析：供应商拒绝 thinking 参数时自动去掉重试，并记住结论', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(body => {
+    if (body.thinking) return { status: 400, json: { error: { message: 'Unrecognized request argument: thinking' } } };
+    return { status: 200, json: { choices: [{ message: { content: '@@ 条目\n类型：info\n名称：灰烬议会\n正文：七名议员。\n' } }] } };
+  });
+  const first = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '炉心为城邦提供余热。' } });
+  assert.equal(first.status, 200, first.body);
+  assert.deepEqual(parse(first).entries.map(item => item.name), ['灰烬议会']);
+  assert.equal(fakeModel.requests.length, 2, '带 thinking 被 400 拒绝后去掉参数重试一次');
+  assert.equal(fakeModel.requests[0].body.thinking.type, 'disabled');
+  assert.equal(fakeModel.requests[1].body.thinking, undefined);
+
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '@@ 条目\n类型：info\n名称：炉心\n正文：为城邦供能。\n' } }] } }));
+  const second = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '炉心为城邦提供余热。' } });
+  assert.equal(second.status, 200, second.body);
+  assert.equal(fakeModel.requests.length, 1);
+  assert.equal(fakeModel.requests[0].body.thinking, undefined, '进程内已记住不支持，后续不再发送');
 });
 
 test('确认导入：缺标记头 403，成功后只追加一个新世界', async () => {

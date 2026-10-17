@@ -376,9 +376,12 @@ export async function completeAiVariants({ raw, payload = {}, expectedCount, req
 export function createModelBody(config, prompt, options = {}) {
   if (typeof options === 'boolean') options = { structured: options };
   const structured = options.structured !== false, schema = options.schema || createLoreResponseSchema(options.payload || {}), name = options.name || 'worldforge_lore_blocks', system = options.system || SYSTEM_INSTRUCTIONS, images=Array.isArray(options.images)?options.images:[];
+  // 思考开关：`thinking: {type:'disabled'}` 交给支持该参数的供应商（DeepSeek / 方舟等）。
+  // 不传就是供应商默认；server.mjs 会对「不认识该参数」的供应商自动去掉后重试一次。
+  const thinking = options.thinking === 'disabled' || options.thinking === 'enabled' ? { thinking: { type: options.thinking } } : {};
   const format = structured ? { type: 'json_schema', ...(config.style === 'chat' ? { json_schema: { name, strict: true, schema } } : { name, strict: true, schema }) } : null;
-  if (config.style === 'chat') return { model: config.model, messages: [{ role: 'system', content: system }, { role: 'user', content: images.length?[{type:'text',text:prompt},...images.map(url=>({type:'image_url',image_url:{url,detail:'auto'}}))]:prompt }], ...(structured ? { response_format: format } : {}) };
-  return { model: config.model, instructions: system, input: images.length?[{role:'user',content:[{type:'input_text',text:prompt},...images.map(image_url=>({type:'input_image',image_url,detail:'auto'}))]}]:prompt, ...(structured ? { text: { format } } : {}) };
+  if (config.style === 'chat') return { model: config.model, messages: [{ role: 'system', content: system }, { role: 'user', content: images.length?[{type:'text',text:prompt},...images.map(url=>({type:'image_url',image_url:{url,detail:'auto'}}))]:prompt }], ...(structured ? { response_format: format } : {}), ...thinking };
+  return { model: config.model, instructions: system, input: images.length?[{role:'user',content:[{type:'input_text',text:prompt},...images.map(image_url=>({type:'input_image',image_url,detail:'auto'}))]}]:prompt, ...(structured ? { text: { format } } : {}), ...thinking };
 }
 
 export const NAME_RESPONSE_SCHEMA = { type: 'object', additionalProperties: false, required: ['names'], properties: { names: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['name', 'note'], properties: { name: { type: 'string' }, note: { type: 'string' } } } } } };
