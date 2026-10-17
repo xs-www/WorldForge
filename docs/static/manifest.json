@@ -1,0 +1,838 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "code-static-documentation@2.0",
+  "mode": "compact",
+  "projectRoot": ".",
+  "docRoot": "docs/static",
+  "baseCommit": "2533c8ba4f358d23b945875f6cde16b26f9551f6",
+  "baseCommitDate": "2026-10-17",
+  "generatedAt": "2026-10-17",
+  "counts": {
+    "sources": 128,
+    "documented": 54,
+    "aggregated": 74
+  },
+  "files": [
+    {
+      "source": ".agent-presets/card-designer/agent.cordis.yml",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "364d751e45b227adf6ae163df5c5a1b45e2d55ad2004e8ed7eb9f5d54d78bfe0"
+    },
+    {
+      "source": ".agent-presets/card-designer/preset.yml",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "77edc820df82b4bd7f52c581ddfe420757416f3d3ecd0862d775f76dc573c8e7"
+    },
+    {
+      "source": ".agent-presets/card-designer/runtime/system.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "39b91b15bb3a64b15cb78996dbdad68f19133f1632151e6be596a49904551470"
+    },
+    {
+      "source": ".agent-presets/card-designer/skills/worldforge-card-design/reference/card-fields.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "acdaa7ae7995aacd8e5e734216e64d276fc3bd5213938324551bfda8b0e3b552"
+    },
+    {
+      "source": ".agent-presets/card-designer/skills/worldforge-card-design/reference/keyword-fields.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "2594ffef72df03aaf685f51d11bf5cae090f32c825cd481b400cd43055d89a18"
+    },
+    {
+      "source": ".agent-presets/card-designer/skills/worldforge-card-design/SKILL.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "2eaa8849a51ae79d550f80102875fc46410e2d2e882a45cc954a8580c020921c"
+    },
+    {
+      "source": ".agent-presets/card-designer/worldforge.runtime.json",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "d249e3e6fbfbee5f581692eb0fe98b1ca3f84592dd05a0bc4c88f4cce18c9850"
+    },
+    {
+      "source": ".agent-presets/free-creator/agent.cordis.yml",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "24e3edaaa177ac2992bd0afd9eaeee7cd4d9cfa54e84910332297b39335ca0bf"
+    },
+    {
+      "source": ".agent-presets/free-creator/preset.yml",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "05336b9f57adfd368935da50a4884166a94f2e653e76cd0c6ca148b7eb547c16"
+    },
+    {
+      "source": ".agent-presets/free-creator/runtime/system.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "84bb3eb9cd6c720f771301ef428c0fa7819ce671e7f2e1d281d7058b51f8100d"
+    },
+    {
+      "source": ".agent-presets/free-creator/skills/worldforge-free-creation/SKILL.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "de4e2edd7ebb4d720714c010754ecc6612b4564c9ffcdcc52d60c264d3459fd5"
+    },
+    {
+      "source": ".agent-presets/free-creator/worldforge.runtime.json",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "0620f02d2b7a409ba1a1f376adebaaf23ad1e120798277176505e2759ad09b43"
+    },
+    {
+      "source": ".agent-presets/lore-writer/agent.cordis.yml",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "9f47c6dc2bd3beed9d024b8ac7af5066deffb9dae93a659c45b39ea0346729a6"
+    },
+    {
+      "source": ".agent-presets/lore-writer/preset.yml",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "71bb6425a0c84fcc069f86b10a547ec611985c90211e1557e48449e2871447d3"
+    },
+    {
+      "source": ".agent-presets/lore-writer/runtime/system.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "20328bd64938af93b38c59d4a07cc6cfda4df9f4cb7aa1d4ba6c08a146fc5f0c"
+    },
+    {
+      "source": ".agent-presets/lore-writer/skills/worldforge-lore-writing/reference/content-blocks.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "1558f3f248d0bdbc54c3e07ad25440eca72216dc75ea917e0c0156ed666edd25"
+    },
+    {
+      "source": ".agent-presets/lore-writer/skills/worldforge-lore-writing/SKILL.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "0a76e3a2471f2dc2212e2892baf5e992f0d19383d2677a618d5afe30d8a50c12"
+    },
+    {
+      "source": ".agent-presets/lore-writer/worldforge.runtime.json",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "f2209c5e75f5d86aac89f3d3d0497249599a71912c39e8a65194d911250666d9"
+    },
+    {
+      "source": ".agent-presets/README.md",
+      "doc": "docs/static/.agent-presets/README.md",
+      "status": "aggregated",
+      "sha256": "e0590cd30d1849ec4f9a5b8f609277f719a1cc46002f472e65d1278485af9ae0"
+    },
+    {
+      "source": ".dockerignore",
+      "doc": "docs/static/.dockerignore.md",
+      "status": "documented",
+      "sha256": "748d33968924be5c79cb2f5d295b85a3eb72568b8971fb587e2740c6e61d856c"
+    },
+    {
+      "source": ".env.example",
+      "doc": "docs/static/.env.example.md",
+      "status": "documented",
+      "sha256": "de0164a6a7f33baca9e5a9838452130bb798dc315e7b259d5bda1687805547c3"
+    },
+    {
+      "source": ".github/workflows/ci.yml",
+      "doc": "docs/static/.github/workflows/ci.yml.md",
+      "status": "documented",
+      "sha256": "6d523136ca3391edd2766ad4b12b18be8fbf94fbfaf68351ce45c09732e6e0ce"
+    },
+    {
+      "source": ".openai/hosting.json",
+      "doc": "docs/static/.openai/hosting.json.md",
+      "status": "documented",
+      "sha256": "74d3685d1b150c61f662c71bf297d0844da28fb549226312ded06d186761cacb"
+    },
+    {
+      "source": "agent-profile-contract.mjs",
+      "doc": "docs/static/agent-profile-contract.mjs.md",
+      "status": "documented",
+      "sha256": "a7717d456e63c7b8df3bc139e278e1f10085f4bef802568956615c2954fc2dcf"
+    },
+    {
+      "source": "agent-profile-registry.mjs",
+      "doc": "docs/static/agent-profile-registry.mjs.md",
+      "status": "documented",
+      "sha256": "1a5c891c7f6e849ed7c23558682d5faf9e5bf71bf2c467308cacfba73a41ec13"
+    },
+    {
+      "source": "agent-runtime.schema.json",
+      "doc": "docs/static/agent-runtime.schema.json.md",
+      "status": "documented",
+      "sha256": "fc28a6eba2008b2e9125d905d17fecee75d8ec1d8b861ceb766eade76d43f178"
+    },
+    {
+      "source": "ai-agent.mjs",
+      "doc": "docs/static/ai-agent.mjs.md",
+      "status": "documented",
+      "sha256": "54d3d356f7d75a957b5cdfcc6645579aa3a14f073981740f12b7faeefe724a6d"
+    },
+    {
+      "source": "ai-content-specs.mjs",
+      "doc": "docs/static/ai-content-specs.mjs.md",
+      "status": "documented",
+      "sha256": "d5f7d1ab8c0381793397c6013120f8ec8c8511eccb71d06338adca89b7c60463"
+    },
+    {
+      "source": "ai-harness.mjs",
+      "doc": "docs/static/ai-harness.mjs.md",
+      "status": "documented",
+      "sha256": "8690ce1a43f897a3b572d46e78d9f05cec0379e50ed3fb726681be995bca030e"
+    },
+    {
+      "source": "ai-tools.mjs",
+      "doc": "docs/static/ai-tools.mjs.md",
+      "status": "documented",
+      "sha256": "2ddc27a1a7b157b6a5293f0df5b5342ea8af28cef606563c7cac8c1da2065abc"
+    },
+    {
+      "source": "cards/schema/card.schema.json",
+      "doc": "docs/static/cards/schema/card.schema.json.md",
+      "status": "documented",
+      "sha256": "f94b5ffedfc775ed2a7b44b3f45fa47e195a2217d109a5642189469f48fe0a71"
+    },
+    {
+      "source": "comfyui.mjs",
+      "doc": "docs/static/comfyui.mjs.md",
+      "status": "documented",
+      "sha256": "2dcfa3ce28abbe904683b1bb5392d732a1b20f59b5f5f6682b9d9ed1cb617b70"
+    },
+    {
+      "source": "compose.nas.yaml",
+      "doc": "docs/static/compose.nas.yaml.md",
+      "status": "documented",
+      "sha256": "445d8f1f042c930af01f8ba93d7d9672de161a223b291fd687ddb1b85c774388"
+    },
+    {
+      "source": "compose.yaml",
+      "doc": "docs/static/compose.yaml.md",
+      "status": "documented",
+      "sha256": "ffe1ea2f30f698f0908719e97607d9775beec4ef2e3cc88a3864e657da10f243"
+    },
+    {
+      "source": "dist/app.js",
+      "doc": "docs/static/dist/app.js.md",
+      "status": "documented",
+      "sha256": "abd29782a2f3d8a2a150fe3cdb0d82e21bb3f9bfcc20e4c22e19fba8e834c1b9"
+    },
+    {
+      "source": "dist/battle.js",
+      "doc": "docs/static/dist/battle.js.md",
+      "status": "documented",
+      "sha256": "12637a2a37f72c988d16b04155f4ec7feaf928d557df8cb59597e407812cd712"
+    },
+    {
+      "source": "dist/battle-ui.js",
+      "doc": "docs/static/dist/battle-ui.js.md",
+      "status": "documented",
+      "sha256": "731f8671b29a1618c4846fa23ce243cecabd71a90a80e3eb7ac6cbf32dd62717"
+    },
+    {
+      "source": "dist/cards.js",
+      "doc": "docs/static/dist/cards.js.md",
+      "status": "documented",
+      "sha256": "574571c38b4a745335f27fdde6184484c7e31e39e7245ddab67d5dfa412c4b6b"
+    },
+    {
+      "source": "dist/chronicle.js",
+      "doc": "docs/static/dist/chronicle.js.md",
+      "status": "documented",
+      "sha256": "d6084281cd14b43663e35eceb8a8a906b19dac7b3f15ff5ab80f2a81f7b96757"
+    },
+    {
+      "source": "dist/geography.js",
+      "doc": "docs/static/dist/geography.js.md",
+      "status": "documented",
+      "sha256": "2710a6c3e783e144cbb17a4d9ad436d58a974965034ec29bf00a20a206aebc60"
+    },
+    {
+      "source": "dist/index.html",
+      "doc": "docs/static/dist/index.html.md",
+      "status": "documented",
+      "sha256": "b70dfab6506c8e16feca35ac7ab4f019fd1026e7b4b3374f3ae3d6b7a884dc82"
+    },
+    {
+      "source": "dist/macro.js",
+      "doc": "docs/static/dist/macro.js.md",
+      "status": "documented",
+      "sha256": "d7c11510a7e58423251660b82b28781462259ddca06e6f514cca9f7dd2a49105"
+    },
+    {
+      "source": "dist/relation-picker.js",
+      "doc": "docs/static/dist/relation-picker.js.md",
+      "status": "documented",
+      "sha256": "e4d269afe82a8e433bddab4292b49a20e2c1a30cdf13fe56eb4a83e5a7e6a5c6"
+    },
+    {
+      "source": "dist/styles.css",
+      "doc": "docs/static/dist/styles.css.md",
+      "status": "documented",
+      "sha256": "7c1f43034fa0714e16168a62a79d599ffaa8158cc76c9030fa741b6a8ba30cc3"
+    },
+    {
+      "source": "dist/world-scope.js",
+      "doc": "docs/static/dist/world-scope.js.md",
+      "status": "documented",
+      "sha256": "fe9e8513a80d050735727b2d48b250d4380a313f1ed0c3deb9b400427ad4b405"
+    },
+    {
+      "source": "docker/nginx.conf",
+      "doc": "docs/static/docker/nginx.conf.md",
+      "status": "documented",
+      "sha256": "b44e0a5c2c3abe96f361765e922a90c2c5ff2de37834c7dad1a745026bbfe142"
+    },
+    {
+      "source": "Dockerfile",
+      "doc": "docs/static/Dockerfile.md",
+      "status": "documented",
+      "sha256": "dbf5b4d9031b7dfddff7855571f05b394ed595b36ad3fb62e902e7c6a8cb1c9a"
+    },
+    {
+      "source": "image-context.mjs",
+      "doc": "docs/static/image-context.mjs.md",
+      "status": "documented",
+      "sha256": "143acefafc2c069a1d78a16c43b28d6222e32c7234297dcf36a93b8547de1fd7"
+    },
+    {
+      "source": "package.json",
+      "doc": "docs/static/package.json.md",
+      "status": "documented",
+      "sha256": "d4d7864fbe7b955c3b0a3caa91c47b4120d53db2b8fc1387e20cbeefa5db1528"
+    },
+    {
+      "source": "prompt-settings.mjs",
+      "doc": "docs/static/prompt-settings.mjs.md",
+      "status": "documented",
+      "sha256": "23b72e17e3db9a678d417c73e61261f29335733b9271813f32f3286a45c14466"
+    },
+    {
+      "source": "reference-assets.mjs",
+      "doc": "docs/static/reference-assets.mjs.md",
+      "status": "documented",
+      "sha256": "c8298282d90fe52eaf775778d64afe55a4383294c39563a2f344b46cca4877ac"
+    },
+    {
+      "source": "scripts/ci/smoke-container.mjs",
+      "doc": "docs/static/scripts/ci/smoke-container.mjs.md",
+      "status": "documented",
+      "sha256": "8b7f99ed51b24141548630bd1154fa268da635554fad02df63afce19ebc0e05e"
+    },
+    {
+      "source": "scripts/compile-world-package.mjs",
+      "doc": "docs/static/scripts/compile-world-package.mjs.md",
+      "status": "documented",
+      "sha256": "584afa2beb2be0ae474d7abfa456bec87e75c65a563299b074ab6c0a9df37789"
+    },
+    {
+      "source": "seedream.mjs",
+      "doc": "docs/static/seedream.mjs.md",
+      "status": "documented",
+      "sha256": "68aab7a9f7fd94657d240b7c2d330ce2ebf3791850d35a18b5d73c834d048127"
+    },
+    {
+      "source": "server.mjs",
+      "doc": "docs/static/server.mjs.md",
+      "status": "documented",
+      "sha256": "b4a8b3c1c899299065738506d83a13f0f8023af6568d21d6972b4d71b7007507"
+    },
+    {
+      "source": "simulation/agents/rule-agent.mjs",
+      "doc": "docs/static/simulation/agents/rule-agent.mjs.md",
+      "status": "documented",
+      "sha256": "d911f57e90f4c795100f29696883b7e18d155971d2e6af21d73c9e9efdb32e26"
+    },
+    {
+      "source": "simulation/compiler/world-package.mjs",
+      "doc": "docs/static/simulation/compiler/world-package.mjs.md",
+      "status": "documented",
+      "sha256": "db8610b004db7ea9661c63fff62a3833921f18f058e03b69f42ba46a022515e7"
+    },
+    {
+      "source": "simulation/content/w01-core.json",
+      "doc": "docs/static/simulation/content/w01-core.json.md",
+      "status": "documented",
+      "sha256": "d7d216453a2ab57f6aa2a832a39ca7ed78bcc0dcf1e42803d351e251b39c7066"
+    },
+    {
+      "source": "simulation/dashboard-service.mjs",
+      "doc": "docs/static/simulation/dashboard-service.mjs.md",
+      "status": "documented",
+      "sha256": "54d7696e3faab8ba079fb156564557ff7de104fce18ffe11aeb639857f1111a5"
+    },
+    {
+      "source": "simulation/llm/macro-proposal.mjs",
+      "doc": "docs/static/simulation/llm/macro-proposal.mjs.md",
+      "status": "documented",
+      "sha256": "b8cbb3c1084b282791fc33c56791e82f8fcbd1a028603f7e57837aaa35de1b6d"
+    },
+    {
+      "source": "simulation/macro-simulation-service.mjs",
+      "doc": "docs/static/simulation/macro-simulation-service.mjs.md",
+      "status": "documented",
+      "sha256": "7f502f60520efc0e863f5eaf6cc2627f403c2da104e4b8ec780896e9a74a8b98"
+    },
+    {
+      "source": "simulation/manifests/w01-0.1.0.json",
+      "doc": "docs/static/simulation/manifests/w01-0.1.0.json.md",
+      "status": "documented",
+      "sha256": "db29e6cfe3dd88e614811744dea81f47a3eb447732c37ed515b39043816f4961"
+    },
+    {
+      "source": "simulation/registries/core-mechanics.json",
+      "doc": "docs/static/simulation/registries/core-mechanics.json.md",
+      "status": "documented",
+      "sha256": "3e2af047839a2ac4c8417fac3db3ac7dc2be39cd803d52c3903c3c120d738eab"
+    },
+    {
+      "source": "simulation/rules/energy-crisis-mechanic.mjs",
+      "doc": "docs/static/simulation/rules/energy-crisis-mechanic.mjs.md",
+      "status": "documented",
+      "sha256": "28c47717b2da9265e30bd889d2b5f2ba68bd4e0c5a3b985a39ec83241a375ae2"
+    },
+    {
+      "source": "simulation/rules/macro-world-engine.mjs",
+      "doc": "docs/static/simulation/rules/macro-world-engine.mjs.md",
+      "status": "documented",
+      "sha256": "90960a4bbc396f5248ab9f234f0aed49941357848bef316eb9c7e06ff5ac52a8"
+    },
+    {
+      "source": "simulation/rules/mechanic-runtime.mjs",
+      "doc": "docs/static/simulation/rules/mechanic-runtime.mjs.md",
+      "status": "documented",
+      "sha256": "7d97af7780caa487966204ce419dbadb267ea82dc6aa2fef4ca71efb86152e74"
+    },
+    {
+      "source": "simulation/runtime/knowledge-view.mjs",
+      "doc": "docs/static/simulation/runtime/knowledge-view.mjs.md",
+      "status": "documented",
+      "sha256": "159b6b5271942c76568c2c446e94458ae32081671cbccca80c40cfc23a3ab6ef"
+    },
+    {
+      "source": "simulation/runtime/simulation-runtime.mjs",
+      "doc": "docs/static/simulation/runtime/simulation-runtime.mjs.md",
+      "status": "documented",
+      "sha256": "195c5090e239c6a899b70cb11e3e64894ce871fc811bec63a8b7257029adec34"
+    },
+    {
+      "source": "simulation/scenarios/m1-energy-crisis.mjs",
+      "doc": "docs/static/simulation/scenarios/m1-energy-crisis.mjs.md",
+      "status": "documented",
+      "sha256": "1f91f58a95fe265cf12b6f4b59ead8b10d9adb01ab9ade30ede2b62953ad32e2"
+    },
+    {
+      "source": "simulation/scenarios/m2-macro-continent.mjs",
+      "doc": "docs/static/simulation/scenarios/m2-macro-continent.mjs.md",
+      "status": "documented",
+      "sha256": "a754d81773e8634ca4f843ecc6a71dadec452ce4824f01f224d71e8b5bbc4a38"
+    },
+    {
+      "source": "simulation/schemas/action.schema.json",
+      "doc": "docs/static/simulation/schemas/README.md",
+      "status": "aggregated",
+      "sha256": "15cdda2f9f9e7c4cab5dd9329fd720ca539d72ebf9b99af1f330b8555557b1e3"
+    },
+    {
+      "source": "simulation/schemas/content-source.schema.json",
+      "doc": "docs/static/simulation/schemas/README.md",
+      "status": "aggregated",
+      "sha256": "98caed81222311a7e0a4dffbb9b881f0fcc196191d83b01e9d57218a191421ae"
+    },
+    {
+      "source": "simulation/schemas/effect.schema.json",
+      "doc": "docs/static/simulation/schemas/README.md",
+      "status": "aggregated",
+      "sha256": "a2da5e5ddcec9531f583fcc0af23a917974e90addf27b724d57a494f30d58797"
+    },
+    {
+      "source": "simulation/schemas/mechanic-registry.schema.json",
+      "doc": "docs/static/simulation/schemas/README.md",
+      "status": "aggregated",
+      "sha256": "2cf2f94ead60f631ff737d8c728be6c6ff88aa5fa893a6d54e84e6caf1d9642b"
+    },
+    {
+      "source": "simulation/schemas/publish-manifest.schema.json",
+      "doc": "docs/static/simulation/schemas/README.md",
+      "status": "aggregated",
+      "sha256": "d71e1734f5ba228e807c003e8b3640e7bfee6f0bf304484c788cf4b3ea5302ce"
+    },
+    {
+      "source": "simulation/schemas/world-package.schema.json",
+      "doc": "docs/static/simulation/schemas/README.md",
+      "status": "aggregated",
+      "sha256": "bd4749a5187345be12c703ba85458aab5d11497c9f57950d9ed90d6704481c90"
+    },
+    {
+      "source": "simulation/storage/instance-store.mjs",
+      "doc": "docs/static/simulation/storage/instance-store.mjs.md",
+      "status": "documented",
+      "sha256": "6d86451d27f328ceac1fa652324a33b1914ec0544d1128c4cb34dae78cbbb572"
+    },
+    {
+      "source": "storage.mjs",
+      "doc": "docs/static/storage.mjs.md",
+      "status": "documented",
+      "sha256": "ea53f3b39f5e144101d4c6a7ed269410b55fec595267c68df4ef3b3b54d69d93"
+    },
+    {
+      "source": "storage-migrations.mjs",
+      "doc": "docs/static/storage-migrations.mjs.md",
+      "status": "documented",
+      "sha256": "fcd670d830792a99d007753657a7ee197be108cb1339a9603e2adba0507a2210"
+    },
+    {
+      "source": "tests/agent-loop.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "c77b6a8ef0fae0107363cf40803ba8dd7cebcd23f62a92073f1e60e0202895e3"
+    },
+    {
+      "source": "tests/agent-presets.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "b1a0914ed70586a1c5d0ff17554cac31a93e842e400ada3be70bbd41d4f50b04"
+    },
+    {
+      "source": "tests/agent-profile-api.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "dd7afe5c247cb32b9790cab13748603ed6fb22c2f844320dae850b8d1d9f98a7"
+    },
+    {
+      "source": "tests/agent-profile-contract.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "3594185c081a7ee124413efe911589ab8f9a3f0fe96a7d682359f742c5891f73"
+    },
+    {
+      "source": "tests/agent-profile-registry.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "8efec2d070036b098777c065c7b49526af32fb7810a2570d116b1741f033f1e9"
+    },
+    {
+      "source": "tests/agent-prompt-layers.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "eaf750752137a6784685cdb7f0aefc8a8846d410412c5fb71ae92f214fd037cc"
+    },
+    {
+      "source": "tests/agent-surface-integration.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "150c743bd14521a758b729aff23a90494a60eb54a5872ecf4982fc43d7e12e08"
+    },
+    {
+      "source": "tests/agent-tools.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "eaabcdcb4fd0947a8ec9ec15d087dff5d007d13a090dca779bdad7b1ea4910bf"
+    },
+    {
+      "source": "tests/ai-harness.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "11ca485992a55c798107790a3885eccf3d3a8d92d0a1ff77f03ad0bd84dc756f"
+    },
+    {
+      "source": "tests/card-battle.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "9358444ffba32456a7145055b12680c132d280e6feaf8be9adc4f3f6066d69d9"
+    },
+    {
+      "source": "tests/cards.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "6e38991d77f37aaea4742850c59db6318f1474ee59baf6b9e86471670846abae"
+    },
+    {
+      "source": "tests/chronicle.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "2ace1eac8e9292576aa8ed5a0014833ebbd4bd2fe357eeecc4026a1d69abfdf5"
+    },
+    {
+      "source": "tests/comfyui.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "f27b1138dc93d08f0acc7aacccc2c17180d88d65e9eb11dbfc05a4ad4749522c"
+    },
+    {
+      "source": "tests/docker-packaging.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "5e7f78ac720f1dd861fc97c9147657a80c5a90c83b0e8bf5c4c7df7cd675089a"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/legal/fixture-card/runtime/system.md",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "684363cb0c2b9ff4505e859778cbd4be502116c09a09ec4107ec10b1954d7d0c"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/legal/fixture-card/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "7b130b530d9ecd159d1c01cb0c7ce881b6fca2471fcf51b967670b008f0656df"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/legal/fixture-free/runtime/system.md",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "684363cb0c2b9ff4505e859778cbd4be502116c09a09ec4107ec10b1954d7d0c"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/legal/fixture-free/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "90e186996896e0a24e96c0dad7412ca3b1e806be6abc5bad10fa82d9f8f86453"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/legal/fixture-lore/runtime/system.md",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "684363cb0c2b9ff4505e859778cbd4be502116c09a09ec4107ec10b1954d7d0c"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/legal/fixture-lore/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "c20a8885db191398d728a39f3f5efedd34d35928ea9d6f598a4269bbf10a0685"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/absolute-path/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "380c8d792d6babb8d62c22ef7705d6be40cdde29e1162391ed1641517ae6d6ac"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/directory-mismatch/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "f24e06ceba0d98259af230d53d98e4160559a14e773bd21632fca9ecd008c89b"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/duplicate-id/fixture-a/runtime/system.md",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "5253b32f4933141ac63024ca645cea0019a3cd991bddc380e05662edd3b1d8f9"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/duplicate-id/fixture-a/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "c8dcbe5ddc2d9edb59a6e3d48e70b340eb4e6435a8bf00324ab5d125bd14b55d"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/duplicate-id/fixture-b/runtime/system.md",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "5253b32f4933141ac63024ca645cea0019a3cd991bddc380e05662edd3b1d8f9"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/duplicate-id/fixture-b/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "e1f6af8f2df6cbf10f20a2eb2d1c499f533493ad1994226103f1f7fe05b1975a"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/empty-prompt/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "f82c0d195957f3f17000be226a579200054b7ac4469350c9c37ca590e559928a"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/incompatible-combination/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "82d901c78c6baa85fecaec21bfa39fb5edf28cf819f745b0bb0da1ef8d2d4c3d"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/missing-prompt/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "1e20091b2be16c71661fe089b31eeee6080b38a9642d6329fa61474a70d4b72d"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/oversized-prompt/runtime/system.md",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "c887d722e28638784debb8d5e5cf8b341b7e18c34a039b1a1cecdff766f69406"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/oversized-prompt/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "402b141132bc109d7142512ae9f6e5e1ff285bab6f75de466695d89ca8828bf5"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/traversal/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "d8d3362cc9a4287c69fbcec2860137c371b4fa275d98e322d7e2c1de440c201e"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/unknown-enum/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "2934c009dbcf86a83e2d4413556127eb8a5d47400c09ed3dc78d468a4eddb0c6"
+    },
+    {
+      "source": "tests/fixtures/agent-profiles/reject/unknown-field/worldforge.runtime.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "95b613909c2a1e10d9dc6c6843da4927b93833cebb9f9669bab4f6466cf77346"
+    },
+    {
+      "source": "tests/geography.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "0bd606bdc4e1660b7169894786483e86dff5ed120b36e15f54e6bdc70fbb0fc9"
+    },
+    {
+      "source": "tests/image-context.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "ecd9a3696d11a366aa83af43fec887ede683281099f997361caba3f64073e968"
+    },
+    {
+      "source": "tests/macro-simulation.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "26b7c066bd935d9575651a59ea3eeb889447360b90692ced738cffb0f15b3ada"
+    },
+    {
+      "source": "tests/prompt-settings.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "ec5b103f94878d30e5c694fa3c10188122c37c49546633fc9ae4d3bd730f1dce"
+    },
+    {
+      "source": "tests/README.md",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "603e3b022901ed07a5c9b96aaff3b2e7fafb4af09bbb1f92b28fde5b35ac1d27"
+    },
+    {
+      "source": "tests/reference-assets.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "56d49e1acab8299e516f8b10daba04a528abaa41a91aa3b0ae1e0f674ac95dd9"
+    },
+    {
+      "source": "tests/relation-picker.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "4d59b7320f4542d7dd641392fc10a36fa415172918982d4e2750f61443bb9f0b"
+    },
+    {
+      "source": "tests/seedream.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "0eb00dca2a3bd06dd3353ea649ff708e26b98715b48755cd26c5a04b3ceff7c2"
+    },
+    {
+      "source": "tests/simulation-dashboard.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "5c4288e0b0aa82e7004de5b5c73f8d770bad22e61cb23af81f80ffb6d9b07b25"
+    },
+    {
+      "source": "tests/simulation-runtime.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "e45376e05c01f1422430b346f223b461541ec9fb170e604e51d53fbb83626f1b"
+    },
+    {
+      "source": "tests/snapshots/agent-prompt-layers.json",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "3d348f6e137050ecb73ec5750279a504ce7b67ee5358e032da023d233182e246"
+    },
+    {
+      "source": "tests/storage.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "916e8bcdd193730d412726b6b3bb4655b8050c216295eb331c0dc854c998e2ef"
+    },
+    {
+      "source": "tests/subpath-routing.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "ee6fb1a91ab9f10f2ad44d1b2f87456cd78a88c23634995423891178dd704380"
+    },
+    {
+      "source": "tests/world-package.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "015296a5a4f0496d3114337f3089b596cf687ddce4cd476537c7c4425331bf1e"
+    },
+    {
+      "source": "tests/world-scope.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "2711be8d537399f8baac0fc8ee8936d56fb8af985e522bfecda66a3772855709"
+    }
+  ],
+  "aggregates": [
+    {
+      "doc": "docs/static/tests/README.md",
+      "covers": "tests/**"
+    },
+    {
+      "doc": "docs/static/simulation/schemas/README.md",
+      "covers": "simulation/schemas/**"
+    },
+    {
+      "doc": "docs/static/.agent-presets/README.md",
+      "covers": ".agent-presets/**"
+    },
+    {
+      "doc": "docs/static/dist/README.md",
+      "covers": "dist/ frontend assembly (no single source file)"
+    },
+    {
+      "doc": "docs/static/README.md",
+      "covers": "L0 project index"
+    }
+  ],
+  "skipped": [
+    {
+      "pattern": "docs/**",
+      "reason": "design/ADR markdown and this doc tree itself; referenced from docs/static/README.md only"
+    },
+    {
+      "pattern": "universe/**, worlds/**, mechanics/**, cards/**/*.md, cards/w01/**, templates/**",
+      "reason": "lore and card design content, not code"
+    },
+    {
+      "pattern": "README.md, AGENTS.md, CHANGELOG.md, todo.md",
+      "reason": "repository-level documentation"
+    },
+    {
+      "pattern": "docs/static/html-product.md",
+      "reason": "legacy append-only delivery archive, kept verbatim"
+    },
+    {
+      "pattern": ".data/**",
+      "reason": "runtime SQLite databases and WAL/SHM files"
+    },
+    {
+      "pattern": "dist/assets/**",
+      "reason": "binary artwork and card-frame assets"
+    },
+    {
+      "pattern": "exports/**",
+      "reason": "generated artifacts, not content sources"
+    }
+  ],
+  "note": "Machine-readable manifest. ASCII only so both Node and Windows PowerShell 5.1 can parse it; see docs/static/README.md for the human index."
+}
