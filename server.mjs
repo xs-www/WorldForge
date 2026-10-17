@@ -308,7 +308,10 @@ async function callAi(payload) {
   const system = composeAgentSystemPrompt({ presetPrompt: profile.systemPrompt, entryContract: LORE_ENTRY_CONTRACT });
   const bundle = buildContextBundle(payload);
   const promptSettings = await loadPromptSettings();
-  const prompt = buildPrompt({ ...payload, typePrompt: promptSettings.typePrompts[payload?.draft?.type] || '', personalizedPrompt: promptSettings.personalizedPrompt }, bundle);
+  // promptPayload 已注入服务端作者提示（第 4 层），初次与补生成必须共用它，
+  // 否则补生成会退回「无额外分类提示/无额外统一风格要求」。
+  const promptPayload = { ...payload, typePrompt: promptSettings.typePrompts[payload?.draft?.type] || '', personalizedPrompt: promptSettings.personalizedPrompt };
+  const prompt = buildPrompt(promptPayload, bundle);
   const validationPayload = { ...payload, allowedRelationIds: [...bundle.examples, ...bundle.entries].map(entry => entry.id) };
   const expectedCount = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3));
   const schema = createLoreResponseSchema(payload);
@@ -324,9 +327,10 @@ async function callAi(payload) {
     try{raw = await requestModel(config, `${prompt}\n严格只返回 JSON 对象。`, { structured: false, payload, ...modelOptions })}catch(fallbackError){if(vision.ids.length)fallbackError.message=`当前模型或兼容接口可能不支持图片输入：${fallbackError.message}`;throw fallbackError}
   }
   const result = await completeAiVariants({ raw, payload: validationPayload, expectedCount, requestSupplement: async ({ missingCount, acceptedVariants, issues }) => {
-    const supplementPayload = { ...payload, variantCount: missingCount };
-    // 补生成与初次请求共用同一层结构（4 → 5 → 6），不把新任务追加到第 6 层之后。
-    const supplementPrompt = buildSupplementPrompt(payload, bundle, { missingCount, acceptedVariants, issues });
+    const supplementPayload = { ...promptPayload, variantCount: missingCount };
+    // 补生成与初次请求共用同一 promptPayload（含第 4 层作者提示）与同一层结构（4 → 5 → 6）：
+    // 数量要求、补生成指令与 Schema 都对齐 missingCount，不出现「严格返回 2 份」与「只补 1 份」并存。
+    const supplementPrompt = buildSupplementPrompt(supplementPayload, bundle, { missingCount, acceptedVariants, issues });
     const supplementSchema = createLoreResponseSchema(supplementPayload);
     if (!structured) return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload, ...modelOptions });
     try { return await requestModel(config, supplementPrompt, { structured: true, schema: supplementSchema, payload: supplementPayload, ...modelOptions }); }

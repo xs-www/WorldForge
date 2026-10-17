@@ -133,6 +133,22 @@ test('the supplement request keeps layers 4 → 5 → 6 instead of appending aft
   for (const marker of ['现在只补充缺少的', '目标模块：']) assert.ok(prompt.indexOf(marker) < firstUntrusted, `${marker} 不得晚于不可信块`);
 });
 
+test('the supplement prompt follows the overridden variant count and keeps layer 4', () => {
+  // 补生成必须使用「服务端注入过作者提示 + variantCount=missingCount」的 payload；
+  // 用原始 payload 会产生「严格返回 2 份」与「只补 1 份」并存的矛盾。
+  const payload = { action: 'brainstorm', variantCount: 2, prompt: '要求', typePrompt: '分类提示', personalizedPrompt: '风格提示', draft: { type: 'magic', name: '甲', worldId: 'W01', tags: [] }, selectedBlocks: ['name', 'summary'] };
+  const bundle = buildContextBundle(payload);
+  const supplementPayload = { ...payload, variantCount: 1 };
+  const initial = buildPrompt(payload, bundle);
+  const supplement = buildSupplementPrompt(supplementPayload, bundle, { missingCount: 1, acceptedVariants: [{ key: 'a', content: { name: '甲', summary: '乙' } }], issues: [] });
+  assert.ok(initial.includes('候选数量：严格返回 2 份'));
+  assert.ok(supplement.includes('候选数量：严格返回 1 份'), '补生成数量应等于 missingCount');
+  assert.ok(!supplement.includes('严格返回 2 份'), '补生成不得保留原始总数');
+  const layer4 = text => text.slice(text.indexOf('<author_type_prompt>'), text.indexOf('</author_personalized_style>') + '</author_personalized_style>'.length);
+  assert.equal(layer4(supplement), layer4(initial), '第 4 层必须与初次请求一致');
+  assert.ok(layer4(supplement).includes('分类提示') && layer4(supplement).includes('风格提示'));
+});
+
 test('the composed system plus prompt covers all six layers in order', () => {
   const payload = { action: 'polish', variantCount: 1, typePrompt: '分类提示', personalizedPrompt: '风格提示', draft: { type: 'character', name: '甲', worldId: 'W01', tags: [] }, selectedBlocks: ['name'] };
   const system = composeAgentSystemPrompt({ presetPrompt: 'preset persona', entryContract: LORE_ENTRY_CONTRACT });

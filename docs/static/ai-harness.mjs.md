@@ -59,6 +59,7 @@
 ### `buildSupplementPrompt(payload, bundle, {missingCount, acceptedVariants, issues})`
 - 与初次请求共用 `lorePromptSections`，输出顺序为：第 4 层作者提示 → 第 5 层（初始任务 + 补生成指令）→ 第 6 层（示例/资料，随后是 `<accepted_variants>` 与 `<validation_issues>`）。
 - 不接受「初始 prompt 字符串」作为入参：早期版本把内容追加到已含第 6 层的 prompt 尾部，形成 4→5→6→6→5；当前签名从结构上排除了这种拼接方式。
+- **调用方必须传入已注入第 4 层且 `variantCount = missingCount` 的 payload**（`server.mjs` 用 `{ ...promptPayload, variantCount: missingCount }`）。传原始 payload 会让第 4 层退回「无额外分类提示」并产生「严格返回 2 份」与「只补 1 份」并存的矛盾；本函数不做兜底修正。
 - 已验收候选与校验问题属于第 6 层最后区块；`issues` 只取前 8 条，为空时回落为「- 返回条数不足」。
 
 ### `buildContextBundle(payload, budget = 60000)`

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer as createProbe } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -59,6 +59,8 @@ before(async () => {
   registry = await loadAgentProfiles();
   fakeModel = await createFakeModel();
   baseDir = await mkdtemp(join(tmpdir(), 'worldforge-sprint2-'));
+  // 预置作者提示词，使第 4 层在两次请求里都有真实内容，能检出「补生成丢失服务端提示」。
+  await writeFile(join(baseDir, 'prompt-settings.json'), JSON.stringify({ personalizedPrompt: '保持冷峻工业风', typePrompts: { magic: '说明术式的能量来源与代价。' } }), 'utf8');
   const port = await freePort();
   baseUrl = `http://127.0.0.1:${port}`;
   appServer = spawn(process.execPath, ['server.mjs'], {
@@ -94,9 +96,10 @@ before(async () => {
 });
 
 after(async () => {
-  await new Promise(resolve => { if (appServer.exitCode !== null) { resolve(); return; } appServer.once('exit', resolve); appServer.kill(); });
-  await fakeModel.close();
-  await rm(baseDir, { recursive: true, force: true });
+  // before 可能中途失败，清理必须对未初始化的句柄保持安全。
+  if (appServer && appServer.exitCode === null) await new Promise(resolve => { appServer.once('exit', resolve); appServer.kill(); });
+  if (fakeModel) await fakeModel.close();
+  if (baseDir) await rm(baseDir, { recursive: true, force: true });
 });
 
 const loreDraft = { type: 'magic', name: '测试术式', worldId: 'W01' };
@@ -177,6 +180,29 @@ test('supplement generation reuses the same preset snapshot', async () => {
   assert.ok(order.supplementTask < order.examples, '补生成指令不得晚于第 6 层');
   assert.ok(order.examples < order.accepted && order.context < order.accepted, '已验收候选属于第 6 层');
   assert.ok(order.accepted < order.issues, '校验问题数据在最后');
+
+  // 第 4 层必须与初次请求逐字一致：服务端注入的分类提示与个性化提示不能丢失。
+  const layer4 = text => {
+    const start = text.indexOf('<author_type_prompt>');
+    const end = text.indexOf('</author_personalized_style>');
+    return start >= 0 && end > start ? text.slice(start, end + '</author_personalized_style>'.length) : '';
+  };
+  const initial = fakeModel.requests[0].body.messages.filter(item => item.role === 'user').at(-1).content;
+  assert.ok(layer4(initial).length > 0, '初次请求应带第 4 层');
+  assert.ok(layer4(initial).includes('保持冷峻工业风'), '初次请求应带作者个性化提示');
+  assert.equal(layer4(supplement), layer4(initial), '补生成的第 4 层必须与初次请求完全一致');
+  assert.ok(layer4(supplement).includes('保持冷峻工业风'), '补生成不得丢失作者个性化提示');
+  assert.ok(layer4(supplement).includes('说明术式的能量来源与代价。'), '补生成不得丢失分类提示');
+  assert.ok(!layer4(supplement).includes('无额外分类提示'), '补生成不得退回无分类提示');
+  assert.ok(!layer4(supplement).includes('无额外统一风格要求'), '补生成不得退回无风格要求');
+
+  // 数量要求必须与补生成指令和 Schema 一致，不能同时出现「严格返回 2 份」与「只补 1 份」。
+  assert.ok(supplement.includes('候选数量：严格返回 1 份'), '补生成的数量要求应为 missingCount');
+  assert.ok(!supplement.includes('候选数量：严格返回 2 份'), '补生成不得沿用原始总数');
+  assert.ok(supplement.includes('现在只补充缺少的 1 份'), '补生成指令数量一致');
+  const supplementSchema = fakeModel.requests[1].body.response_format.json_schema.schema;
+  assert.equal(supplementSchema.properties.variants.minItems, 1, '补生成 Schema 的 minItems 应为 missingCount');
+  assert.equal(supplementSchema.properties.variants.maxItems, 1, '补生成 Schema 的 maxItems 应为 missingCount');
 });
 
 test('the free entry keeps untrusted content out of the system instructions', async () => {

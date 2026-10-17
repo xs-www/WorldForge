@@ -1,5 +1,24 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 2 复审第四轮修正（补生成请求快照）
+
+复审指出补生成使用了错误的 payload：`server.mjs` 虽已构造 `supplementPayload`，调用 `buildSupplementPrompt` 时仍传原始 `payload`。后果有两个：第 5 层出现「严格返回 2 份」与「只补 1 份」的相互矛盾指令（Schema 只接受 1 份），且第 4 层退回「无额外分类提示/无额外统一风格要求」，丢失第一次请求注入的服务端分类提示与个性化提示。
+
+修正：
+
+- `callAi` 抽出 `promptPayload = { ...payload, typePrompt, personalizedPrompt }`，初次请求用 `buildPrompt(promptPayload, bundle)`。
+- 补生成用 `supplementPayload = { ...promptPayload, variantCount: missingCount }`，同一对象同时驱动 `buildSupplementPrompt`、`createLoreResponseSchema` 与 `expectedCount`，因此第 4 层逐字一致、数量要求与 Schema 的 `minItems/maxItems` 对齐。
+- `buildSupplementPrompt` 不做兜底修正：文档与注释明确要求调用方传入已注入第 4 层且数量等于 `missingCount` 的 payload，避免在两处各自猜测数量。
+
+新增测试（本轮 197 项）：
+
+- `tests/agent-prompt-layers.test.mjs`（11 → 12 项）：补生成使用 `variantCount: 1` 时出现「严格返回 1 份」、不出现「严格返回 2 份」，第 4 层与初次逐字相等。
+- `tests/agent-surface-integration.test.mjs`：`before` 钩子预置 `prompt-settings.json`（个性化提示 + `magic` 分类提示），用真实 `server.mjs` 断言两次出站请求的第 4 层逐字一致且含作者提示、不含回落文案；补生成请求的数量要求为 1 且补生成 Schema 的 `minItems/maxItems` 均为 1。另修正 `after` 钩子在 `before` 失败时访问未初始化句柄的问题。
+
+文档：ADR-0029 §7 补记「补生成必须共用同一已注入第 4 层的 payload 与同一数量口径」；Sprint 计划 §9.5 增加 S2-14；`ai-harness.mjs.md`、`server.mjs.md`、`tests/README.md` 与 `manifest.json` 哈希增量更新。
+
+验证：`npm run check` 全通过（197 项测试）。未验证项不变：真实付费模型端到端、Sprint 3 选择器、Sprint 4 卡牌 Agent。
+
 ## 2026-10-17 Sprint 2 复审第三轮修正（差额补生成层序）
 
 复审发现 `buildSupplementPrompt` 把 `<accepted_variants>`、校验问题摘要与「现在只补充……」追加在**已含第 6 层**的初次 prompt 之后，实际顺序变成 4→5→6→6→5，违反 ADR-0029 §7，而差额补生成路径会真实执行这里。测试此前只断言初次 `buildPrompt` 的层序，没有覆盖补生成请求。

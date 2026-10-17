@@ -489,6 +489,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | S2-11 | 复审 P1：不可信内容被提升到 system | 完成：`composeAgentSystemPrompt` 移除 `authorNotes` 参数，新增 `assertInstructionLayerClean`（命中不可信标记抛 `AGENT_UNTRUSTED_LEAK`，错误码 `AGENT_UNTRUSTED_LEAK` 只用于内部断言，不外露给浏览器）；新增 `attachUntrustedContext` 把作者笔记与降级索引附到最后一条用户消息。集成测试断言 system 不含 `author_notes`/`library_context` 与其正文，用户侧含 `<untrusted_context>` |
 | S2-12 | 复审 P2：第 4、5 层顺序反转 | 完成：`buildPrompt` 重排为 `author_type_prompt` → `author_personalized_style` → 任务要求 → `worldforge_examples` → `worldforge_context`。新增测试分别断言 system 内 1→2→3 与 user prompt 内 4→5→6，并断言两条通道互不串层；另有完整六层顺序断言 |
 | S2-13 | 复审 P2：差额补生成再次破坏层序 | 完成：抽出 `lorePromptSections(payload, bundle)` 供初次与补生成共用；`buildSupplementPrompt(payload, bundle, { missingCount, acceptedVariants, issues })` 改为按层重排——补生成指令并入第 5 层，`<accepted_variants>` 与 `<validation_issues>` 作为第 6 层最后区块，不再追加到初次 prompt 尾部。新增单元断言与**第二次真实出站请求**的完整层序断言 |
+| S2-14 | 复审 P2：补生成未沿用完整请求快照 | 完成：`callAi` 先构造 `promptPayload = { ...payload, typePrompt, personalizedPrompt }`，初次与补生成共用；`supplementPayload = { ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`。测试断言两次请求第 4 层逐字一致且含作者分类/个性化提示，补生成数量要求为 missingCount 且与 Schema 的 `minItems/maxItems` 一致 |
 
 分层重构的取舍：
 
