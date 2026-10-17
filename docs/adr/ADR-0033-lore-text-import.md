@@ -145,6 +145,8 @@
 
 - **思考预算**：`deepseek-flash` 这类思考型模型会把输出预算耗在推理上，正文直接为空。所有机械型入口（导入、设定候选、卡牌补丁、名称生成、宏观提案、提示词优化）现在默认发送 `thinking: {type: 'disabled'}`；供应商若不认这个参数（400/422），调用层去掉它重试一次并在进程内记住。自由对话保留供应商默认，因为那里推理可能有用。
 - **响应形状**：网关可能把正文放在另一套形状里（chat 请求回 `output[]`、或把整个响应再包一层 `data`）。服务端解析一次覆盖 chat `choices[]`、responses `output_text`/`output[]`、顶层 `text`/`completion` 与包装层；仍然为空时，**首段**换另一种 API 类型（chat ↔ responses）重试一次，成功则整次请求沿用它，并记 `STYLE_FALLBACK` 提示作者去设置里改「API 类型」。
+- **推理项不是正文**：Responses 形状会把 `type:"reasoning"` 条目排在 `message` 前面；早期提取器把 `output[].content` 一并压平，于是把「Let me organize this into entries…」这类英文思考当成了答案。现在显式跳过 reasoning / summary 项，只读 message 的文本；只有 reasoning 项时按「没有正文」处理，错误信息里写明「接口只返回了思考过程」，并触发上面的 API 类型回退。
+- 导入提示词第 5 层的首行是「最高优先级：直接输出记录格式，不要输出思考过程、分析、计划或英文说明；回答第一个字符必须是 `@`」，从源头减少思考泄漏。
 - 空响应不再是一句「不是 JSON」：错误信息里带 `style`、`finish_reason`、实际返回字段名与 `reasoning_content` 字数，作者与维护者都能直接判断是 key 错位、模型思考还是配置错。
 
 这三条都是**协议兼容层**，不改变内容纪律：不猜内容、不把推理过程当资料、不静默改配置（只在本次请求内切换并告警）。

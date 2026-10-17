@@ -302,6 +302,37 @@ test('解析：当前 API 类型返回空内容时自动换另一种形状重试
   assert.match(data.warnings.find(item => item.code === 'STYLE_FALLBACK').message, /API 类型/);
 });
 
+test('解析：responses 形状里 reasoning 项排在正文前时，不能把思考过程当条目', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({
+    status: 200,
+    json: {
+      output: [
+        { type: 'reasoning', summary: [{ type: 'summary_text', text: 'Let me organize this into entries. The source is a worldbuilding document…' }] },
+        { type: 'message', content: [{ type: 'output_text', text: '@@ 条目\n类型：info\n名称：灰烬议会\n正文：七名议员。\n' }] }
+      ]
+    }
+  }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '炉心为城邦提供余热。' } });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  assert.deepEqual(data.entries.map(item => item.name), ['灰烬议会']);
+  assert.equal(JSON.stringify(data).includes('Let me organize'), false, '思考过程不得进入导入结果');
+});
+
+test('解析：只有 reasoning 项没有正文时，诊断说明「只返回了思考过程」', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({
+    status: 200,
+    json: { output: [{ type: 'reasoning', summary: [{ type: 'summary_text', text: 'Let me organize this into entries…' }] }] }
+  }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '一段设定文本。' } });
+  assert.equal(response.status, 500, response.body);
+  const error = String(parse(response).error);
+  assert.match(error, /reasoning 项/);
+  assert.match(error, /只返回了思考过程/);
+});
+
 test('解析：只有 reasoning_content 没有正文时，诊断指出这一点', async () => {
   fakeModel.reset();
   fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '', reasoning_content: '思考过程……'.repeat(20) }, finish_reason: 'length' }] } }));

@@ -372,7 +372,7 @@
       "source": "lore-import.mjs",
       "doc": "docs/static/lore-import.mjs.md",
       "status": "documented",
-      "sha256": "6ef69f71d7f1c1a71c82c00b7afc4b999a4c6c82d475292cb72d01493a465a9e"
+      "sha256": "e797ceae1da35811f7c16825bf38bba6282d7e053edd5ccb48ee4ece9d3bdfe1"
     },
     {
       "source": "lore-import-files.mjs",
@@ -432,7 +432,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "760835c13518274e5ef7e619ecaa0f3b79f1d96218df81365fa7f2423feaf2a5"
+      "sha256": "4bfa4d65b96197afa4be9f4cfc599010385783d428867baeb233d1ef195d5b66"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -882,7 +882,7 @@
       "source": "tests/lore-import-api.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "649b3b8bd648f0f1ef6e9f2577bf0d10cbac7a84a2148ee5083f69ac19d50748"
+      "sha256": "99ef386e83cc6b09916cafd5fdb68114f918e135b3c22a9487f0bcafc8fc47b2"
     },
     {
       "source": "tests/lore-import-files.test.mjs",

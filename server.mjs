@@ -427,6 +427,13 @@ function unwrapModelPayload(data) {
  * output_text / output[].content[]，以及被网关改写过的 text / completion / 分片数组。
  * 供应商把答案放在哪一层不该由调用方猜，所以这里一次覆盖所有已知形状。
  */
+/** reasoning / summary 类条目是模型的思考过程，不能当正文；OpenAI Responses 会把它排在 message 前面。 */
+function isReasoningPart(value) {
+  const type = String(value?.type || '').toLowerCase();
+  if (/reasoning|thinking|analysis|summary/.test(type)) return true;
+  return Array.isArray(value?.summary) && !value?.content && !value?.text;
+}
+
 function extractModelText(data) {
   const body = unwrapModelPayload(data);
   if (!body || typeof body !== 'object') return '';
@@ -439,8 +446,10 @@ function extractModelText(data) {
     if (text.trim()) return text;
   }
   const output = Array.isArray(body.output) ? body.output : body.output ? [body.output] : [];
+  // 只取 message / 文本项；跳过 reasoning 项（否则会把「Let me organize…」这类英文思考当正文）。
   for (const item of output) {
-    const text = modelTextOf(item?.content) || modelTextOf(item?.text) || modelTextOf(item);
+    if (isReasoningPart(item)) continue;
+    const text = modelTextOf(item?.content) || modelTextOf(item?.text) || (typeof item === 'string' ? item : '');
     if (text.trim()) return text;
   }
   return '';
@@ -451,13 +460,16 @@ function describeModelBody(data, options = {}) {
   const body = unwrapModelPayload(data) || {};
   const choice = Array.isArray(body.choices) ? body.choices[0] : null;
   const reasoning = choice?.message?.reasoning_content ?? choice?.message?.reasoning ?? body.reasoning_content;
+  const output = Array.isArray(body.output) ? body.output : [];
+  const reasoningParts = output.filter(isReasoningPart).length;
   return {
     style: options.style || '',
     json: options.json !== false,
     keys: Object.keys(body).slice(0, 8),
     finishReason: String(choice?.finish_reason ?? body.status ?? ''),
     hasChoices: Array.isArray(body.choices) && body.choices.length > 0,
-    outputItems: Array.isArray(body.output) ? body.output.length : 0,
+    outputItems: output.length,
+    reasoningItems: reasoningParts,
     reasoningCharacters: typeof reasoning === 'string' ? reasoning.length : 0
   };
 }
@@ -515,10 +527,13 @@ function emptyModelError(meta, fallbackMeta) {
     `finish=${meta.finishReason || '未知'}`,
     `返回字段=${meta.keys.length ? meta.keys.join('/') : '空'}`,
     meta.json ? '' : '响应不是 JSON',
+    meta.reasoningItems ? `${meta.reasoningItems} 个 reasoning 项` : '',
     meta.reasoningCharacters ? `reasoning_content ${meta.reasoningCharacters} 字` : ''
   ].filter(Boolean);
+  const reasoningOnly = meta.reasoningItems || meta.reasoningCharacters;
+  const hint = reasoningOnly ? '；接口只返回了思考过程，没有正文（应在设置里换用非思考模型，或让供应商支持关闭思考）' : '';
   const suffix = fallbackMeta ? `；改用 ${fallbackMeta.style} 重试仍然为空` : '';
-  return new Error(`模型没有返回内容（${parts.join('，')}）${suffix}`);
+  return new Error(`模型没有返回内容（${parts.join('，')}）${hint}${suffix}`);
 }
 
 /**

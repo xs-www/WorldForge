@@ -187,7 +187,8 @@ export function buildImportPrompt(options = {}) {
   const source = String(options.text ?? '');
   // 原文属于不可信上下文：只可能撑破标签，因此把闭合标签打断，避免它伪装成新的指令段。
   const guarded = source.replace(/<\/worldforge_import_source/gi, '< /worldforge_import_source');
-  const taskRequest = `任务：把下面这段原创世界设定原文整理成资料库条目，供作者逐条确认后写入一个新建的世界。
+  const taskRequest = `最高优先级：直接输出记录格式，不要输出思考过程、分析、计划或英文说明。你的回答第一个字符必须是「@」（第一行就是「@@ 世界」）。
+任务：把下面这段原创世界设定原文整理成资料库条目，供作者逐条确认后写入一个新建的世界。
 本段是原文的第 ${index + 1}/${total} 段；只整理本段出现的信息，不要为了连贯而补写其它段落的内容，同名同类型的条目会由系统自动合并。
 整理规则：
 - 只使用原文明确写出的信息。可以归纳、分段、改写成通顺正文，但不得新增原文没有的事实、数字、名称、关系、年代或机制。
