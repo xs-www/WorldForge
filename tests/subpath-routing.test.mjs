@@ -8,6 +8,7 @@ const styleSource = await readFile(new URL('../dist/styles.css', import.meta.url
 const macroSource = await readFile(new URL('../dist/macro.js', import.meta.url), 'utf8');
 const battleSource = await readFile(new URL('../dist/battle.js', import.meta.url), 'utf8');
 const serverSource = await readFile(new URL('../server.mjs', import.meta.url), 'utf8');
+const harnessSource = await readFile(new URL('../ai-harness.mjs', import.meta.url), 'utf8');
 
 test('browser API requests follow the script mount path', () => {
   assert.match(appSource, /new URL\('\.\/api\/',document\.currentScript\.src\)/);
@@ -15,9 +16,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=43/);
+  assert.match(htmlSource, /app\.js\?v=44/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=35/);
+  assert.match(htmlSource, /styles\.css\?v=36/);
   assert.match(htmlSource, /cards\.js\?v=6/);
   assert.match(htmlSource, /world-scope\.js\?v=1/);
   assert.match(htmlSource, /relation-picker\.js\?v=1/);
@@ -238,17 +239,18 @@ test('bulk form fill only writes ids that exist in the markup', () => {
 test('the free agent reaches lore and art through read-only server-side tools', () => {
   assert.match(serverSource, /import \{ AGENT_LIMITS, FREE_AGENT_TOOLS, prepareArtAssets, prepareLibrary, runToolCall \} from '\.\/ai-tools\.mjs'/);
   assert.match(serverSource, /import \{ createToolCaller, runAgentLoop \} from '\.\/ai-agent\.mjs'/);
-  assert.match(serverSource, /const FREE_AGENT_TOOL_GUIDE/);
+  assert.match(harnessSource, /export const FREE_AGENT_TOOL_GUIDE/);
+  assert.match(serverSource, /FREE_AGENT_TOOL_GUIDE/);
   assert.match(serverSource, /const library = prepareLibrary\(payload\?\.library\)/);
   assert.match(serverSource, /const artAssets = prepareArtAssets\(payload\?\.artAssets\)/);
   assert.match(serverSource, /callModel: callModelFor\(useTools\)/);
   assert.match(serverSource, /runToolCall\(name, args, library, artAssets\)/);
   assert.match(serverSource, /async function resolveAgentImages\(value, maximum = AGENT_LIMITS\.maxImages\)/);
   assert.match(serverSource, /outcome\.images = resolved\.images/);
-  assert.match(serverSource, /const useTools = library\.length > 0 \|\| artAssets\.length > 0/);
+  assert.match(serverSource, /const useTools = available && policyTools\.length > 0/);
   // 美术资产必须能被真正看到，而不是只给元数据
-  assert.match(serverSource, /get_art_asset：按资产编号把 1–4 张原画的实际画面附到本次对话/);
-  assert.match(serverSource, /必须先用 get_art_asset 把图附上来/);
+  assert.match(harnessSource, /get_art_asset：按资产编号把 1–4 张原画的实际画面附到本次对话/);
+  assert.match(harnessSource, /必须先用 get_art_asset 把图附上来/);
   // 三种模式都要如实回报，方便前端说明当前是工具检索还是退回单轮
   assert.match(serverSource, /describe\(result, useTools \? 'native' : 'none'\)/);
   assert.match(serverSource, /describe\(result, 'unavailable'\)/);
@@ -302,7 +304,7 @@ test('the free chat can attach images picked from the asset library', () => {
   // 服务端按编号把附件读成图片，且无工具路径也保留附图
   assert.match(serverSource, /const assets = role === 'user' && Array\.isArray\(item\?\.assets\)/);
   assert.match(serverSource, /const attached = await resolveAgentImages\(assets, AGENT_LIMITS\.maxImages\)/);
-  assert.match(serverSource, /const useTools = library\.length > 0 \|\| artAssets\.length > 0/);
+  assert.match(serverSource, /const useTools = available && policyTools\.length > 0/);
   assert.match(serverSource, /maxRounds: useTools \? undefined : 1/);
   assert.doesNotMatch(serverSource, /transcriptOf/);
 });

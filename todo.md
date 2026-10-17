@@ -7,7 +7,8 @@
 - [x] 完成 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0 工程实现：兼容矩阵、提示词六层顺序与稳定错误码；新增 `docs/schemas/agent-runtime.schema.json`、`agent-profile-contract.mjs`（契约真值）与提示词层次 snapshot；三个 preset 补齐 `worldforge.runtime.json` + `runtime/system.md`；新增合法/非法夹具与 12 项契约测试。
 - [x] **Sprint 0 正式验收**：作者逐条签署 ADR-0029 §10 五项（只读仓库随附投影、按 surface 独立保存、自由聊天切换即新对话、本轮不接受自定义 preset、卡牌 Agent 独立浮动面板且只返回补丁），五项全部接受、无改判；ADR-0029 据此转为 canon，Sprint 0 退出条件「runtime manifest 与兼容矩阵经作者确认」关闭。
 - [x] 完成 Sprint 1 并修正只读验收问题：新增 `agent-profile-registry.mjs`（Schema 校验、安全路径、确定性 SHA-256 指纹、深度冻结只读快照、三入口完整性门）与仓库根 Schema 部署副本；`server.mjs` 启动时加载并在任何投影损坏或入口缺失时拒绝启动并退出；新增 `GET /api/ai/presets` 与 `/api/health` 的 `agentProfiles` 摘要；`Dockerfile` 只打包 6 个投影文件；已真实 `docker build` 比对本机与容器的 ID、版本与哈希一致。
-- [ ] 按同一计划实现 Sprint 2–5：设定助手与自由创作接入 Registry、分入口选择器与请求快照、卡牌文字 Agent、安全加固与发布验收。当前 `server.mjs` 的 AI 入口仍使用固定提示常量，`GET /api/ai/presets` 只是发现接口，选择的 `presetId` 尚不影响生成结果。
+- [x] 完成 Sprint 2：设定助手与自由创作真正使用 Registry 中的 preset。新增第 1 层安全边界、第 3 层入口契约与 `composeAgentSystemPrompt`；`lore-writer` / `free-creator` 投影裁剪到 `1.1.0` 并保持关键纪律各出现一次；未知或不兼容 preset 在模型调用前 400；三个响应回显 `agent` 快照；差额补生成与工具降级沿用同一快照；工具白名单与 6 轮 / 12 次 / 4 图硬上限不变；前端显示本轮实际 preset；Registry 拒绝含产品保留标记的 prompt。
+- [ ] 按同一计划实现 Sprint 3–5：分入口 preset 选择器、`agent-settings.json` 与会话切换语义、卡牌文字 Agent、安全加固与发布验收。当前所有请求仍使用服务端默认 `lore-writer` / `free-creator`，界面还不能改选。
 
 - [x] 完成 M0 仓库骨架与基础模板。
 - [x] 交付可直接使用的 HTML 世界设计工作台。

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "free-creator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "WorldForge 自由创作",
   "description": "以自然语言讨论、构思、比较、续写、改写或分析原创设定，不强制 JSON 或模块模板。",
   "surfaces": ["free"],

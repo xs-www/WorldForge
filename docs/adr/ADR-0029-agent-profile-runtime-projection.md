@@ -122,6 +122,8 @@ surface、mode、outputContract、toolPolicy 的合法组合**仅限**下表三�
 
 `statusPolicy` 固定两个取值：`proposed_only`（设定类）与 `proposed_or_untested`（卡牌类）。不提供「已平衡」「实验通过」等取值。
 
+`runtime/system.md` 不得包含产品保留标记（`<product_boundary>`、`<agent_preset>`、`<entry_contract>` 及其闭合形式）：Sprint 2 起拼装层用这些标记分隔第 1、2、3 层，preset 伪造它们等于冒充更高优先级的层。命中即报 `AGENT_MANIFEST_INVALID`（属于投影内容违反契约，不是路径问题）。
+
 ### 9. 稳定错误码
 
 Sprint 1 的 Registry 必须使用下列已冻结错误码，不得另起名字或把拒绝伪装成成功：

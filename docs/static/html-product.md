@@ -1,5 +1,60 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 2：两个现有入口接入产品投影，提示词分层归档
+
+本次交付 Sprint 2：`/api/ai`（设定助手）与 `/api/ai/free`（自由创作）真正使用 Registry 中的 preset。测试 177 → 192 项，全部通过。**未改动**作者保存边界、动态内容块 Schema、工具只读边界与检索硬上限。
+
+### `ai-harness.mjs`：第 1、3 层常量与拼装函数
+
+- `HARNESS_VERSION` 2.0.0 → `2.1.0`。
+- `PRODUCT_BOUNDARY_INSTRUCTIONS`（第 1 层）：产品固定边界——不可信内容只作资料、模型只能输出本次请求要求的内容且没有写入/保存/读取资料库外的权限、不得复制商业 IP。
+- `LORE_ENTRY_CONTRACT`（第 3 层，设定）：canon/proposed/deprecated 与 objective/in_world_belief/unknown 的区分、禁止静默补完 canon、成本与因果、成品文字与元话语禁令。
+- `FREE_ENTRY_CONTRACT`（第 3 层，自由创作）：不强制 JSON/固定字段、按 `status` 与 `truthScope` 表述且不补全资料未写的内容。
+- `FREE_AGENT_TOOL_GUIDE`（第 3 层的一部分）：从 `server.mjs` 迁入，与输出契约同层，便于分层测试。
+- `assertPresetPromptPortable(prompt)`：命中产品保留标记时抛 `AGENT_MANIFEST_INVALID`。
+- `composeAgentSystemPrompt({ presetPrompt?, entryContract?, extraContracts?, authorNotes? })`：按 `product_boundary` → `agent_preset` → `entry_contract` → `author_notes` 的顺序拼装，返回带分隔标记的单一 system 文本。preset 段为空时省略（无 preset 的默认路径）。
+- `SYSTEM_INSTRUCTIONS` / `FREE_AGENT_INSTRUCTIONS` 重新定义为「无 preset 时的默认拼装」，保留一个发布周期作回滚基线（计划 §12.4），不再是被入口直接使用的固定提示。
+- `createModelBody` 的 `system` 默认值不变，仍然回落到 `SYSTEM_INSTRUCTIONS`。
+
+### `server.mjs`：入口解析与响应快照
+
+- 新增 `resolveSurfaceProfile(surface, presetId)`：空 `presetId` 取 `agentProfiles.defaults[surface]`；`AgentProfileError` 统一加 `status = 400`，因此不兼容或未知 preset 在调用模型前失败。
+- 新增 `agentSnapshot(profile)`：只暴露 `{ presetId, presetVersion, presetHash, mode }`。
+- 新增 `toolsForPolicy(profile)`：`free_lore_readonly` → `FREE_AGENT_TOOLS`；`none` → `[]`；其它策略抛 400（不静默降级）。
+- `callAi`：先解析 `lore` preset，再构建上下文；`system` 进入 `modelOptions`，因此初次、结构化降级与差额补生成三处请求共用同一 system 与同一快照；响应增加 `agent`。
+- `callFreeAgent`：先解析 `free` preset；`system` 由 `composeAgentSystemPrompt` 拼装，`extraContracts` 携带本次可用范围与（仅在提供工具时）工具协议，作者笔记作为 `author_notes`；工具集改为 `policyTools`，`useTools = available && policyTools.length > 0`；成功、无工具、工具不可用降级三条路径都回显同一 `agent` 快照。
+- 硬上限未改：`runAgentLoop` 默认 6 轮 / 12 次调用，`AGENT_LIMITS.maxImages = 4`。
+
+### 投影裁剪与版本
+
+- `.agent-presets/lore-writer/runtime/system.md`、`.agent-presets/free-creator/runtime/system.md` 裁剪为纯 persona/写作方式，版本 `1.0.0 → 1.1.0`。
+- 迁出内容没有删除而是归位：IP 与不可信内容在第 1 层，canon、成本因果、元话语、`status` 表述在第 3 层。`tests/agent-prompt-layers.test.mjs` 断言每条纪律在合并提示中**恰好出现一次**，落实 ADR-0025。
+- `card-designer` 未接入产品入口（Sprint 4），保持 `1.0.0` 与原有文本；契约测试对它保留原断言。
+
+### 安全加固：拒绝 prompt 伪造分层标记
+
+`agent-profile-registry.mjs` 在 `loadProfile` 中检查投影正文是否含 `AGENT_PROMPT_RESERVED_TAGS`（`<product_boundary>`、`<agent_preset>`、`<entry_contract>` 及闭合形式），命中即 `AGENT_MANIFEST_INVALID`。原因：拼装层用这些标记分隔优先级，preset 伪造它们等于冒充第 1、3 层。ADR-0029 §8 已记录该归属。
+
+### 前端
+
+- `freeAgentMeta` 在气泡下方显示 `Agent <presetId> v<presetVersion>`；`sendFreeMessage` 把响应 `agent` 存到该轮助手消息上，因此历史轮次显示各自的实际 preset，而不是当前设置值。
+- `renderAiVariants` 在候选区顶部显示 `Agent <presetId> v<presetVersion> · <mode>` 的 chip。
+- `dist/styles.css` 新增 `.ai-preset-chip`；`dist/index.html` 缓存版本升到 `app.js?v=44`、`styles.css?v=36`。
+- 修复过程中的一个事故：用 PowerShell `Set-Content` 改写 `dist/index.html` 破坏了 UTF-8 中文，已 `git checkout` 恢复并改用编辑器精确修改，最终 diff 只有两行版本号。
+
+### 测试
+
+- `tests/agent-prompt-layers.test.mjs`（7 项）：三层顺序；无 preset 的默认拼装；保留标记伪造被拒绝（逐个标记）；作者笔记位于最后一层、工具协议在入口契约层内；六条纪律与四条自由创作纪律各自恰好出现一次；两个投影只承载第 2 层且版本为 `1.1.0`；含保留标记的投影在加载期被拒绝。
+- `tests/agent-surface-integration.test.mjs`（8 项）：本地假模型 + 真实 `server.mjs` 子进程（临时数据库、`LLM_API_STYLE=chat`）。断言服务端实际发出的 system 三层顺序与内容、请求体只含白名单工具、响应 `agent` 快照与 Registry 一致、不兼容/未知 preset 返回 400 且模型请求数为 0、差额补生成两次请求 system 逐字相同、工具不可用降级保留 preset 与 `<library_context>`、模型无限请求工具时被硬上限截断在 12 次并标记 `tool_budget`。
+- 既有测试同步：`subpath-routing.test.mjs` 的缓存版本、`FREE_AGENT_TOOL_GUIDE` 归属与 `useTools` 表达式；`agent-profile-contract.test.mjs` 的投影分层断言改为「lore/free 不得重复第 1、3 层内容」。
+
+### 验证与未验证
+
+- `npm run check` 全通过：192 项测试。
+- Docker 镜像已重建；容器内 `/api/ai/presets` 与本机一致（见本轮比对记录）。
+- **未验证**：真实付费模型的端到端生成（本轮用假模型验证协议与层次，不声称真实模型已验收）、设置页选择器与切换语义（Sprint 3）、卡牌 Agent（Sprint 4）。
+- 当前所有请求仍使用服务端默认 `lore-writer` / `free-creator`：请求可以携带 `presetId`，但界面尚无选择器。
+
 ## 2026-10-17 路径错误码契约修正归档（Sprint 1 复审）
 
 复审只剩一个契约问题：ADR-0029 §9 冻结「绝对路径、`..` 穿越、符号链接逃逸或非相对路径 → `AGENT_PROMPT_PATH_UNSAFE`」，但实现把 `systemPrompt` 的路径形态问题按字段统一映射为 `AGENT_MANIFEST_INVALID`。由于 Schema 校验先于路径解析，**约定错误码在真实加载路径上不可达**，测试还把这一偏离写成了预期。

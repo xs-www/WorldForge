@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, createLoreResponseSchema, createModelBody, FREE_AGENT_INSTRUCTIONS, HARNESS_VERSION, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
+import { buildContextBundle, buildPrompt, buildSupplementPrompt, completeAiVariants, composeAgentSystemPrompt, createLoreResponseSchema, createModelBody, FREE_AGENT_TOOL_GUIDE, FREE_ENTRY_CONTRACT, HARNESS_VERSION, LORE_ENTRY_CONTRACT, NAME_RESPONSE_SCHEMA, parseNameResponse } from './ai-harness.mjs';
 import { AGENT_LIMITS, FREE_AGENT_TOOLS, prepareArtAssets, prepareLibrary, runToolCall } from './ai-tools.mjs';
 import { createToolCaller, runAgentLoop } from './ai-agent.mjs';
 import { comfyUiConfig, generateComfyUiImage, validateComfyUiSettings } from './comfyui.mjs';
@@ -270,9 +270,42 @@ async function optimizeImagePrompt(payload) {
   return { prompt: optimized.slice(0, 3000), model: config.model, contextMeta:{promptKey:composed.key,contextIds:composed.contextIds,truncated:composed.truncated} };
 }
 
+// ── Agent Profile 解析（Sprint 2）────────────────────────────────────────────
+// 不兼容、未知或缺失的 preset 必须在模型调用前失败，因此解析放在 requestModel 之前，
+// 并把 AgentProfileError 统一映射为 400（不产生外部 token 与费用）。
+
+function resolveSurfaceProfile(surface, presetId) {
+  const requested = presetId === undefined || presetId === null || presetId === '' ? agentProfiles.defaults[surface] : String(presetId);
+  try {
+    return agentProfiles.resolve(requested, surface);
+  } catch (error) {
+    const failure = asAgentProfileError(error);
+    failure.status = 400;
+    throw failure;
+  }
+}
+
+function agentSnapshot(profile) {
+  return { presetId: profile.id, presetVersion: profile.version, presetHash: profile.hash, mode: profile.mode };
+}
+
+/** 工具策略只映射到服务端白名单；preset 不能扩大轮次/调用/附图硬上限。 */
+function toolsForPolicy(profile) {
+  if (profile.toolPolicy === 'free_lore_readonly') return FREE_AGENT_TOOLS;
+  if (profile.toolPolicy === 'none') return [];
+  const error = new Error(`工具策略 ${profile.toolPolicy} 尚未实现`);
+  error.code = 'AGENT_PROFILE_INCOMPATIBLE';
+  error.status = 400;
+  throw error;
+}
+
 async function callAi(payload) {
   const config = aiConfig();
   if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
+  // 先解析 preset：不兼容或未知的 preset 在调用模型前就失败。
+  const profile = resolveSurfaceProfile('lore', payload?.presetId);
+  const agent = agentSnapshot(profile);
+  const system = composeAgentSystemPrompt({ presetPrompt: profile.systemPrompt, entryContract: LORE_ENTRY_CONTRACT });
   const bundle = buildContextBundle(payload);
   const promptSettings = await loadPromptSettings();
   const prompt = buildPrompt({ ...payload, typePrompt: promptSettings.typePrompts[payload?.draft?.type] || '', personalizedPrompt: promptSettings.personalizedPrompt }, bundle);
@@ -280,7 +313,8 @@ async function callAi(payload) {
   const expectedCount = Math.min(5, Math.max(1, Number(payload?.variantCount) || 3));
   const schema = createLoreResponseSchema(payload);
   const vision=await resolveReferenceImages(payload?.referenceAssetIds,10);
-  const modelOptions={images:vision.images};
+  // 同一请求（含差额补生成）沿用同一 preset 快照，保证 system 与 hash 不漂移。
+  const modelOptions={images:vision.images, system};
   let structured = true;
   let raw;
   try { raw = await requestModel(config, prompt, { structured: true, schema, payload, ...modelOptions }); }
@@ -300,24 +334,15 @@ async function callAi(payload) {
       return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload, ...modelOptions });
     }
   } });
-  return { ...result, harnessVersion: HARNESS_VERSION, contextMeta: {...bundle.contextMeta,visionAssetIds:vision.ids} };
+  return { ...result, agent, harnessVersion: HARNESS_VERSION, contextMeta: {...bundle.contextMeta,visionAssetIds:vision.ids} };
 }
-
-const FREE_AGENT_TOOL_GUIDE = `你还可以调用只读资料工具查看作者资料库：
-- search_lore：按关键词、类型、世界或状态检索，返回编号、名称、状态、事实层次与摘要。
-- get_lore_entry：按稳定 ID 读取完整正文、约束、开放问题与关联编号。
-- list_lore：列出资料库条目索引。
-- list_art_assets：列出美术资产（原画 / 视觉原型）索引，含资产编号、用途、绑定目标与生成通道。
-- get_art_asset：按资产编号把 1–4 张原画的实际画面附到本次对话。
-使用规则：
-- 需要引用具体设定内容时，先用 get_lore_entry 读到正文，不要凭摘要或记忆臆测细节。
-- 需要判断画面内容、风格、构图或视觉一致性时，必须先用 get_art_asset 把图附上来；只读元数据不足以描述画面。
-- 工具是只读的；你无法写入、删除，也无法读取资料库以外的任何内容（含本机文件与密钥）。
-- 取得足够信息后直接给出最终回答，不要为了凑次数反复调用工具。`;
 
 async function callFreeAgent(payload) {
   const config = aiConfig();
   if (!config.key) throw new Error('尚未配置 LLM_API_KEY');
+  const profile = resolveSurfaceProfile('free', payload?.presetId);
+  const agent = agentSnapshot(profile);
+  const policyTools = toolsForPolicy(profile);
   const messages = [];
   for (const item of (Array.isArray(payload?.messages) ? payload.messages.slice(-20) : [])) {
     const role = item?.role === 'assistant' ? 'assistant' : 'user';
@@ -337,15 +362,21 @@ async function callFreeAgent(payload) {
   const related = String(payload?.relatedInformation || '').trim().slice(0, 20000);
   const library = prepareLibrary(payload?.library);
   const artAssets = prepareArtAssets(payload?.artAssets);
-  const useTools = library.length > 0 || artAssets.length > 0;
+  const available = library.length > 0 || artAssets.length > 0;
+  // 工具策略与可用范围取交集：策略为 none 的 preset 即使给了资料也不获得工具。
+  const useTools = available && policyTools.length > 0;
   const attachedCount = messages.reduce((sum, message) => sum + (message.images?.length || 0), 0);
   const inventory = [
     `作者提供了可检索资料 ${library.length} 条`,
     artAssets.length ? `可查看美术资产 ${artAssets.length} 个` : '',
     attachedCount ? `并在消息里直接附了 ${attachedCount} 张图片` : ''
   ].filter(Boolean).join('，');
-  const notes = related ? `\n\n<author_notes>\n${related}\n</author_notes>` : '';
-  const systemFor = withTools => [FREE_AGENT_INSTRUCTIONS, `${inventory}。`, withTools ? FREE_AGENT_TOOL_GUIDE : '', notes].filter(Boolean).join('\n\n');
+  const systemFor = withTools => composeAgentSystemPrompt({
+    presetPrompt: profile.systemPrompt,
+    entryContract: FREE_ENTRY_CONTRACT,
+    extraContracts: [`本次可用范围：${inventory}。`, withTools ? FREE_AGENT_TOOL_GUIDE : ''],
+    authorNotes: related
+  });
   const runTool = async (name, args) => {
     const outcome = runToolCall(name, args, library, artAssets);
     if (Array.isArray(outcome.imageIds) && outcome.imageIds.length) {
@@ -361,19 +392,27 @@ async function callFreeAgent(payload) {
     reply: result.reply.slice(0, 50000), model: config.model, toolMode,
     // images 汇报本次模型实际收到的图片总数：作者显式附件 + 工具附图
     vision: result.vision, images: attachedCount + result.images, trace: result.trace,
-    rounds: result.rounds, toolCalls: result.toolCalls, stopped: result.stopped
+    rounds: result.rounds, toolCalls: result.toolCalls, stopped: result.stopped,
+    // 每轮/每次响应回显该请求实际使用的 preset 快照，客户端不能伪造。
+    agent
   });
 
   try {
-    const result = await runAgentLoop({ messages, tools: useTools ? FREE_AGENT_TOOLS : [], maxRounds: useTools ? undefined : 1, callModel: callModelFor(useTools), runTool });
+    const result = await runAgentLoop({ messages, tools: useTools ? policyTools : [], maxRounds: useTools ? undefined : 1, callModel: callModelFor(useTools), runTool });
     if (!result.reply) throw new Error(useTools ? '模型只调用了工具但没有给出回答，请重试或更换模型' : '模型没有返回内容');
     return describe(result, useTools ? 'native' : 'none');
   } catch (error) {
     if (!useTools || ![400, 404, 422].includes(error.status)) throw error;
     // 兼容接口不支持工具调用：退回一轮不带工具的问答，把条目索引放进上下文。
     // 附图仍然保留，因为作者显式附加的图片不该因为接口不支持工具而消失。
+    // 降级路径必须保留同一 preset 快照，不能换回固定提示。
     const index = library.slice(0, 120).map(entry => ({ id: entry.id, type: entry.type, name: entry.name, status: entry.status, truthScope: entry.truthScope, worldId: entry.worldId, summary: entry.summary }));
-    const fallbackSystem = [FREE_AGENT_INSTRUCTIONS, `${inventory}。`, `<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>`, notes].filter(Boolean).join('\n\n');
+    const fallbackSystem = composeAgentSystemPrompt({
+      presetPrompt: profile.systemPrompt,
+      entryContract: FREE_ENTRY_CONTRACT,
+      extraContracts: [`本次可用范围：${inventory}。`, `<library_context>\n${JSON.stringify(index, null, 2)}\n</library_context>`],
+      authorNotes: related
+    });
     const result = await runAgentLoop({ messages, tools: [], maxRounds: 1, callModel: createToolCaller({ config, system: fallbackSystem }), runTool: () => ({ ok: false, summary: '本次运行不提供工具', content: '{}' }) });
     if (!result.reply) throw new Error('模型没有返回内容');
     return { ...describe(result, 'unavailable'), fallbackReason: error.message };

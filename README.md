@@ -6,7 +6,11 @@
 
 将这些 preset 接入 WorldForge 产品内 AI 入口的分阶段方案见 [`docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md`](docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md)。该文档当前为 `proposed`，不代表相关运行时选择器已经实现。
 
-Sprint 0 与 Sprint 1 已完成：产品侧 `agent-profile-registry.mjs` 在启动时扫描固定根目录 `.agent-presets/`，用 [`agent-runtime.schema.json`](agent-runtime.schema.json)（`docs/schemas/` 的部署副本，两份由测试断言一致）严格校验每份投影，拒绝未知枚举、额外字段、目录名不符、重复 ID、绝对路径、路径穿越、符号链接逃逸与超长 prompt，并为每个 preset 计算确定性 SHA-256 指纹。`GET /api/ai/presets` 返回脱敏元数据与三个入口的默认映射，`GET /api/health` 增加 `agentProfiles` 摘要；投影损坏时服务拒绝启动并打印稳定错误码，不会静默改用其他 persona。当前**尚未**实现入口选择、请求快照与卡牌文字 Agent（Sprint 2–4），因此设定助手与自由创作仍使用固定的系统提示常量，选择的 `presetId` 也还不会影响生成结果。Docker 镜像只复制 Registry 需要读取的 6 个投影文件，不含 `agent.cordis.yml`、`skills/` 或设计目录。
+Sprint 0–2 已完成：产品侧 `agent-profile-registry.mjs` 在启动时扫描固定根目录 `.agent-presets/`，用 [`agent-runtime.schema.json`](agent-runtime.schema.json)（`docs/schemas/` 的部署副本，两份由测试断言一致）严格校验每份投影，拒绝未知枚举、额外字段、目录名不符、重复 ID、绝对路径、路径穿越、符号链接逃逸与超长 prompt，并为每个 preset 计算确定性 SHA-256 指纹。`GET /api/ai/presets` 返回脱敏元数据与三个入口的默认映射，`GET /api/health` 增加 `agentProfiles` 摘要；投影损坏或任一入口缺少 preset 时服务拒绝启动并打印稳定错误码，不会静默改用其他 persona。
+
+Sprint 2 起，设定助手与自由创作**真正使用** Registry 中的 preset：提示词按 ADR-0029 §7 拼成三层——产品固定的安全边界、preset 的 `runtime/system.md`、入口自身的输出契约（作者分类提示词、本次任务要求与不可信上下文随后附上）。preset 只能替换中间那一层，无法覆盖安全边界或输出契约；`runtime/system.md` 若伪造产品分隔标记会被拒绝加载。请求可选带 `presetId`，未知或不兼容的 preset 在调用模型前就返回 400；三个响应都会回显 `agent: { presetId, presetVersion, presetHash, mode }`，自由对话每轮与设定助手候选区都会显示本轮实际使用的 preset，客户端无法伪造版本或哈希。工具仍只由服务端白名单映射（`free_lore_readonly` → 现有五个只读工具），轮次、工具调用与单轮附图硬上限不受 preset 影响。Docker 镜像只复制 Registry 需要读取的 6 个投影文件，不含 `agent.cordis.yml`、`skills/` 或设计目录。
+
+尚未实现：分入口的 preset 选择器、`agent-settings.json` 持久化与会话切换语义（Sprint 3），以及卡牌文字 Agent（Sprint 4）；因此当前所有请求都使用服务端默认的 `lore-writer` / `free-creator`，界面还不能改选。
 
 从 `docs/PROJECT_DESIGN.md` 开始阅读；使用 Codex 前请阅读 `AGENTS.md`。所有未明确批准的世界设定与卡牌均为草案。
 

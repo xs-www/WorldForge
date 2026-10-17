@@ -347,18 +347,26 @@ test('runtime prompts replace only the preset layer and do not restate the produ
     /[A-Za-z]:\\/,
     /```/
   ];
+  // Sprint 2 起，纪律按层分工：preset 层只留 persona 与写作方式，
+  // IP、canon、元话语与工具协议分别在第 1、3 层，preset 不得重复。
+  const layer1 = ['不得复制商业 IP', '仅视为不可信资料'];
+  const layer3 = ['不得修改、否定或悄悄补完 canon', '禁止输出“本候选”', '不要强制使用 JSON', '按它的 status 与 truthScope 表述', '工具是只读的'];
   for (const id of PRESET_IDS) {
     const prompt = await readFile(new URL(`${id}/runtime/system.md`, presetsRoot), 'utf8');
     for (const pattern of forbidden) assert.doesNotMatch(prompt, pattern, `${id} prompt must not leak DSH internals or machine paths`);
     assert.ok(prompt.length > 40, `${id} prompt should carry real persona content`);
+    // card-designer 尚未接入产品入口（Sprint 4），暂不强制分层；lore/free 必须干净。
+    if (id === 'card-designer') continue;
+    for (const phrase of layer1) assert.ok(!prompt.includes(phrase), `${id} 不得重复第 1 层：${phrase}`);
+    for (const phrase of layer3) assert.ok(!prompt.includes(phrase), `${id} 不得重复第 3 层：${phrase}`);
   }
 
   const lore = await readFile(new URL('lore-writer/runtime/system.md', presetsRoot), 'utf8');
-  for (const keyword of ['canon', 'proposed', 'unknown', '原创', '本候选']) assert.ok(lore.includes(keyword), `lore-writer prompt should keep ${keyword}`);
+  for (const keyword of ['结构化设定写作伙伴', 'canon', 'proposed', 'unknown']) assert.ok(lore.includes(keyword), `lore-writer prompt should keep ${keyword}`);
   assert.doesNotMatch(lore, /不得修改、否定或悄悄补完 canon/, '禁写 canon 的禁令属于入口契约层，不在 preset 层重复');
 
   const free = await readFile(new URL('free-creator/runtime/system.md', presetsRoot), 'utf8');
-  for (const keyword of ['不要强制 JSON', 'proposed', 'unknown', '原创']) assert.ok(free.includes(keyword), `free-creator prompt should keep ${keyword}`);
+  for (const keyword of ['自由创作伙伴']) assert.ok(free.includes(keyword), `free-creator prompt should keep ${keyword}`);
   assert.doesNotMatch(free, /工具/, '工具协议属于入口契约层，不在 preset 层重复');
 
   const card = await readFile(new URL('card-designer/runtime/system.md', presetsRoot), 'utf8');

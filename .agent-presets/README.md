@@ -27,6 +27,9 @@ WorldForge 产品服务不解析 `agent.cordis.yml`：它含 `!!js` 表达式与
 
 - `worldforge.runtime.json`：冻结契约见 `docs/schemas/agent-runtime.schema.json`；真值决策见 [ADR-0029](../docs/adr/ADR-0029-agent-profile-runtime-projection.md)。
 - `runtime/system.md`：只贡献提示词第 2 层（preset 层）。产品安全边界（第 1 层）与入口输出契约（第 3 层）由确定性代码拼装，preset 不能替换。
+- `runtime/system.md` **不得**包含 `<product_boundary>`、`<agent_preset>`、`<entry_contract>` 等产品保留标记；伪造这些标记会被 Registry 以 `AGENT_MANIFEST_INVALID` 拒绝，因为那等于冒充更高优先级的层。
+- 第 2 层只写 persona 与写作方式。IP 边界、不可信内容处理在第 1 层；canon 纪律、成本因果、元话语与 `status` 表述、工具协议在第 3 层。不要把同一条约束写进两层——ADR-0025 的教训是重复会稀释权重，契约测试会检查关键纪律恰好出现一次。
+- `card-designer`（`1.0.0`）尚未接入产品入口（Sprint 4），因此仍保留较完整的投影文本；`lore-writer` 与 `free-creator` 已按上述分工裁剪到 `1.1.0`。
 
 因此修改产品侧 persona 时必须同时改 DSH 的 `agent.cordis.yml` 与产品投影；两者用途不同，但语义漂移会由 `tests/agent-profile-contract.test.mjs` 的兼容矩阵与提示词层次测试暴露。`agent.cordis.yml`、`preset.yml` 与 `skills/` 的产品侧副本不存在，也不需要复制。
 

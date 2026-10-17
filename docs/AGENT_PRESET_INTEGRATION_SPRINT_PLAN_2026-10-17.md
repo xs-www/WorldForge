@@ -5,7 +5,7 @@
 - 适用范围：WorldForge 产品内文字 Agent、仓库级 DSH Agent preset、设置与部署
 - 不涉及：世界观 canon 晋升、正式卡牌规则裁定、模拟规则数值调整
 - 默认节奏：1 个 Sprint = 5 个开发日；以 1 名主开发者估算，共 6 个 Sprint / 约 27 人日
-- 执行进度：Sprint 0 已完成并正式签收；Sprint 1 已完成代码修正与真实 Docker 比对（见 §8.5–§8.6），等待复核签收。Sprint 2–5 未开始：设定助手与自由创作仍使用固定提示常量，产品入口尚不能选择 preset。
+- 执行进度：Sprint 0、Sprint 1 已签收；Sprint 2（两个现有入口真正使用选定 preset + 提示词分层）工程实现已完成，见 §9.5，等待验收。Sprint 3–5 未开始：产品入口仍只能使用服务端默认 preset，尚无选择器与 `agent-settings.json`。
 
 ## 1. 执行摘要
 
@@ -444,9 +444,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 ### 9.1 目标
 
-让两个现有产品入口真正使用选中的产品投影，同时保持现有 Schema、工具预算、视觉降级和作者保存边界。
-
-### 9.2 设定助手任务
+让两个现有产品入口真正使用选中的产品投影，同时保持现有 Schema、工具预算、视觉降级和作者保存边界。### 9.2 设定助手任务
 
 | ID | 任务 | 验收 |
 |---|---|---|
@@ -473,6 +471,30 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 - 模型工具调用不获得文件、数据库或密钥访问；
 - 现有部分合法候选保留与差额补齐行为不变；
 - 未配置模型时仍使用现有错误语义。
+
+### 9.5 Sprint 2 执行记录（2026-10-17）
+
+| ID | 产物 | 状态 |
+|---|---|---|
+| S2-01 | `server.mjs` 的 `resolveSurfaceProfile('lore', presetId)` | 完成：请求未带 `presetId` 时取服务端默认值；未知或不兼容在模型调用前抛 400，实测不会产生任何模型请求 |
+| S2-02 | `ai-harness.mjs` 的 `PRODUCT_BOUNDARY_INSTRUCTIONS`、`LORE_ENTRY_CONTRACT`、`FREE_ENTRY_CONTRACT`、`composeAgentSystemPrompt` | 完成：第 1、3 层由代码固定，preset 只能贡献第 2 层；原两个固定常量改为「无 preset 时的默认拼装」，保留一个发布周期作回滚基线 |
+| S2-03 | 保留 `createLoreResponseSchema` 与 `validateAiResponse` | 完成：未选字段仍由动态 Schema 拒绝，行为未变 |
+| S2-04 | 差额补生成沿用同一 `modelOptions.system` | 完成：初次与补充请求的 system 逐字相同，响应回显同一 `presetHash` |
+| S2-05 | 视觉降级路径保留 `system` | 完成：不支持图片时仍走原有 400/404/422 降级，不伪装已看图 |
+| S2-06 | `resolveSurfaceProfile('free', presetId)` | 完成：只接受 `free_chat` 入口的 preset，其它 surface 一律 400 |
+| S2-07 | `toolsForPolicy(profile)` | 完成：`free_lore_readonly` → 现有五个只读工具；`none` → 不提供工具；未实现策略抛 400 而不是降级 |
+| S2-08 | 硬上限不变 | 完成：仍用 `runAgentLoop` 默认 6 轮 / 12 次与 `AGENT_LIMITS.maxImages = 4`；实测模型无限请求工具时被截断在 12 次并标记 `tool_budget` |
+| S2-09 | 工具不可用的单轮降级 | 完成：降级请求仍带同一 preset 正文与 `<library_context>`，响应 `agent` 与成功路径完全一致 |
+| S2-10 | 三个响应增加 `agent` 快照；前端显示 | 完成：`/api/ai`、`/api/ai/free` 返回 `{ presetId, presetVersion, presetHash, mode }`；自由对话每轮显示 `Agent <id> v<version>`，设定助手候选区顶部显示同名 chip |
+
+分层重构的取舍：
+
+- 第 2 层（preset）与其原本重复的第 1、3 层内容被移除，`lore-writer` 与 `free-creator` 的投影改为纯 persona/写作方式，版本升至 `1.1.0`（契约要求投影内容变化必须递增版本）。
+- 纪律没有丢失：IP 与不可信内容在第 1 层，canon、成本因果、元话语、status 表述在第 3 层；测试按「每条纪律恰好出现一次」断言，符合 ADR-0025 的「约束放在真实监督点」原则。
+- `card-designer`（`1.0.0`）本轮未接入产品入口（Sprint 4），因此暂不按新分工裁剪；契约测试对它保持原有断言。
+- 新增安全加固：preset 的 `runtime/system.md` 若包含产品保留标记（`<product_boundary>`、`<agent_preset>`、`<entry_contract>`）会被 Registry 以 `AGENT_MANIFEST_INVALID` 拒绝，防止投影伪造更高优先级的层。
+
+验证：`npm run check` 全通过（192 项测试；新增 `agent-prompt-layers.test.mjs` 7 项与 `agent-surface-integration.test.mjs` 8 项）。集成测试用本地假模型 + 真实 `server.mjs` 子进程，断言服务端实际发出的提示层次、工具白名单、硬上限与响应快照。**未验证**：真实模型端到端（本轮没有也无需调用付费接口）、设置页选择器与请求携带快照的 UI（Sprint 3）、卡牌 Agent（Sprint 4）。
 
 ## 10. Sprint 3：设置 UI、选择语义与可观测性
 

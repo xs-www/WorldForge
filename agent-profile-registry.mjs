@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AGENT_PRESETS_DIRECTORY, AGENT_PROMPT_MAX_CHARS, AGENT_RUNTIME_MANIFEST, AGENT_RUNTIME_SCHEMA_VERSION, AGENT_SURFACES, AGENT_SURFACE_COMPATIBILITY } from './agent-profile-contract.mjs';
+import { AGENT_PRESETS_DIRECTORY, AGENT_PROMPT_MAX_CHARS, AGENT_PROMPT_RESERVED_TAGS, AGENT_RUNTIME_MANIFEST, AGENT_RUNTIME_SCHEMA_VERSION, AGENT_SURFACES, AGENT_SURFACE_COMPATIBILITY } from './agent-profile-contract.mjs';
 
 const moduleRoot = fileURLToPath(new URL('.', import.meta.url));
 
@@ -426,6 +426,9 @@ async function loadProfile(root, directoryId) {
   const directory = resolve(root, directoryId);
   const manifest = assertSurfaceCompatibility(await validateAgentRuntimeManifest(await loadManifestFile(root, directory, directoryId), directoryId));
   const prompt = await resolveAgentPromptPath(directory, manifest.systemPrompt);
+  // preset 只能贡献第 2 层；伪造保留标记等于冒充产品边界或入口契约，直接拒绝加载。
+  const reserved = AGENT_PROMPT_RESERVED_TAGS.filter(tag => prompt.text.includes(tag));
+  if (reserved.length) throw new AgentProfileError('AGENT_MANIFEST_INVALID', `${directoryId}/${manifest.systemPrompt} 含产品保留标记：${reserved.join('、')}`);
   const fingerprint = profileFingerprint(manifest, prompt.text);
   // 深度冻结：manifest 与其嵌套数组也必须只读，否则可以通过 manifest.surfaces 改写快照。
   return deepFreeze({

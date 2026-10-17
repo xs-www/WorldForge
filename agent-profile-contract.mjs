@@ -79,3 +79,9 @@ export const AGENT_PROMPT_LAYERS = Object.freeze([
 
 /** 允许被 preset 替换的层名（恰好一层）。 */
 export const AGENT_PRESET_REPLACEABLE_LAYER = 'preset_runtime';
+
+/**
+ * 产品保留的分隔标记。preset 的 system.md 不得包含它们，
+ * 否则可以在拼装后的提示里冒充产品边界或入口契约。
+ */
+export const AGENT_PROMPT_RESERVED_TAGS = Object.freeze(['<product_boundary>', '</product_boundary>', '<agent_preset>', '</agent_preset>', '<entry_contract>', '</entry_contract>']);
