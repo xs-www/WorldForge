@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "94943c96e968c8bcd2bcc0919c9fdc3487f584297d4b879dfd49971e28d02ca7"
+      "sha256": "10c16f2b9524a8630214301c20cf82df1c4519e16ac842c3c9137f32cbe0d2a0"
     },
     {
       "source": "dist/battle-ui.js",
