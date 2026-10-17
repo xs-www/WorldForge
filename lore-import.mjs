@@ -1,4 +1,5 @@
-import { parseLooseJson, previewOf } from './ai-harness.mjs';
+import { previewOf } from './ai-harness.mjs';
+import { normalizeModelOutput, repairsApplied } from './model-json-normalizer.mjs';
 import { fallbackGroup } from './lore-groups.mjs';
 
 // ── 设定导入（ADR-0033）─────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ export const LORE_IMPORT_LIMITS = Object.freeze({
   characters: 90000,
   chunkCharacters: 9000,
   maxChunks: 10,
-  entriesPerChunk: 24,
+  entriesPerChunk: 16,
   totalEntries: 160,
   concurrency: 3,
   name: 80,
@@ -153,67 +154,39 @@ export function splitImportSource(text, options = {}) {
 
 // ── 抽取 Schema 与提示词 ────────────────────────────────────────────────────
 
-const ENTRY_SCHEMA = Object.freeze({
-  type: 'object',
-  additionalProperties: false,
-  required: ['type', 'name', 'summary', 'details', 'attributeA', 'attributeB', 'attributeC', 'constraints', 'openQuestions', 'tags', 'relations', 'locationKind', 'locationParent', 'chronicleKind', 'chronicleParent', 'dateLabel', 'order', 'truthScope'],
-  properties: {
-    type: { type: 'string', enum: LORE_IMPORT_TYPES, description: '只能取这些值：character 角色、location 地理条目、timeline 编年史容器或节点、story 背景故事、info 其它设定（势力/种族/文化/宗教/力量体系/技术/物品/事件等）' },
-    name: { type: 'string', description: '原文里出现的专名；没有专名时用原文的描述性称呼，不要自行造名' },
-    summary: { type: 'string', description: `一句话概述；原文没有概括时留空字符串，不超过 ${LORE_IMPORT_LIMITS.summary} 字` },
-    details: { type: 'string', description: `可直接进入条目正文的成品文字：合并原文中关于该对象的分散描述，保留作者措辞与自造词，不超过 ${LORE_IMPORT_LIMITS.details} 字` },
-    attributeA: { type: 'string', description: '第一条要点：info 条目填分类（如“势力”“技术体系”），其它类型可留空' },
-    attributeB: { type: 'string', description: '第二条要点：info 条目填归属（如所属势力、地区）' },
-    attributeC: { type: 'string', description: '第三条要点：info 条目填最关键的要点' },
-    constraints: { type: 'array', maxItems: 12, items: { type: 'string' }, description: '原文明确写出的限制、代价与边界；没有就返回空数组' },
-    openQuestions: { type: 'array', maxItems: 12, items: { type: 'string' }, description: '原文没有交代、但整理时确实需要作者裁定的缺口；不要用猜测填空' },
-    tags: { type: 'array', maxItems: 12, items: { type: 'string' }, description: '2–6 个字的关键词标签，取自原文用词' },
-    relations: { type: 'array', maxItems: 12, items: { type: 'string' }, description: '原文里与它确有关系的其它条目的名称；只写名称，不写编号' },
-    locationKind: { type: 'string', enum: ['', ...IMPORT_LOCATION_KINDS], description: '仅 location：地理层级；不是地理条目留空' },
-    locationParent: { type: 'string', description: '仅 location：原文里它的上级地理条目名称；不确定留空' },
-    chronicleKind: { type: 'string', enum: ['', ...IMPORT_CHRONICLE_KINDS], description: '仅 timeline：编年史容器用 chronicle，具体纪年节点用 entry' },
-    chronicleParent: { type: 'string', description: '仅 timeline 节点：所属编年史的名称' },
-    dateLabel: { type: 'string', description: '仅 timeline 节点：原文里的纪年文本（如“第三纪元 412 年”）' },
-    order: { type: ['number', 'null'], description: '仅 timeline 节点：同一编年史内的排序值，从 1 开始递增；不确定返回 null' },
-    truthScope: { type: 'string', enum: IMPORT_TRUTH_SCOPES, description: 'objective 原文陈述的事实、in_world_belief 世界内传说或宣传口吻、unknown 原文自称不确定' }
-  }
-});
+// 抽取字段的机器可读清单：记录格式的字段名、别名与类型都以这里为准。
+// 注意：导入入口**不再**向模型发送 json_schema（ADR-0033 §10），字段契约写在提示词第 5 层，
+// 模型输出由 model-json-normalizer.mjs 统一规范化。
+export const IMPORT_RECORD_FIELDS = Object.freeze([
+  { key: 'type', labels: ['类型', '条目类型'], kind: 'text' },
+  { key: 'name', labels: ['名称', '名字', '标题'], kind: 'text' },
+  { key: 'summary', labels: ['概述', '摘要', '一句话概述'], kind: 'text' },
+  { key: 'details', labels: ['正文', '详细设定', '内容'], kind: 'text' },
+  { key: 'attributeA', labels: ['属性一', '要点一', '分类'], kind: 'text' },
+  { key: 'attributeB', labels: ['属性二', '要点二', '归属'], kind: 'text' },
+  { key: 'attributeC', labels: ['属性三', '要点三'], kind: 'text' },
+  { key: 'constraints', labels: ['约束', '限制', '限制与边界'], kind: 'lines' },
+  { key: 'openQuestions', labels: ['开放问题', '待定'], kind: 'lines' },
+  { key: 'tags', labels: ['标签'], kind: 'lines' },
+  { key: 'relations', labels: ['关联', '关联条目'], kind: 'lines' },
+  { key: 'locationKind', labels: ['地理层级'], kind: 'text' },
+  { key: 'locationParent', labels: ['上级'], kind: 'text' },
+  { key: 'chronicleKind', labels: ['编年史类型'], kind: 'text' },
+  { key: 'chronicleParent', labels: ['所属编年史'], kind: 'text' },
+  { key: 'dateLabel', labels: ['纪年'], kind: 'text' },
+  { key: 'order', labels: ['排序', '排序值'], kind: 'number' },
+  { key: 'truthScope', labels: ['事实层次', '事实层次/视角'], kind: 'text' }
+]);
 
-/** 单段抽取的严格 JSON Schema；与提示词第 5 层写死的响应外壳一一对应。 */
-export const IMPORT_EXTRACTION_SCHEMA = Object.freeze({
-  type: 'object',
-  additionalProperties: false,
-  required: ['world', 'entries'],
-  properties: {
-    world: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['name', 'summary', 'details'],
-      properties: {
-        name: { type: 'string', description: '这一段提到的世界名称；没有就留空字符串' },
-        summary: { type: 'string', description: '这一段对世界的概括；没有就留空字符串' },
-        details: { type: 'string', description: '这一段对世界的整体描述；没有就留空字符串' }
-      }
-    },
-    entries: {
-      type: 'array',
-      maxItems: LORE_IMPORT_LIMITS.entriesPerChunk,
-      items: ENTRY_SCHEMA
-    }
-  }
-});
-
-/** 第 4–6 层提示词：作者风格（4）→ 本次任务与外壳（5）→ 原文（6）。 */
+/** 第 4–6 层提示词：作者风格（4）→ 本次任务与输出契约（5）→ 原文（6）。 */
 export function buildImportPrompt(options = {}) {
   const index = Math.max(0, Number(options.index) || 0);
   const total = Math.max(1, Number(options.total) || 1);
-  const requireJson = options.requireJson === true;
   const personalized = text(options.personalizedPrompt, 8000) || '无额外统一风格要求';
   const instruction = text(options.instruction, 300);
   const source = String(options.text ?? '');
   // 原文属于不可信上下文：只可能撑破标签，因此把闭合标签打断，避免它伪装成新的指令段。
   const guarded = source.replace(/<\/worldforge_import_source/gi, '< /worldforge_import_source');
-  const shapeExample = '{"world":{"name":"（世界名称，没有就空串）","summary":"（世界概述，没有就空串）","details":"（本段对世界的整体描述，没有就空串）"},"entries":[{"type":"character","name":"（原文中的专名）","summary":"（一句话概述）","details":"（成品正文）","attributeA":"","attributeB":"","attributeC":"","constraints":[],"openQuestions":[],"tags":[],"relations":[],"locationKind":"","locationParent":"","chronicleKind":"","chronicleParent":"","dateLabel":"","order":null,"truthScope":"objective"}]}';
   const taskRequest = `任务：把下面这段原创世界设定原文整理成资料库条目，供作者逐条确认后写入一个新建的世界。
 本段是原文的第 ${index + 1}/${total} 段；只整理本段出现的信息，不要为了连贯而补写其它段落的内容，同名同类型的条目会由系统自动合并。
 整理规则：
@@ -223,15 +196,44 @@ export function buildImportPrompt(options = {}) {
 - 目标类型只有五种：character 角色、location 地理条目、timeline 编年史、story 背景故事、info 其它设定。势力、种族、文化、宗教、力量体系、技术、物品、事件等一律用 info，并把分类写进 attributeA；原文里有独立的传说、歌谣、书信或短篇叙述时用 story。
 - name 必须是原文出现的专名；没有专名时用原文的描述性称呼，不要自行造名。
 - details 直接写可进入条目正文的成品文字，保留作者的措辞、自造词与口吻；禁止出现“原文提到”“本条目”“以上内容”“设计说明”“字段说明”等元话语。
-- 地理层级只能是 ${IMPORT_LOCATION_KINDS.join(' / ')}；只有在原文能看出上下级关系时才填 locationParent。
-- 年表要先有容器（chronicleKind=chronicle 的 timeline 条目），再有节点（chronicleKind=entry，写 chronicleParent 与 dateLabel、order）；没有年表就不要产出 timeline。
-- 世界本身不要写成条目，把世界名称与概述放进 world 字段。
-- 原文以世界内传说、教义、宣传或不可靠叙述者口吻出现的内容，truthScope 用 in_world_belief；原文自称不确定或互相矛盾的用 unknown；其余用 objective。
+- 地理层级只能是 ${IMPORT_LOCATION_KINDS.join(' / ')}；只有在原文能看出上下级关系时才填上级。
+- 年表要先有容器（编年史类型=chronicle 的 timeline 条目），再有节点（编年史类型=entry，写所属编年史与纪年、排序）；没有年表就不要产出 timeline。
+- 世界本身不要写成条目，把世界名称与概述写进「世界」段落。
+- 原文以世界内传说、教义、宣传或不可靠叙述者口吻出现的内容，事实层次用 in_world_belief；原文自称不确定或互相矛盾的用 unknown；其余用 objective。
 - 不要引用任何商业 IP 的专有角色、地名、故事、标志或规则组合。
-${instruction ? `作者补充要求：${instruction}\n` : ''}响应格式（必须严格遵守，只返回这一个 JSON 对象）：
-${shapeExample}
-- entries 的每一项都必须包含上面示例里的全部键，不适用时用空字符串、空数组或 null，不要删除键。
-- 本段最多整理 ${LORE_IMPORT_LIMITS.entriesPerChunk} 条；宁可少而准，不要为凑数拆分同一对象。${requireJson ? '\n严格只返回 JSON 对象，不要添加解释文字或 Markdown 代码围栏。' : ''}`;
+${instruction ? `作者补充要求：${instruction}\n` : ''}输出格式：按下面的**记录格式**写，不要写 JSON，也不要写解释文字或 Markdown 代码围栏。
+先写一段世界信息，再逐条写条目；条目之间用单独一行「@@ 条目」分隔：
+
+@@ 世界
+名称：（原文里的世界名称，没有就留空）
+概述：（不超过 300 字的世界概述，没有就留空）
+正文：（本段对世界的整体描述，没有就留空）
+
+@@ 条目
+类型：（只能是 character / location / timeline / story / info）
+名称：（原文里的专名）
+概述：（一句话概述）
+正文：（可进入条目正文的成品文字）
+属性一：（info 条目填分类，如「势力」「技术体系」；其它类型可留空）
+属性二：（如所属势力、地区）
+属性三：（最关键的要点）
+约束：（原文明确写出的限制与代价）
+开放问题：（原文没交代、需要作者裁定的缺口）
+标签：（关键词）
+关联：（原文里与它确有关系的其它条目名称，只写名称）
+地理层级：（continent / country / region / area / city / site / route，不是地理条目就留空）
+上级：（原文里的上级地理条目名称）
+编年史类型：（chronicle 容器 / entry 节点 / 空）
+所属编年史：（节点所属的编年史名称）
+纪年：（原文里的纪年文本）
+排序：（同一编年史内从 1 开始，不确定就留空）
+事实层次：（objective / in_world_belief / unknown）
+
+写法约定：
+- 字段每行一个，写成「字段名：内容」，冒号中英文都行；没有内容的字段留空或整行省略，不要写「无」「未知」之类占位。
+- 概述、正文可以自然多行：从字段名后面开始写，直到下一个字段名或下一个「@@」段落。
+- 约束、开放问题、标签、关联每行一项，用「- 」开头；也可以在一行里用顿号分隔。
+- 本段最多整理 ${LORE_IMPORT_LIMITS.entriesPerChunk} 条，单条正文建议控制在 1500 字以内；宁可少而准，不要为凑数拆分同一对象。`;
   // 顺序固定为第 4 层（作者风格）→ 第 5 层（本次任务）→ 第 6 层（原文）。原文只出现在最后：
   // 作者风格是服务端保存的指令，原文是不可信上下文，两者不得交换位置。
   const authorPrompts = `<author_personalized_style>\n${personalized}\n</author_personalized_style>`;
@@ -298,17 +300,49 @@ function normalizeExtractedEntry(raw) {
 }
 
 /**
- * 收敛单段模型输出。语法错误或外壳不对只记 issue、不抛错：
- * 一段失败不应让整次导入白跑；调用方按「全部段落都失败」才报错。
+ * 记录格式 → 抽取外壳。与 JSON 相比它不需要转义：正文可以自然换行，
+ * 列表可以自然分行；模型只负责写清楚内容，转成结构化数据由规范化层负责。
+ */
+function envelopeFromRecord(sections) {
+  const world = { name: '', summary: '', details: '' };
+  const entries = [];
+  for (const section of Array.isArray(sections) ? sections : []) {
+    const kind = String(section?.section ?? '');
+    const fields = section?.fields && typeof section.fields === 'object' ? section.fields : {};
+    if (/世界/.test(kind) && !/条目/.test(kind)) {
+      if (!world.name && fields.name) world.name = fields.name;
+      if (!world.summary && fields.summary) world.summary = fields.summary;
+      if (fields.details) world.details = world.details ? `${world.details}\n\n${fields.details}` : fields.details;
+      continue;
+    }
+    if (Object.keys(fields).length) entries.push(fields);
+  }
+  return { world, entries };
+}
+
+/**
+ * 收敛单段模型输出。解析 agent 只负责识别、抽离、建立条目；把它写下来的内容变成
+ * 结构化数据是 `model-json-normalizer.mjs` 的职责：
+ * - 模型照记录格式写 → 由记录格式解析器读成对象；
+ * - 模型仍写了 JSON（有语法缺陷也算）→ 由 JSON 修复器尽量救回。
+ * 语法/外壳问题只记 issue、不抛错：一段失败不该让整次导入白跑；全部段落失败才整体报错。
+ * 修复动作与模型原文片段都会带进 issue，作者能在对话框里看到发生了什么。
  */
 export function normalizeExtraction(raw, options = {}) {
-  const value = typeof raw === 'string' ? parseLooseJson(raw) : raw;
-  if (value === undefined) {
-    return { world: { name: '', summary: '', details: '' }, entries: [], issues: [{ code: 'INVALID_JSON', message: '模型没有返回有效 JSON', preview: previewOf(raw), chunk: options.chunkIndex ?? 0 }] };
+  const chunk = options.chunkIndex ?? 0;
+  if (typeof raw === 'string' && !raw.trim()) {
+    return { world: { name: '', summary: '', details: '' }, entries: [], issues: [{ code: 'EMPTY_RESPONSE', message: '模型返回了空内容（可能被输出上限截断，或接口没有把内容放在 content 字段）', preview: '', chunk }] };
   }
+  const normalized = typeof raw === 'string'
+    ? normalizeModelOutput(raw, { fields: IMPORT_RECORD_FIELDS, sectionField: 'section' })
+    : { format: 'value', value: raw, repairs: {} };
+  if (!normalized) {
+    return { world: { name: '', summary: '', details: '' }, entries: [], issues: [{ code: 'INVALID_OUTPUT', message: '模型输出既不是记录格式也不是可修复的 JSON', preview: previewOf(raw), chunk }] };
+  }
+  const value = normalized.format === 'record' ? envelopeFromRecord(normalized.sections) : normalized.value;
   const envelope = coerceExtraction(value);
   if (!envelope) {
-    return { world: { name: '', summary: '', details: '' }, entries: [], issues: [{ code: 'INVALID_ENVELOPE', message: '返回值既不是 {world, entries} 也不是条目数组', preview: previewOf(value), chunk: options.chunkIndex ?? 0 }] };
+    return { world: { name: '', summary: '', details: '' }, entries: [], issues: [{ code: 'INVALID_ENVELOPE', message: '返回值既不是 {world, entries} 也不是条目数组', preview: previewOf(value), chunk }] };
   }
   const world = {
     name: text(envelope.world?.name, 120),
@@ -319,9 +353,9 @@ export function normalizeExtraction(raw, options = {}) {
   envelope.entries.slice(0, LORE_IMPORT_LIMITS.entriesPerChunk).forEach((candidate, index) => {
     const result = normalizeExtractedEntry(candidate);
     if (result.entry) entries.push(result.entry);
-    else issues.push({ code: 'ENTRY_DROPPED', message: `第 ${index + 1} 条被丢弃：${result.reason}`, preview: previewOf(candidate, 200), chunk: options.chunkIndex ?? 0 });
+    else issues.push({ code: 'ENTRY_DROPPED', message: `第 ${index + 1} 条被丢弃：${result.reason}`, preview: previewOf(candidate, 200), chunk });
   });
-  return { world, entries, issues };
+  return { world, entries, issues, format: normalized.format, repairs: normalized.repairs, repaired: repairsApplied(normalized.repairs) };
 }
 
 // ── 跨段合并（确定性） ──────────────────────────────────────────────────────

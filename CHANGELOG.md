@@ -12,7 +12,8 @@
 - `POST /api/lore-import/commit`：沿用 `contentStore.replace` 与 `expectedRevision` 乐观锁，只**追加**新世界与其资料；要求 `x-worldforge-lore-import: 1`，世界编号冲突 409，审计动作 `content.import_lore`。
 - 世界列表页的「导入设定文本」对话框：原文、可选世界名与补充要求、字符/段数预算提示、解析结果的世界名与告警、逐条勾选与全选、保存后自动进入新世界。
 - **文件上传**：`lore-import-files.mjs` + `POST /api/lore-import/extract`——`.md`/`.txt`（UTF-8/UTF-16/GBK）、`.docx`（正文与脚注）、`.xlsx`（多工作表）、`.zip`（逐条校验内部格式、一层嵌套）、`.rtf`、旧版 `.doc`/`.xls`（OLE2 尽力抽取 + 告警）；`.rar`/`.pdf` 识别后明确拒绝。零依赖（只用 `node:zlib`），解压只在内存，预算为 8 文件 / 单文件 12 MB / 合计 24 MB / 文本 12 万字 / 压缩包 200 条目 / 单条 8 MB / 嵌套 2 层。对话框新增文件选择、逐文件摘要与告警区，抽取文本回填原文框后仍由作者确认再解析。
-- 测试：`tests/lore-import.test.mjs`（14 项纯函数）、`tests/lore-import-files.test.mjs`（13 项，真实 ZIP/OOXML 字节夹具）、`tests/lore-import-api.test.mjs`（9 项端到端 + 假模型）、`tests/subpath-routing.test.mjs` 增加设定导入的界面与请求契约断言；`tests/helpers/document-fixtures.mjs` 提供文档夹具生成器。
+- **输出契约：解析 agent 不再负责 JSON**（ADR-0033 §10）：新增通用规范化层 `model-json-normalizer.mjs`，导入改为要求模型写「`@@ 段 + 字段：值`」记录格式，由规范化层转成结构化数据；导入入口**不再发送 `json_schema`**，每段一次调用（去掉原来的结构化降级重试）。规范化层只修语法：围栏/散文、字符串内未转义换行、尾逗号、注释、全角标点、输出截断（退回最后一个完整对象）、JSONL、字符串里套 JSON；记录格式支持多行正文与自然分行的列表。段级告警会带模型原文片段，截断恢复记 `OUTPUT_TRUNCATED`，预览头部显示「规范化 N 段」。修复实测 `deepseek-flash` 返回「1 段 → 0 条资料」的根因。
+- 测试：`tests/lore-import.test.mjs`（18 项纯函数）、`tests/model-json-normalizer.test.mjs`（11 项）、`tests/lore-import-files.test.mjs`（13 项，真实 ZIP/OOXML 字节夹具）、`tests/lore-import-api.test.mjs`（11 项端到端 + 假模型）、`tests/subpath-routing.test.mjs` 增加设定导入的界面与请求契约断言；`tests/helpers/document-fixtures.mjs` 提供文档夹具生成器。
 
 ### Changed
 - `Dockerfile` 的根模块 COPY 白名单加入 `lore-import.mjs`；`npm run check` 的语法检查加入该模块；`docs/static/anchors.json` 新增 6 个锚点并把两个随调用点重复的锚点改为 `count/nth`。

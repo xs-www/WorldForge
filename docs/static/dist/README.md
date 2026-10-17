@@ -46,6 +46,7 @@ const apiUrl = path => new URL(path, API_ROOT);
 - `#loreImportDialog` 只有一条主流程：`#loreImportParse` 调 `lore-import/parse` → `#loreImportReview` 显示世界名、告警与逐条勾选（`#loreImportEntries`）→ `#loreImportSave` 调 `lore-import/commit`，成功后 `hydrateContent()` → `renderWorldHub()` → `enterWorld()`，因此新世界与条目立即出现在界面里，而不是只写进数据库。
 - **文件上传**是解析之前的独立一步：`#loreImportFiles`（多选，`.md/.markdown/.txt/.docx/.doc/.xlsx/.xls/.zip/.rar/.rtf`）+ `#loreImportReadFiles` 调 `lore-import/extract`，把服务端抽取的文本写进 `#loreImportSource`，逐文件摘要与告警写进 `#loreImportFileStatus`。它不调用模型、不写库、不计配额；文本框里已有内容时会先确认再替换。
 - 预览行由 `loreImportEntryRow` 用 `createElement` + `textContent` 渲染（与卡牌描述一致，不拼 HTML）；勾选状态存在 `loreImportSelectedIds`，取消勾选只影响本次提交，不回写服务端。
+- 解析请求不发送结构化输出要求：服务端要求模型按人类可读的记录格式写，由 `model-json-normalizer.mjs` 规范化为 JSON（ADR-0033 §10）；响应里的 `normalization.repairedChunks > 0` 会在预览头部显示「规范化 N 段」，被截断的输出另有一条 `OUTPUT_TRUNCATED` 告警。
 - 解析与保存都不重试付费调用：`parse` 是单次请求，失败只把错误写进 `#loreImportStatus`；commit 用 `contentRevision` 做乐观锁，409 时提示刷新而不是覆盖别人。
 - 该对话框与浏览器存储无关：导入结果不经过 `localStorage` 写入，成功后以服务端返回的快照为准。
 

@@ -8,9 +8,9 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17T13:59:24.942Z",
   "counts": {
-    "sources": 161,
-    "documented": 70,
-    "aggregated": 90,
+    "sources": 163,
+    "documented": 71,
+    "aggregated": 91,
     "config": 1
   },
   "files": [
@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "6da08cc66c9d927d1bc97274ebc780cf2915646ca6b937a3851096117168d8d8"
+      "sha256": "ede5488f41c54bf7eb41c01de2a1f8a8b3d7872b53677e1c1ed019597aeb6479"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,7 +294,7 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "4cb64a355d7dd259a17601d9a74f71ade94263383d31be5abfee363e68de75ed"
+      "sha256": "712b432d062a6b926356e020a0cb341eaf89c56c583198d33daf7bb9ae722480"
     },
     {
       "source": "dist/login.html",
@@ -348,7 +348,7 @@
       "source": "Dockerfile",
       "doc": "docs/static/Dockerfile.md",
       "status": "documented",
-      "sha256": "742e40263e65bf873b8485a49e5b92c1298c918930db4dbf60b4515f47303957"
+      "sha256": "42cc6cfffd8dd2aa6669c3ca0b1c01e704c4b2a909429318f3ffc62044cffc0e"
     },
     {
       "source": "docs/static/anchors.json",
@@ -372,7 +372,7 @@
       "source": "lore-import.mjs",
       "doc": "docs/static/lore-import.mjs.md",
       "status": "documented",
-      "sha256": "37a575451e924804f797bfd16d31f8b4b5d36f574d57640d97efa2c19d22df26"
+      "sha256": "6ef69f71d7f1c1a71c82c00b7afc4b999a4c6c82d475292cb72d01493a465a9e"
     },
     {
       "source": "lore-import-files.mjs",
@@ -381,10 +381,16 @@
       "sha256": "40f2abdb1b713de040e6b0076528520483c16e3d220e0210bdf6edf6b29bcc4c"
     },
     {
+      "source": "model-json-normalizer.mjs",
+      "doc": "docs/static/model-json-normalizer.mjs.md",
+      "status": "documented",
+      "sha256": "15af96f892affbc0e9b258c3f0d933b7198db62bb830a3afcba94bc42b284aa8"
+    },
+    {
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "86187721ace8b1b37263810ee28ec5ac283d0931123a87954488af669d6f21ba"
+      "sha256": "80e97da8988e0a04538997e69cabd26e9022a456a8404052a9583b9d04449dfc"
     },
     {
       "source": "prompt-settings.mjs",
@@ -426,7 +432,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "54eaf91bf90d6ede92f91689ee71fe7befb3d3698a5edf4cb2972ff7b76f3048"
+      "sha256": "53d29d6b8829853f1a984041fe642fdff9905159e38b94dd8c23e44fb48b62d3"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -876,7 +882,7 @@
       "source": "tests/lore-import-api.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "cc59ac78dea2498199ba8e1aaacad56973bce0ba4319559942b3177969f3efb5"
+      "sha256": "237b9064bdeb396240b6320604e88d9e13d6cbaa4012bed0d98fe4731a67f59f"
     },
     {
       "source": "tests/lore-import-files.test.mjs",
@@ -888,13 +894,19 @@
       "source": "tests/lore-import.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "ac4fceb09db5bde62713b9a7f80f2b482f87f6543b5c7653af7036b902c95ea9"
+      "sha256": "65e62f804afc88cb9b8dc81d6d1583dbc7ce7c2ec7649148b384e9eda81b11ff"
     },
     {
       "source": "tests/macro-simulation.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
       "sha256": "26b7c066bd935d9575651a59ea3eeb889447360b90692ced738cffb0f15b3ada"
+    },
+    {
+      "source": "tests/model-json-normalizer.test.mjs",
+      "doc": "docs/static/tests/README.md",
+      "status": "aggregated",
+      "sha256": "cd08d0dc263458c3e5267a958f4d0f411a3865393cdd4a84ab5dbbcbd12560dd"
     },
     {
       "source": "tests/prompt-settings.test.mjs",
@@ -906,7 +918,7 @@
       "source": "tests/README.md",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "d0657e8c47d37ae170dcb6fe082a4e20a93f972e8428d3e861eb877e2dc893ff"
+      "sha256": "2ab1fbe2b3708466f8dbf4d509bd37397bb735e0cc74d1fc8855cf3b6c7f36d2"
     },
     {
       "source": "tests/reference-assets.test.mjs",
@@ -966,7 +978,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "bcea67fdcd975981b1bbbdf4ace7fb6cf8323ef7c5f79d004bf8d1bcf9cf8e25"
+      "sha256": "6857269bc5304b62ec13923ec7f9a991cdc142d90a83c6e379027cdfe042e22d"
     },
     {
       "source": "tests/world-package.test.mjs",

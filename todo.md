@@ -5,7 +5,9 @@
 - [x] 设定导入支持文件上传（ADR-0033 §9）：新增 `lore-import-files.mjs` 与 `POST /api/lore-import/extract`，零依赖解析 `.md`/`.txt`（UTF-8/UTF-16/GBK）、`.docx`、`.xlsx`、`.zip`（逐条校验内部格式）、`.rtf`，旧版 `.doc`/`.xls` 尽力抽取并告警；`.rar`/`.pdf` 明确拒绝。解压只在内存、按实际输出量限流，预算与告警全部回传对话框；21→32 项导入相关测试。
 - [ ] 设定导入的文件能力待实测：WPS/Word 真实导出的旧版 `.doc`、含扫描图片的文档、加密或分卷 ZIP 的实际提示是否符合预期；`.rar` 是否值得引入依赖、PDF 是否需要单独通道，待裁定。
 - [x] 设定导入（ADR-0033）：新增 `lore-import.mjs`，主界面「导入设定文本」把长篇原文分段交给已配置的设定 Agent 解析，改写成资料库条目（角色 / 世界地图 / 编年史 / 背景故事 / 世界信息），预览中逐条勾选后只追加一个新世界。解析不写库且按段计入 AI 配额；导入永远 `proposed`，不写 canon、不覆盖既有条目、不写仓库；`npm run check` 全绿（含 21 项新增测试）。
-- [ ] 设定导入待作者裁定与实测：真实模型对 3–9 万字长文的分段质量与漏抽率、真实导入后地理树与年表的渲染、是否允许并入**已有世界**、是否把导入暴露为 DSH preset 侧入口、超过 9 万字是否分批续传。
+- [x] 设定导入改为「解析不负责 JSON」（ADR-0033 §10）：新增通用规范化层 `model-json-normalizer.mjs`，导入提示词改成 `@@ 段 + 字段：值` 记录格式、不再发送 `json_schema`（每段一次调用）；规范化层修围栏/散文/未转义换行/尾逗号/注释/全角标点/截断/JSONL/双层 JSON，并在段级告警里回显模型原文片段。修复实测 `deepseek-flash`「1 段 → 0 条资料」的失败形态，新增 11 项规范化测试 + 记录格式端到端测试。
+- [ ] 用真实 `deepseek-flash` 复测长文导入：确认记录格式能稳定抽出条目、规范化层不再触发截断，并观察「规范化 N 段」与 `OUTPUT_TRUNCATED` 的实际出现频率。
+- [ ] 设定导入的其余待裁定项：是否允许并入**已有世界**、是否把导入暴露为 DSH preset 侧入口、超过 9 万字是否分批续传；以及真实导入后地理树与年表的渲染。
 - [x] 将 WorldForge 卡牌设计智能体重构为仓库内可版本化的 DSH Agent preset，并补齐可移植技能与能力边界测试。
 - [x] 将现有结构化设定写作助手与自由创作聊天分别抽离为 `lore-writer`、`free-creator` DSH Agent preset。
 - [x] 完成 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0 工程实现：兼容矩阵、提示词六层顺序与稳定错误码；新增 `docs/schemas/agent-runtime.schema.json`、`agent-profile-contract.mjs`（契约真值）与提示词层次 snapshot；三个 preset 补齐 `worldforge.runtime.json` + `runtime/system.md`；新增合法/非法夹具与 12 项契约测试。

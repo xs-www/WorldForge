@@ -19,7 +19,7 @@ import { AGENT_SETTINGS_ENV, AGENT_SETTINGS_FILENAME, loadAgentSettings, publicA
 import { AUTH_DEFAULT_QUOTA, AUTH_REQUIRE_ENV, AUTH_USERS_ENV, clearSessionCookie, cookieSecureMode, isSecureRequest, openAuthStore, sessionCookie } from './auth.mjs';
 import { buildExportBundle, extensionForMimeType, parseImportBundle, planArtAssetImport, planImport } from './data-transfer.mjs';
 import { promptKeyOf, MAX_LORE_GROUPS } from './lore-groups.mjs';
-import { buildImportPlan, buildImportPrompt, buildWorldEntry, IMPORT_EXTRACTION_SCHEMA, LORE_IMPORT_ENTRY_CONTRACT, LORE_IMPORT_LIMITS, mergeExtractions, nextWorldIdOf, normalizeExtraction, normalizeImportSource, splitImportSource, validateImportPlan } from './lore-import.mjs';
+import { buildImportPlan, buildImportPrompt, buildWorldEntry, LORE_IMPORT_ENTRY_CONTRACT, LORE_IMPORT_LIMITS, mergeExtractions, nextWorldIdOf, normalizeExtraction, normalizeImportSource, splitImportSource, validateImportPlan } from './lore-import.mjs';
 import { extractImportDocuments } from './lore-import-files.mjs';
 import { createSimulationDashboardService } from './simulation/dashboard-service.mjs';
 import { createMacroSimulationService } from './simulation/macro-simulation-service.mjs';
@@ -407,7 +407,12 @@ async function requestModel(config, prompt, options = {}) {
   const response = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(data.error?.message || `模型服务返回 ${response.status}`); error.status = response.status; throw error; }
-  if (config.style === 'chat') return data.choices?.[0]?.message?.content || '';
+  if (config.style === 'chat') {
+    // 兼容接口可能把内容按多模态分片返回（[{type:'text',text:…}]）：直接 String() 会得到 "[object Object]"。
+    const content = data.choices?.[0]?.message?.content;
+    if (Array.isArray(content)) return content.map(part => (typeof part === 'string' ? part : part?.text || '')).join('');
+    return content || '';
+  }
   return data.output_text || data.output?.flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('\n') || '';
 }
 
@@ -763,6 +768,10 @@ async function mapLimited(items, limit, mapper) {
 /**
  * 解析一次导入请求。逐段解析、逐段计费（每段一次模型调用 = 1 次 AI 配额），
  * 单段失败只记警告；只有全部段落都失败或配额不足时才整体失败。
+ *
+ * 输出契约是记录格式而不是 JSON（ADR-0033 §10）：解析 agent 只负责识别、抽离、建立条目，
+ * 由 `model-json-normalizer.mjs` 统一把它规范化成结构化数据。因此这里**不发送** json_schema，
+ * 也不存在「结构化被拒→降级重试」的第二笔调用。
  */
 async function callLoreImport(payload, session) {
   const config = aiConfig();
@@ -778,50 +787,45 @@ async function callLoreImport(payload, session) {
   const instructions = String(payload?.instruction || '').trim().slice(0, 300);
   const promptSettings = await loadPromptSettings();
   const system = agentSystemPrompt(profile, { entryContract: LORE_IMPORT_ENTRY_CONTRACT });
-  const promptFor = (chunk, extra = {}) => buildImportPrompt({
+  const promptFor = chunk => buildImportPrompt({
     index: chunk.index,
     total: chunks.length,
     text: chunk.text,
     instruction: instructions,
-    personalizedPrompt: promptSettings.personalizedPrompt,
-    ...extra
+    personalizedPrompt: promptSettings.personalizedPrompt
   });
   const runChunk = async chunk => {
     await chargeQuota('ai', session);
-    let structured = true;
-    let fallbackReason = null;
     let raw;
     try {
-      raw = await requestModel(config, promptFor(chunk), { structured: true, schema: IMPORT_EXTRACTION_SCHEMA, name: 'worldforge_lore_import', system });
+      raw = await requestModel(config, promptFor(chunk), { structured: false, system });
     } catch (error) {
       // 配额不足是整体性错误：继续跑后面的段只会继续撞 429。
       if (error.code === 'AUTH_QUOTA_EXCEEDED' || error.status === 429) throw error;
-      // 兼容接口常忽略 response_format/json_schema：改用非结构化 JSON 约束重试同一段。
-      if (![400, 404, 422].includes(error.status)) return { chunk, error };
-      structured = false;
-      fallbackReason = `结构化请求被拒绝（HTTP ${error.status}）：${error.message}`;
-      console.warn(`[lore-import] 第 ${chunk.index + 1}/${chunks.length} 段${fallbackReason}；改用非结构化 JSON 约束重试。`);
-      try {
-        raw = await requestModel(config, promptFor(chunk, { requireJson: true }), { structured: false, system });
-      } catch (fallbackError) {
-        if (fallbackError.code === 'AUTH_QUOTA_EXCEEDED' || fallbackError.status === 429) throw fallbackError;
-        return { chunk, error: fallbackError };
-      }
+      return { chunk, error };
     }
     const normalized = normalizeExtraction(raw, { chunkIndex: chunk.index });
-    return { chunk, ...normalized, structured, fallbackReason };
+    return { chunk, ...normalized };
   };
   const outcomes = await mapLimited(chunks, LORE_IMPORT_LIMITS.concurrency, runChunk);
   const extractions = [], warnings = [], issues = [];
-  let fallbackReason = null;
+  const formats = new Set();
+  let repairedChunks = 0;
   for (const outcome of outcomes) {
     if (outcome.error) {
       issues.push({ code: 'CHUNK_FAILED', message: `第 ${outcome.chunk.index + 1}/${chunks.length} 段解析失败：${String(outcome.error.message || outcome.error).slice(0, 300)}` });
       continue;
     }
     extractions.push({ world: outcome.world, entries: outcome.entries });
-    for (const issue of outcome.issues || []) issues.push({ code: issue.code, message: `第 ${issue.chunk + 1} 段：${issue.message}` });
-    if (!fallbackReason && outcome.fallbackReason) fallbackReason = outcome.fallbackReason;
+    if (outcome.format) formats.add(outcome.format);
+    if (outcome.repaired) repairedChunks += 1;
+    // 规范化层救回了被截断的输出：条目可能少了一部分，必须让作者知道。
+    if (outcome.repairs?.truncated) issues.push({ code: 'OUTPUT_TRUNCATED', message: `第 ${outcome.chunk.index + 1} 段输出超过模型上限被截断，已保留完整条目；可缩短单段文本或重试` });
+    for (const issue of outcome.issues || []) {
+      // 把模型原文片段附在段级告警里：作者能直接看到不可解析到底是空响应、散文，还是格式不对。
+      const excerpt = issue.preview ? `（模型原文片段：${issue.preview}）` : '';
+      issues.push({ code: issue.code, message: `第 ${issue.chunk + 1} 段：${issue.message}${excerpt}` });
+    }
   }
   if (!extractions.length) {
     const reason = issues[0]?.message || '模型没有返回可用的抽取结果';
@@ -847,7 +851,7 @@ async function callLoreImport(payload, session) {
     agent,
     model: config.model,
     harnessVersion: HARNESS_VERSION,
-    ...(fallbackReason ? { fallbackReason } : {})
+    normalization: { formats: [...formats], repairedChunks }
   };
 }
 

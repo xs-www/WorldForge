@@ -197,18 +197,23 @@ test('解析：未知 preset 在调用模型前就 400', async () => {
   assert.equal(fakeModel.requests.length, 0, '不允许产生外部调用');
 });
 
-test('解析：结构化输出被拒时降级为非结构化 JSON 并如实回报原因', async () => {
+test('解析：不再依赖结构化输出，记录格式一次调用即可落成条目', async () => {
   fakeModel.reset();
-  fakeModel.setBehavior(body => {
-    if (body.response_format) return { status: 400, json: { error: { message: 'response_format is not supported' } } };
-    return chunkReply(undefined, [planEntry({ name: '炉心', attributeA: '技术体系' })]);
-  });
+  fakeModel.setBehavior(() => ({
+    status: 200,
+    json: { choices: [{ message: { content: '@@ 世界\n名称：余烬界\n概述：一座靠炉心余热运转的城邦。\n\n@@ 条目\n类型：info\n名称：灰烬议会\n概述：城邦机构\n正文：\n七名议员负责分配余热。\n不得兼任军职。\n属性一：势力\n标签：议会、议员\n' } }] }
+  }));
   const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '炉心为城邦提供余热。' } });
   assert.equal(response.status, 200, response.body);
   const data = parse(response);
-  assert.match(String(data.fallbackReason), /HTTP 400/);
-  assert.equal(data.entries[0].name, '炉心');
-  assert.equal(fakeModel.requests.length, 2, '结构化请求 + 降级请求各一次');
+  assert.equal(fakeModel.requests.length, 1, '一次调用，没有结构化降级重试');
+  assert.equal(fakeModel.requests[0].body.response_format, undefined, '导入入口不得发送 json_schema');
+  assert.equal(fakeModel.requests[0].body.text, undefined, '响应不应依赖 text.format');
+  assert.deepEqual(data.entries.map(item => item.name), ['灰烬议会']);
+  assert.equal(data.entries[0].values.attributeA, '势力');
+  assert.deepEqual(data.entries[0].tags, ['议会', '议员']);
+  assert.equal(data.world.name, '余烬界');
+  assert.match(String(data.normalization?.formats?.[0]), /record|json/);
 });
 
 test('解析：全部段落失败时整体报错，而不是返回空计划', async () => {
@@ -217,6 +222,41 @@ test('解析：全部段落失败时整体报错，而不是返回空计划', as
   const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '一段设定' } });
   assert.equal(response.status, 500, response.body);
   assert.match(String(parse(response).error), /设定解析失败/);
+});
+
+test('解析：模型输出未转义换行时仍能落成条目（deepseek-flash 实测形态）', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({
+    status: 200,
+    json: { choices: [{ message: { content: '{"world":{"name":"余烬界","summary":"","details":""},"entries":[{"type":"info","name":"灰烬议会","summary":"机构","details":"第一行\n第二行","attributeA":"势力","attributeB":"","attributeC":"","constraints":[],"openQuestions":[],"tags":[],"relations":[],"locationKind":"","locationParent":"","chronicleKind":"","chronicleParent":"","dateLabel":"","order":null,"truthScope":"objective"}]}' } }] }
+  }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '灰烬议会由七名议员组成。' } });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  assert.deepEqual(data.entries.map(item => item.name), ['灰烬议会']);
+  assert.ok(data.entries[0].values.details.includes('\n'), '修复后的换行应保留在正文里');
+  assert.equal(data.warnings.some(item => item.code === 'INVALID_JSON'), false);
+});
+
+test('解析：模型返回不可解析内容或空内容时，告警带段号与原文片段', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '这不是 JSON，只是一段说明。' } }] } }));
+  const unparsable = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '一段设定文本。' } });
+  assert.equal(unparsable.status, 200, unparsable.body);
+  const broken = parse(unparsable);
+  assert.equal(broken.entries.length, 0);
+  const warning = broken.warnings.find(item => item.message.includes('模型原文片段'));
+  assert.ok(warning, '段级告警必须带模型原文片段，否则作者无法诊断');
+  assert.match(warning.message, /第 1 段/);
+  assert.match(warning.message, /这不是 JSON/);
+  assert.equal(broken.warnings.some(item => item.code === 'EMPTY_EXTRACTION'), true);
+
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '' } }] } }));
+  const empties = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '另一段设定文本。' } });
+  assert.equal(empties.status, 200, empties.body);
+  const empty = parse(empties);
+  assert.equal(empty.warnings.some(item => /空内容/.test(item.message)), true);
 });
 
 test('确认导入：缺标记头 403，成功后只追加一个新世界', async () => {

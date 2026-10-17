@@ -22,7 +22,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 | HTTP 服务与持久化 | [`server.mjs.md`](server.mjs.md)、[`auth.mjs.md`](auth.mjs.md)、[`storage.mjs.md`](storage.mjs.md)、[`storage-migrations.mjs.md`](storage-migrations.mjs.md)、[`reference-assets.mjs.md`](reference-assets.mjs.md)、[`scripts/auth-cli.mjs.md`](scripts/auth-cli.mjs.md) | 路由与请求校验、账号/会话/配额/审计、设置读写、SQLite 内容库与整库快照、图片资产落盘、账号 CLI |
 | Agent Profile 契约与注册表 | [`agent-profile-contract.mjs.md`](agent-profile-contract.mjs.md)、[`agent-profile-registry.mjs.md`](agent-profile-registry.mjs.md)、[`agent-legacy.mjs.md`](agent-legacy.mjs.md)、[`agent-runtime.schema.json.md`](agent-runtime.schema.json.md)、[`.agent-presets/README.md`](.agent-presets/README.md) | 只读发现产品投影，Schema 校验 + 确定性指纹 + 11 个稳定错误码，投影损坏即拒绝启动；`WORLDFORGE_AGENT_LEGACY_PROMPTS=1` 时只把第 2 层 persona 退回固定提示 |
 | AI 生成栈 | [`ai-harness.mjs.md`](ai-harness.mjs.md)、[`ai-agent.mjs.md`](ai-agent.mjs.md)、[`ai-tools.mjs.md`](ai-tools.mjs.md)、[`ai-content-specs.mjs.md`](ai-content-specs.mjs.md)、[`prompt-settings.mjs.md`](prompt-settings.mjs.md)、[`image-context.mjs.md`](image-context.mjs.md) | 提示词分层与上下文预算、内容块 Schema、多轮只读工具循环与硬上限（6 轮 / 12 次调用 / 4 图） |
-| 设定导入（ADR-0033） | [`lore-import.mjs.md`](lore-import.mjs.md)、[`lore-import-files.mjs.md`](lore-import-files.mjs.md) | 长篇原文切分、单段抽取 Schema 与第 4–6 层提示词、跨段确定性合并、改写为资料格式与落库前复核；文件输入层解析 docx/xlsx/md/txt/zip，旧版 doc/xls 尽力抽取，rar/pdf 明确拒绝 |
+| 设定导入（ADR-0033） | [`lore-import.mjs.md`](lore-import.mjs.md)、[`lore-import-files.mjs.md`](lore-import-files.mjs.md)、[`model-json-normalizer.mjs.md`](model-json-normalizer.mjs.md) | 长篇原文切分、记录格式契约与第 4–6 层提示词、跨段确定性合并、改写为资料格式与落库前复核；文件输入层解析 docx/xlsx/md/txt/zip，旧版 doc/xls 尽力抽取，rar/pdf 明确拒绝；通用「模型输出 → JSON」规范化层只修语法、不猜内容 |
 | 生图通道 | [`seedream.mjs.md`](seedream.mjs.md)、[`comfyui.mjs.md`](comfyui.mjs.md) | 外部生图 API 边界：固定参数、占位符替换、超时与失败上报 |
 | 模拟内核 | [`world-package.mjs.md`](simulation/compiler/world-package.mjs.md)、[`instance-store.mjs.md`](simulation/storage/instance-store.mjs.md)、[`simulation-runtime.mjs.md`](simulation/runtime/simulation-runtime.mjs.md)、[`mechanic-runtime.mjs.md`](simulation/rules/mechanic-runtime.mjs.md)、[`schemas/README.md`](simulation/schemas/README.md) | 编译 → 实例化 → 确定性 Tick → 快照/重放；规则权威、LLM 只提案 |
 | 前端 | [`dist/README.md`](dist/README.md)、[`dist/login.html.md`](dist/login.html.md)、[`dist/login.js.md`](dist/login.js.md) | 零构建的全局脚本装配、视图渲染、浏览器侧缓存与首次迁移；登录页是独立文档，未登录时不加载应用外壳 |
@@ -47,6 +47,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 - **模拟域隔离**：模拟只读 Git 投影出的 JSON 发布清单，不写作者内容表；W97/W98/W99 是合成实验，不是正史。
 - **不可信内容不上指令层**：作者笔记、资料库正文、示例只能出现在用户消息侧；preset 伪造分层标记会被注册表拒绝加载。
 - **输出外壳不依赖供应商支持**：`response_format` / `text.format` 只是加固，不是外壳的唯一来源。设定与卡牌入口都必须把 `{"variants":[…]}`、`key`、已勾选键写进 prompt 第 5 层，解析侧再宽松收敛（裸候选对象、顶层数组、夹带围栏）+ 候选缺 `key` 时补 `candidate-N`；只支持 `json_object` 的兼容接口不得让整次生成失败，降级原因由响应里的 `fallbackReason` 如实回显。
+- **解析 agent 不负责 JSON**：设定导入把内容契约写成人类可读的记录格式（`@@ 段` + `字段：值`），不发送 `json_schema`；模型输出由 [`model-json-normalizer.mjs`](model-json-normalizer.mjs.md) 统一规范化（先修 JSON、再解析记录格式），只修语法、不猜内容。其它入口若也遇到「模型写不好 JSON」，优先复用这一层，而不是在各自入口里再写一套修复。
 - **付费请求不自动重试**：生图长连接中断时前端只查询同一次请求已落盘的结果。
 - **启动 fail-fast**：preset 投影或 Registry 有缺陷时服务拒绝启动并打印稳定错误码，不静默换 persona。唯一例外是显式回滚开关：只有 `WORLDFORGE_AGENT_LEGACY_PROMPTS` 精确等于 `1` 才降级启动，并由 `/api/health` 明确报告 `degraded`。
 - **账号 fail-closed**：存在 `users.json` 即要求会话；`WORLDFORGE_REQUIRE_AUTH=1` 时账号库缺失或损坏一律拒绝启动。匿名模式只是本机开发路径，启动日志会明确警告；未登录的页面导航返回登录页。
@@ -55,8 +56,8 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 
 ## 覆盖与清单
 
-- 当前 70 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
-- [`manifest.json`](manifest.json) 记录 161 个源/配置/清单文件：70 个 `documented`、90 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
+- 当前 71 篇文件级文档（镜像路径，如 `server.mjs` → [`server.mjs.md`](server.mjs.md)）+ 4 篇目录级汇档（`dist/`、`tests/`、`simulation/schemas/`、`.agent-presets/`）。
+- [`manifest.json`](manifest.json) 记录 163 个源/配置/清单文件：71 个 `documented`、91 个 `aggregated`（指向所属目录级文档）、1 个 `config`，并列出 7 类跳过规则的排除理由。
 - 清单哈希由 `node static-doc-manifest.mjs --check` 强制（已接入 `npm run check`）：任何条目与磁盘不一致都会以 `HASH_MISMATCH` 失败，改源码后必须 `--write` 重算。
 - 未收录（只在本文引用）：设计/ADR 文档 [`../../docs/PROJECT_DESIGN.md`](../../docs/PROJECT_DESIGN.md)、[`../../docs/WorldForge_2.0_Design_Document_V1.0.md`](../../docs/WorldForge_2.0_Design_Document_V1.0.md)、[`../../docs/adr/README.md`](../../docs/adr/README.md)；模拟模块关系 [`../../simulation/README.md`](../../simulation/README.md)；设定内容目录 `universe/`、`worlds/`、`mechanics/`、`cards/`、`templates/`；运行时数据库 `.data/*.sqlite*`；二进制素材 `dist/assets/`。
 - [`html-product.md`](html-product.md) 是 2026-10-17 之前逐次交付的追加式归档（含当时的验证/未验证结论），保留原貌，不作为当前实现索引。
