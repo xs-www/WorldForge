@@ -32,7 +32,6 @@ const LORE_PROMPT = '【测试 persona】你是一位设定写作助手，先确
 const lorePayload = { draft: { type: 'magic', name: '测试', worldId: 'W01' }, selectedBlocks: ['name', 'summary'], variantCount: 1 };
 const freePayload = { messages: [{ role: 'user', content: '帮我看看灰烬城' }], library: [{ id: 'L1', name: '灰烬城', type: 'location', status: 'proposed', summary: '测试条目' }] };
 const cardPayload = { action: 'brainstorm', variantCount: 1, selectedFields: ['name', 'cost'], draft: { name: '草案', type: 'minion', cost: 2, attack: 1, health: 1, rarity: 'common', rulesText: '', keywordIds: [], loreRefs: [] } };
-const cardReview = { legalTargets: '自身', timing: '入场时', effectOrder: '先结算战吼再触发其他效果', duration: '永久', counterplay: '沉默或移除', edgeCases: ['没有合法目标时跳过'] };
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -58,7 +57,7 @@ function fakeModel() {
     const content = parsed.tools?.length
       ? '这是假模型对自由对话的回答。'
       : flat.includes('<card_draft>')
-        ? JSON.stringify({ variants: [{ key: 'a', patch: { name: '灰烬匠', cost: 3 }, review: cardReview }] })
+        ? JSON.stringify({ variants: [{ key: 'a', patch: { name: '灰烬匠', cost: 3 } }] })
         : JSON.stringify({ variants: [{ key: 'candidate-a', content: { name: '甲', summary: '乙' } }] });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ choices: [{ message: { content } }] }));

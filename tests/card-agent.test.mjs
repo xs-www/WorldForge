@@ -26,8 +26,7 @@ const basePayload = (overrides = {}) => ({
   keywords: KEYWORDS,
   ...overrides
 });
-const review = () => ({ legalTargets: '自身', timing: '入场时', effectOrder: '先结算战吼再触发其他效果', duration: '永久', counterplay: '沉默或移除', edgeCases: ['没有合法目标时跳过'] });
-const variant = (patch, extra = {}) => ({ key: 'a', patch, review: review(), ...extra });
+const variant = (patch, extra = {}) => ({ key: 'a', patch, ...extra });
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -71,26 +70,30 @@ test('unselected fields, unknown references and script effects are rejected', ()
   assert.deepEqual(legal.patch.effects, [{ op: 'deal_damage', params: { amount: 2 } }]);
 });
 
-test('incomplete reviews are diagnostics, not silent passes', () => {
-  const incomplete = { key: 'a', patch: { name: '甲' }, review: { legalTargets: '自身', timing: '入场', effectOrder: '顺序', duration: '', counterplay: '沉默', edgeCases: [] } };
-  const inspected = inspectCardResponse({ variants: [incomplete] }, basePayload());
+test('illegal variants are diagnostics, not silent passes', () => {
+  const illegal = { key: 'a', patch: { attack: 5 } };
+  const inspected = inspectCardResponse({ variants: [illegal] }, basePayload({ selectedFields: ['name'] }));
   assert.equal(inspected.variants.length, 0);
   assert.equal(inspected.issues[0].code, 'INVALID_VARIANT');
-  assert.match(inspected.issues[0].message, /duration|edgeCases/);
+  assert.match(inspected.issues[0].message, /未勾选字段/);
   assert.equal(inspectCardResponse('not json', basePayload()).issues[0].code, 'INVALID_JSON');
   assert.equal(inspectCardResponse({ variants: [] }, basePayload()).variants.length, 0);
+  // 评审字段已移除：模型即使仍返回 review 也不会进入候选，也不因此失败。
+  const withLegacyReview = inspectCardResponse({ variants: [{ key: 'b', patch: { name: '乙' }, review: { legalTargets: '自身' } }] }, basePayload({ selectedFields: ['name'] }));
+  assert.equal(withLegacyReview.variants.length, 1);
+  assert.equal(withLegacyReview.variants[0].review, undefined, '候选不再携带评审');
 });
 
 test('a model that ignores the response schema is still accepted', () => {
   // 兼容接口常忽略 json_schema，把 items 当根对象返回、或漏写 key；
   // 这些形状应当被收敛而不是整次失败（DeepSeek 等只支持 json_object 的端点）。
-  const bare = inspectCardResponse({ patch: { name: '甲' }, review: review() }, basePayload({ selectedFields: ['name'] }));
+  const bare = inspectCardResponse({ patch: { name: '甲' } }, basePayload({ selectedFields: ['name'] }));
   assert.equal(bare.variants.length, 1);
   assert.equal(bare.variants[0].key, 'candidate-1');
-  const fenced = inspectCardResponse(`说明如下：\n\`\`\`json\n${JSON.stringify({ key: '', patch: { name: '乙' }, review: review() })}\n\`\`\``, basePayload({ selectedFields: ['name'] }));
+  const fenced = inspectCardResponse(`说明如下：\n\`\`\`json\n${JSON.stringify({ key: '', patch: { name: '乙' } })}\n\`\`\``, basePayload({ selectedFields: ['name'] }));
   assert.equal(fenced.variants.length, 1);
   assert.equal(fenced.variants[0].patch.name, '乙');
-  const wrapped = inspectCardResponse([{ key: 'a', patch: { name: '丙' }, review: review() }], basePayload({ selectedFields: ['name'] }));
+  const wrapped = inspectCardResponse([{ key: 'a', patch: { name: '丙' } }], basePayload({ selectedFields: ['name'] }));
   assert.equal(wrapped.variants.length, 1);
   // 真正跑偏的返回仍然只产出诊断，并附带原文片段便于定位。
   const wrong = inspectCardResponse({ name: '丁' }, basePayload({ selectedFields: ['name'] }));
@@ -102,7 +105,9 @@ test('a model that ignores the response schema is still accepted', () => {
 
 test('the card prompt states the JSON envelope inside layer 5', () => {
   const prompt = buildCardPrompt({ ...basePayload(), selectedFields: ['name', 'cost', 'keywordIds'], variantCount: 2 }, { draft: { name: '草案' } });
-  for (const key of ['"variants"', '"key"', '"patch"', '"review"']) assert.ok(prompt.includes(key), `缺少 ${key}`);
+  for (const key of ['"variants"', '"key"', '"patch"']) assert.ok(prompt.includes(key), `缺少 ${key}`);
+  assert.ok(!/"review"/.test(prompt), '外壳不得再要求评审字段');
+  assert.ok(prompt.includes('评审由作者完成'), '第 5 层必须写明评审归作者');
   assert.ok(prompt.includes('"name":"新卡名"') && prompt.includes('"cost":3'), '示例值必须是安全的类型占位');
   assert.ok(prompt.includes('"keywordIds":[]'), 'ID 数组示例必须为空，避免模型照抄未提供的 ID');
   assert.ok(prompt.indexOf('响应格式') < prompt.indexOf('<card_draft>'), '外壳说明属于第 5 层');
@@ -111,15 +116,15 @@ test('the card prompt states the JSON envelope inside layer 5', () => {
 
 test('balance claims are rejected while untested markers are added', () => {
   assert.throws(() => validateCardVariant(variant({ rulesText: '该卡数值已平衡。' }), basePayload()), /已平衡/);
-  assert.throws(() => validateCardVariant(variant({ name: '甲' }, { review: { ...review(), counterplay: '经过仿真验证无解' } }), basePayload()), /仿真验证/);
+  assert.throws(() => validateCardVariant(variant({ cost: 3, notes: ['经过仿真验证无解'] }), basePayload({ selectedFields: ['cost', 'notes'] })), /仿真验证/);
   const added = validateCardVariant(variant({ cost: 4 }), basePayload({ selectedFields: ['cost'] }));
   assert.deepEqual(added.patch.notes, ['数值未经测试（untested）']);
 });
 
 test('the supplement fills only the missing count and keeps diagnostics', async () => {
   const payload = basePayload({ variantCount: 2 });
-  const first = { variants: [{ key: 'a', patch: { name: '甲' }, review: review() }] };
-  const second = { variants: [{ key: 'b', patch: { name: '乙' }, review: review() }] };
+  const first = { variants: [{ key: 'a', patch: { name: '甲' } }] };
+  const second = { variants: [{ key: 'b', patch: { name: '乙' } }] };
   let asked = null;
   const result = await completeCardVariants({
     raw: JSON.stringify(first),
@@ -146,7 +151,7 @@ function fakeModel() {
     let parsed = {};
     try { parsed = JSON.parse(body || '{}'); } catch { parsed = {}; }
     state.requests.push(parsed);
-    const reply = state.behavior ? state.behavior(parsed, state.requests) : { status: 200, json: { choices: [{ message: { content: JSON.stringify({ variants: [{ key: 'candidate-a', patch: { name: '甲', cost: 3 }, review: review() }] }) } }] } };
+    const reply = state.behavior ? state.behavior(parsed, state.requests) : { status: 200, json: { choices: [{ message: { content: JSON.stringify({ variants: [{ key: 'candidate-a', patch: { name: '甲', cost: 3 } }] }) } }] } };
     res.writeHead(reply.status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(reply.json));
   });
@@ -228,7 +233,7 @@ test('the card entry rejects other surfaces before calling the model', async () 
 
 test('illegal model output is reported as diagnostics instead of reaching the client', async () => {
   model.reset();
-  model.set(() => ({ status: 200, json: { choices: [{ message: { content: JSON.stringify({ variants: [{ key: 'a', patch: { attack: 5 }, review: review() }] }) } }] } }));
+  model.set(() => ({ status: 200, json: { choices: [{ message: { content: JSON.stringify({ variants: [{ key: 'a', patch: { attack: 5 } }] }) } }] } }));
   const response = await fetch(`http://127.0.0.1:${port}/api/ai/card`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...basePayload(), selectedFields: ['name'], variantCount: 1 })
@@ -243,7 +248,7 @@ test('illegal model output is reported as diagnostics instead of reaching the cl
 test('a schema-ignoring model still yields a usable candidate end to end', async () => {
   model.reset();
   // 只支持 json_object 的兼容接口：没有 variants 外壳、也没有 key。
-  model.set(() => ({ status: 200, json: { choices: [{ message: { content: JSON.stringify({ patch: { name: '灰烬匠', cost: 3 }, review: review() }) } }] } }));
+  model.set(() => ({ status: 200, json: { choices: [{ message: { content: JSON.stringify({ patch: { name: '灰烬匠', cost: 3 } }) } }] } }));
   const response = await fetch(`http://127.0.0.1:${port}/api/ai/card`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...basePayload(), selectedFields: ['name', 'cost'], variantCount: 1 })
@@ -261,7 +266,7 @@ test('a provider that rejects the json schema falls back and reports why', async
   model.reset();
   model.set(parsed => (parsed.response_format
     ? { status: 400, json: { error: { message: 'response_format is not supported' } } }
-    : { status: 200, json: { choices: [{ message: { content: JSON.stringify({ key: 'candidate-1', patch: { name: '甲' }, review: review() }) } }] } }));
+    : { status: 200, json: { choices: [{ message: { content: JSON.stringify({ key: 'candidate-1', patch: { name: '甲' } }) } }] } }));
   const response = await fetch(`http://127.0.0.1:${port}/api/ai/card`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...basePayload(), selectedFields: ['name'], variantCount: 1 })

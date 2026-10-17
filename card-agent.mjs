@@ -1,5 +1,6 @@
-// 卡牌文字 Agent 的受限契约（Sprint 4）：只接受字段补丁与静态评审。
+// 卡牌文字 Agent 的受限契约（Sprint 4）：只接受字段补丁。
 // 所有校验都在服务端、返回浏览器之前完成；AI 不能保存、不能改 canon、不能调用图像生成。
+// 2026-10-17 作者裁定：卡牌评审由作者完成，Agent 不再产出 review 字段（见 ADR-0029 变更记录）。
 
 import { coerceVariants, parseLooseJson, previewOf, withFallbackKey } from './ai-harness.mjs';
 
@@ -7,8 +8,7 @@ const TEXT = { name: 100, rulesText: 2000, listItem: 500, note: 300, statement: 
 export const CARD_FIELDS = Object.freeze(['name', 'cost', 'type', 'rarity', 'attack', 'health', 'durability', 'tribeId', 'spellSchoolId', 'keywordIds', 'effects', 'rulesText', 'notes', 'loreRefs']);
 export const CARD_TYPES = Object.freeze(['minion', 'spell', 'equipment']);
 export const CARD_RARITIES = Object.freeze(['common', 'rare', 'epic', 'legendary']);
-export const CARD_ACTIONS = Object.freeze(['brainstorm', 'polish', 'rules_review', 'balance_review', 'lore_alignment']);
-const REVIEW_FIELDS = Object.freeze(['legalTargets', 'timing', 'effectOrder', 'duration', 'counterplay']);
+export const CARD_ACTIONS = Object.freeze(['brainstorm', 'polish', 'close_rules', 'tune_stats', 'align_lore']);
 const EFFECT_OPS = Object.freeze(['deal_damage', 'heal', 'draw_card']);
 const MAX_VARIANTS = 3;
 const BALANCE_CLAIMS = /已平衡|平衡已验证|已验证平衡|经过仿真验证/;
@@ -54,25 +54,10 @@ export function createCardResponseSchema(payload = {}) {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['key', 'patch', 'review'],
+          required: ['key', 'patch'],
           properties: {
             key: { type: 'string' },
-            patch: { type: 'object', additionalProperties: false, required: [], properties: Object.fromEntries(fields.map(field => [field, patchProperties[field]])) },
-            review: {
-              type: 'object',
-              additionalProperties: false,
-              required: [...REVIEW_FIELDS, 'edgeCases'],
-              properties: {
-                legalTargets: { type: 'string' },
-                timing: { type: 'string' },
-                effectOrder: { type: 'string' },
-                duration: { type: 'string' },
-                counterplay: { type: 'string' },
-                edgeCases: { type: 'array', items: { type: 'string' } },
-                dependencies: { type: 'array', items: { type: 'string' } },
-                openQuestions: { type: 'array', items: { type: 'string' } }
-              }
-            }
+            patch: { type: 'object', additionalProperties: false, required: [], properties: Object.fromEntries(fields.map(field => [field, patchProperties[field]])) }
           }
         }
       }
@@ -145,16 +130,7 @@ export function validateCardVariant(variant, payload = {}) {
     if (has(field) && !allowedStats.includes(field)) throw new Error(`${type} 不允许 patch.${field}`);
   }
 
-  const review = variant.review;
-  if (!review || typeof review !== 'object' || Array.isArray(review)) throw new Error('缺少 review');
-  const normalizedReview = {};
-  for (const field of REVIEW_FIELDS) normalizedReview[field] = assertString(review[field], `review.${field}`, TEXT.statement);
-  normalizedReview.edgeCases = textList(review.edgeCases, TEXT.listItem, 8);
-  if (!normalizedReview.edgeCases.length) throw new Error('review.edgeCases 至少需要一条');
-  normalizedReview.dependencies = textList(review.dependencies, TEXT.listItem, 8);
-  normalizedReview.openQuestions = textList(review.openQuestions, TEXT.listItem, 8);
-
-  const claimSurface = [normalized.rulesText || '', ...Object.values(normalizedReview), ...(normalized.notes || [])].join('\n');
+  const claimSurface = [normalized.rulesText || '', ...(normalized.notes || [])].join('\n');
   if (BALANCE_CLAIMS.test(claimSurface)) throw new Error('不得声称数值已平衡或经过仿真验证');
 
   // 数值字段一律附 untested 标记，避免候选被当成已测结论。
@@ -163,7 +139,7 @@ export function validateCardVariant(variant, payload = {}) {
   if (numeric && !notes.some(note => /untested|未经测试/i.test(note))) notes.unshift('数值未经测试（untested）');
   if (notes.length || has('notes')) normalized.notes = notes;
 
-  return { key, patch: normalized, review: normalizedReview };
+  return { key, patch: normalized };
 }
 
 /** 逐候选校验并收集诊断；结构损坏也不抛到路由层。 */
@@ -172,7 +148,7 @@ export function inspectCardResponse(raw, payload = {}, stage = 'initial') {
   if (value === undefined) {
     return { variants: [], issues: [{ stage, index: null, code: 'INVALID_JSON', message: '模型没有返回有效 JSON', preview: previewOf(raw) }] };
   }
-  const envelope = coerceVariants(value, ['patch', 'review']);
+  const envelope = coerceVariants(value, ['patch']);
   if (!envelope) {
     return { variants: [], issues: [{ stage, index: null, code: 'INVALID_ENVELOPE', message: '返回值缺少 variants 数组', preview: previewOf(value) }] };
   }

@@ -31,7 +31,7 @@ export function parseLooseJson(text) {
 /**
  * 把模型返回收敛成 `{ variants: [...] }`：数组、`variants` 外壳、以及
  * 「把 items 当根对象返回」的裸候选都接受。`discriminators` 用于确认裸对象
- * 确实是候选（卡牌为 patch/review，设定写作为 content）。
+ * 确实是候选（卡牌为 patch，设定写作为 content）。
  */
 export function coerceVariants(value, discriminators = []) {
   if (Array.isArray(value)) return { variants: value };
@@ -80,12 +80,12 @@ export const FREE_AGENT_TOOL_GUIDE = `你还可以调用只读资料工具查看
 - 工具是只读的；你无法写入、删除，也无法读取资料库以外的任何内容（含本机文件与密钥）。
 - 取得足够信息后直接给出最终回答，不要为了凑次数反复调用工具。`;
 
-/** 第 3 层：卡牌文字设计入口的输出契约（Sprint 4）。 */
-export const CARD_ENTRY_CONTRACT = `你只返回卡牌字段补丁与静态评审，不返回整张卡牌、不保存、不调用图像生成、不改动 canon。
+/** 第 3 层：卡牌文字设计入口的输出契约（Sprint 4；2026-10-17 去评审）。 */
+export const CARD_ENTRY_CONTRACT = `你只返回卡牌字段补丁，不返回整张卡牌、不写评审、不保存、不调用图像生成、不改动 canon。
 所有卡牌内容都是 proposed，数值状态一律 untested；没有真实仿真或试玩结果时，禁止声称任何数值「已平衡」「已验证」。
 只写本次勾选的字段；未勾选的字段由作者保留。随从、法术、武器三类字段互斥：法术不写 attack/health/durability，武器不写 health，随从不写 durability；tribeId 只用于随从，spellSchoolId 只用于法术。
 引用只能使用本次上下文提供的 lore、关键词与机制 ID；不要发明新关键词、新机制或任意脚本效果。
-每条候选的 review 必须给出 legalTargets、timing、effectOrder、duration、counterplay 与至少一条 edgeCases；规则尚未裁定时写入 dependencies 或 openQuestions，不要伪造正式规则。`;
+评审（目标、时机、顺序、持续、反制、边界案例）由作者完成：不要输出评审段落、不要替作者做裁定；规则尚未裁定时只在 notes 里写一句最简提醒。`;
 
 /**
  * 卡牌入口的第 4–6 层提示词。
@@ -97,9 +97,9 @@ export function buildCardPrompt(payload, context = {}, { requireJson = false } =
   const actionGuide = ({
     brainstorm: '按勾选字段提出彼此有实质差异的候选。',
     polish: '润色勾选字段的措辞与结构，不新增上下文不支持的客观事实。',
-    rules_review: '只做规则审查：指出目标、时机、顺序、持续、反制与边界案例的缺漏，可返回空的 patch。',
-    balance_review: '只做静态平衡评审：比较费用与效果、指出退化或雪球风险，不做仿真结论、不声称已平衡。',
-    lore_alignment: '检查与所提供 lore 的一致性；不一致处写入 dependencies 或 openQuestions，不擅自改写设定。'
+    close_rules: '补全规则文本里缺失的目标、时机、效果顺序与持续时间，写在 rulesText 里；不要另写评审段落。',
+    tune_stats: '只调整勾选的数值字段，让费用与效果相称；这是静态建议，不是仿真结论，也不得声称已平衡。',
+    align_lore: '按所提供的 lore 修正规则文本或引用，使其与设定一致；无法确定的地方只在 notes 里写一句提醒，不擅自改写设定。'
   })[payload?.action] || '按勾选字段提出彼此有实质差异的候选。';
   const fields = Array.isArray(payload?.selectedFields) ? payload.selectedFields : [];
   const count = Math.min(3, Math.max(1, Number(payload?.variantCount) || 1));
@@ -107,9 +107,9 @@ export function buildCardPrompt(payload, context = {}, { requireJson = false } =
   // 只在 Schema 里描述结构会让模型交出「单个候选对象」或其它形状（INVALID_ENVELOPE）。
   // 示例值取安全值：数组用空数组、字符串用占位文案，避免模型照抄成未提供的 ID。
   const shapeExamples = { name: '"新卡名"', cost: '3', attack: '2', health: '3', durability: '2', rulesText: '"（效果文本）"', type: '"minion"', rarity: '"rare"', tribeId: '""', spellSchoolId: '""', keywordIds: '[]', loreRefs: '[]', notes: '[]', effects: '[]' };
-  const shapeSkeleton = `{"variants":[{"key":"candidate-1","patch":{${fields.map(field => `"${field}":${shapeExamples[field] || '""'}`).join(',')}},"review":{"legalTargets":"…","timing":"…","effectOrder":"…","duration":"…","counterplay":"…","edgeCases":["…"]}}]}`;
-  const responseShape = `响应格式（必须严格遵守，只返回这一个 JSON 对象）：\n${shapeSkeleton}\n- variants 恰好 ${count} 项；每项的 key 必须是非空且互不重复的短字符串（如 candidate-1）。\n- patch 只能出现上面列出的键；不要返回整张卡牌，也不要新增字段。\n- 数值字段写数字（如 cost: 3），不要写成字符串或带单位。\n- review 六项必填；规则尚未裁定时另附 dependencies 或 openQuestions。`;
-  const taskRequest = `任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n本次允许改写的字段（patch 只能出现这些键）：${fields.length ? fields.join('、') : '（空，只能返回评审）'}\n作者补充要求：${text(payload?.requirements || '无', 4000)}\n每条候选都要给出 review；数值只能标为 untested。${jsonInstruction}\n${responseShape}`;
+  const shapeSkeleton = `{"variants":[{"key":"candidate-1","patch":{${fields.map(field => `"${field}":${shapeExamples[field] || '""'}`).join(',')}}}]}`;
+  const responseShape = `响应格式（必须严格遵守，只返回这一个 JSON 对象）：\n${shapeSkeleton}\n- variants 恰好 ${count} 项；每项的 key 必须是非空且互不重复的短字符串（如 candidate-1）。\n- 每项只有 key 与 patch；不要输出 review、评审段落或整张卡牌。\n- patch 只能出现上面列出的键；不要新增字段。\n- 数值字段写数字（如 cost: 3），不要写成字符串或带单位。`;
+  const taskRequest = `任务：${actionGuide}\n候选数量：严格返回 ${count} 份。\n本次允许改写的字段（patch 只能出现这些键）：${fields.length ? fields.join('、') : '（空）'}\n作者补充要求：${text(payload?.requirements || '无', 4000)}\n数值只能视为 untested（服务端会自动标注）；评审由作者完成，不要输出评审。${jsonInstruction}\n${responseShape}`;
   const untrusted = `<card_draft>\n${JSON.stringify(context.draft || {}, null, 2)}\n</card_draft>\n<allowed_references>\n${JSON.stringify({ loreIds: context.loreIds || [], keywordIds: context.keywordIds || [], mechanicIds: context.mechanicIds || [] }, null, 2)}\n</allowed_references>\n<card_lore>\n${JSON.stringify(context.loreEntries || [], null, 2)}\n</card_lore>\n<rules_context>\n${JSON.stringify(context.rules || {}, null, 2)}\n</rules_context>`;
   return `${authorPrompts}\n${taskRequest}\n${untrusted}`;
 }

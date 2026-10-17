@@ -103,9 +103,12 @@ test('the lore assistant sends its preset snapshot and shows it', () => {
 test('the card agent panel covers the five actions, field selection and apply/save-as-draft', () => {
   assert.match(html, /id="cardAgentPanel"/);
   assert.match(html, /id="runCardAgent"/);
-  for (const value of ['brainstorm', 'polish', 'rules_review', 'balance_review', 'lore_alignment']) {
+  for (const value of ['brainstorm', 'polish', 'close_rules', 'tune_stats', 'align_lore']) {
     assert.match(html, new RegExp(`id="cardAgentAction"[\\s\\S]*?value="${value}"`), `缺少操作 ${value}`);
   }
+  // 评审由作者完成：面板不得再出现评审字段或「静态评审」文案。
+  assert.ok(!/card-agent-review/.test(app), '前端不得再渲染评审块');
+  assert.ok(!/review/.test(html.match(/id="cardAgentPanel"[\s\S]*?<\/details>/)[0]), '面板不得要求评审');
   assert.match(app, /function runCardAgent\(\)/);
   assert.ok(functionBody(app, 'runCardAgent').includes("apiUrl('ai/card')"), '卡牌 Agent 必须请求 /api/ai/card');
   assert.ok(functionBody(app, 'cardAgentPayload').includes('presetId:agentSelections.card'), '请求必须携带卡牌入口的 preset 快照');

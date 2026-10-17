@@ -22,7 +22,7 @@
 | `HARNESS_VERSION` | `'2.1.0'`，随 `context` 一起进入提示与 `contextMeta` | `L5` |
 | `previewOf(value, max = 240)` | 诊断用的单行模型原文片段（压平空白并截断） | `L13` |
 | `parseLooseJson(text)` | 去 ``` 围栏、必要时按最外层 `{}`/`[]` 切片后解析；失败返回 `undefined` | `L19` |
-| `coerceVariants(value, discriminators)` | 把数组 / `{variants}` / 裸候选对象收敛为 `{variants:[…]}`；`discriminators` 判定裸候选（卡牌 `patch`/`review`，设定 `content`） | `L36` |
+| `coerceVariants(value, discriminators)` | 把数组 / `{variants}` / 裸候选对象收敛为 `{variants:[…]}`；`discriminators` 判定裸候选（卡牌 `patch`，设定 `content`） | `L36` |
 | `withFallbackKey(candidate, index)` | 候选缺 `key` 时补 `candidate-<index+1>`；`key` 只是客户端标识 | `L45` |
 | `assertPresetPromptPortable(prompt)` | preset 文本含 `AGENT_PROMPT_RESERVED_TAGS` 即抛 `AGENT_MANIFEST_INVALID` | `L118` |
 | `assertInstructionLayerClean(label, text)` | 指令层文本含 `AGENT_UNTRUSTED_TAGS` 即抛 `AGENT_UNTRUSTED_LEAK` | `L132` |
@@ -86,6 +86,7 @@
 ### `buildCardPrompt(payload, context, {requireJson})`
 - 与 `lorePromptSections` 同构的第 4–6 层；第 5 层同样始终写死响应外壳，并按勾选字段生成示例值（`name`→`"新卡名"`、数值→ `3`、`keywordIds`/`loreRefs` → `[]`），避免模型照抄未提供的 ID。
 - 示例值取安全值而非真实 ID 是关键约束：示例里出现 `KEY-001` 会让模型在未提供该关键词的请求里照样返回它，直接被白名单校验拒绝。
+- 外壳只有 `{key, patch}`，并明写「评审由作者完成，不要输出评审」（2026-10-17 作者裁定移除 `review`）；五个操作全部产出补丁：`brainstorm` / `polish` / `close_rules`（补全 rulesText）/ `tune_stats`（只调数值，仍 untested）/ `align_lore`（对齐设定）。
 
 ### `createModelBody(config, prompt, options)`
 - `options` 允许直接传布尔值（视作 `structured`）；`structured === false` 时不发 `response_format` / `text.format`。

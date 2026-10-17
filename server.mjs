@@ -745,7 +745,7 @@ createServer(async (req, res) => {
       const c = aiConfig(), image = seedreamConfig(), comfyUi = comfyUiConfig(), prompts = await loadPromptSettings(); return json(res, 200, { configured: Boolean(c.key), baseUrl: c.baseUrl, model: c.model, style: c.style, seedreamConfigured: Boolean(image.key), seedreamBaseUrl: image.baseUrl, seedreamModel: image.model, comfyUiConfigured: Boolean(await loadComfyWorkflow()), comfyUiBaseUrl: comfyUi.baseUrl, promptSettings: prompts, promptDefaults: DEFAULT_TYPE_PROMPTS, imagePromptDefaults:DEFAULT_IMAGE_PROMPTS, visualStyleDefault:DEFAULT_VISUAL_STYLE_PROMPT, ...agentSettingsView() });
     }
     if (req.method === 'POST' && req.url === '/api/ai/free') return json(res, 200, await callFreeAgent(await readBody(req)));
-    // 卡牌文字 Agent：只返回字段补丁与静态评审，不保存、不生成图片、不改 canon。
+    // 卡牌文字 Agent：只返回字段补丁（评审由作者完成），不保存、不生成图片、不改 canon。
     if (req.method === 'POST' && req.url === '/api/ai/card') return json(res, 200, await callCardAgent(await readBody(req)));
     if (req.method === 'POST' && req.url === '/api/ai/tools/names') return json(res, 200, await callNameGenerator(await readBody(req)));
     if (req.method === 'POST' && req.url === '/api/ai') { const payload = await readBody(req); return json(res, 200, await callAi(payload)); }

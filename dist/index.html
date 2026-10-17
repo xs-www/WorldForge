@@ -208,10 +208,10 @@
 
         <section class="panel editor-panel" aria-labelledby="editorHeading">
           <details class="card-agent" id="cardAgentPanel">
-            <summary>卡牌 Agent <span>只返回字段补丁与静态评审，不自动保存</span></summary>
+            <summary>卡牌 Agent <span>只返回字段补丁，不自动保存（评审由作者完成）</span></summary>
             <div class="card-agent-body">
               <div class="card-agent-controls">
-                <label>操作<select id="cardAgentAction"><option value="brainstorm">构思</option><option value="polish">润色</option><option value="rules_review">规则审查</option><option value="balance_review">静态平衡评审</option><option value="lore_alignment">设定一致性</option></select></label>
+                <label>操作<select id="cardAgentAction"><option value="brainstorm">构思</option><option value="polish">润色</option><option value="close_rules">补全规则文本</option><option value="tune_stats">调整数值</option><option value="align_lore">对齐设定</option></select></label>
                 <label>候选数量<select id="cardAgentCount"><option value="1">1 份</option><option value="2">2 份</option><option value="3">3 份</option></select></label>
                 <label class="card-agent-requirement">补充要求<input id="cardAgentRequirement" type="text" maxlength="500" placeholder="可选，例如：压低费用曲线"></label>
               </div>
@@ -456,6 +456,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=50"></script>
+  <script src="./app.js?v=51"></script>
 </body>
 </html>

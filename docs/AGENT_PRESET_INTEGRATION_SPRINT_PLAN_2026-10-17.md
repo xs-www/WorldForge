@@ -583,7 +583,7 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | S4-03 | 实现 `callCardAgent` | 使用 `structured_card` 与 `card_context_readonly` |
 | S4-04 | 校验类型互斥 | 随从/法术/装备 stats、tribe、spell_school 不串型 |
 | S4-05 | 校验引用白名单 | 未提供的 lore/keyword/mechanic ID 拒绝 |
-| S4-06 | 生成评审字段 | 目标、时机、顺序、持续、反制、边界案例齐全 |
+| S4-06 | ~~生成评审字段~~ **已由作者撤销（2026-10-17）** | 原要求「目标、时机、顺序、持续、反制、边界案例齐全」；作者裁定评审由作者完成，改为只返回字段补丁，模型多返回的 `review` 被忽略（见 ADR-0029 变更记录与 §12.5 缺陷修复） |
 | S4-07 | 差额补生成 | 只补缺失合法候选；保留诊断 |
 | S4-08 | 新增 `/api/ai/card` | 不直接保存，不调用图像生成，不改变 canon |
 
@@ -620,7 +620,9 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | S4-06 | review 的 legalTargets/timing/effectOrder/duration/counterplay/edgeCases 缺失即诊断 |
 | S4-07 | `completeCardVariants` 只补缺失数量并保留诊断；补生成沿用同一 system 与数量口径 |
 | S4-08 | `POST /api/ai/card`：不保存、不调用图像生成、不改 canon；响应含 `agent` 快照与 `diagnostics` |
-| S4-09–14 | 卡牌编辑器可收起面板：五种操作、字段勾选、候选补丁与评审、诊断展开、应用到表单（不保存，按目标类型回填 health/durability）、保存为独立草案（固定 proposed/untested） |
+| S4-09–14 | 卡牌编辑器可收起面板：五种操作、字段勾选、候选补丁（~~与评审~~，2026-10-17 作者裁定移除评审）、诊断展开、应用到表单（不保存，按目标类型回填 health/durability）、保存为独立草案（固定 proposed/untested） |
+
+变更（2026-10-17，作者裁定）：卡牌 Agent 不再产出 `review` 字段，五个操作改为全部产出补丁（`brainstorm` / `polish` / `close_rules` / `tune_stats` / `align_lore`）；原「规则审查、静态平衡评审、设定一致性」三种只产出评审的操作随之改判为「补全规则文本、调整数值、对齐设定」。禁平衡声明、`proposed`/`untested`、字段白名单、类型互斥、引用白名单与差额补生成均不变。
 
 复审修正（2026-10-17）：关键词定义字段由不存在的 `k.text` 改为 `k.definition`；卡牌专用上下文改为只带 `draft.loreRefs` 引用条目的摘要与约束，并在第 6 层新增 `<card_lore>`；`allowedLoreIds` 由「整个资料库」收窄为当前引用；跨类型回填改为先算 `targetType = patch.type || currentType` 再回填专属数值，并补双向回归测试。
 
