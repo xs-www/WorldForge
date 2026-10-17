@@ -15,7 +15,7 @@
 | `validateSettings(payload)` | 校验 baseUrl/model/apiKey，并合并 Seedream、ComfyUI、提示词设置 | `L115` |
 | `createReferenceAsset` / `createArtAsset` / `serveArtAsset` | 参考图上传、生图落盘、资产文件读取 | `L155` / `L177` / `L230` |
 | `resolveAgentImages(value, maximum)` | Agent 取图；单张失败只记入 `missing`，不影响其余图片 | `L171` |
-| `resolveSurfaceProfile(surface, presetId)` / `toolsForPolicy` | 按「请求快照 > `agent-settings.json` 保存值 > Registry 默认」解析 preset；把 `toolPolicy` 映射为服务端工具白名单 | `L291` / `L306` |
+| `resolveSurfaceProfile(surface, presetId)` / `toolsForPolicy` | 按「请求快照 > `agent-settings.json` 保存值 > Registry 默认」解析 preset；把 `toolPolicy` 映射为服务端工具白名单 | `L291` / `L310` |
 | `callAi` / `callFreeAgent` / `callNameGenerator` / `callMacroProposal` | 四个 AI 入口，均先做 preset 解析或规则降级 | `L319` / `L340` / `L422` / `L434` |
 | `serveStatic` | 服务 `dist/`；文件不存在时回退 `index.html` | `L570` |
 
@@ -71,7 +71,7 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 - `promptPayload` 一次性注入第 4 层（分类提示与个性化提示，`L313`），初次请求用 `buildPrompt(promptPayload)`（`L314`）；补生成用 `{ ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`（`L330`–`L334`），因此第 4 层与初次逐字一致、数量口径自洽。早年版本传原始 `payload` 会导致第 4 层丢失并出现「严格返回 2 份」与「只补 1 份」并存。
 - 结构化输出失败（HTTP 400/404/422）时降级为非结构化重试；三条降级分支（初次 `L329`、初次已降级后的补生成、补生成结构化失败）都用 `requireJson: true` 让 JSON 要求进入第 5 层，不再拼接 `${prompt}\n…`，因此降级请求仍是 4→5→6。`callFreeAgent` 另有工具不可用时的单轮降级，把前 120 条资料索引放进用户侧 `<library_context>`（`L412`–`L416`）。
 - 第 1–3 层只由 `composeAgentSystemPrompt` 拼装；作者笔记、资料库正文只用 `attachUntrustedContext` 附到用户侧消息（`L382`/`L416`）。
-- 工具策略：`free_lore_readonly` → `FREE_AGENT_TOOLS`，`none` → `[]`，其它值抛 `AGENT_PROFILE_INCOMPATIBLE`（`status 400`，`L296`–`L299`）；工具仅在「有资料或资产」且策略非空时启用（`L367`）。
+- 工具策略：`free_lore_readonly` → `FREE_AGENT_TOOLS`，`none` → `[]`，其它值抛 `AGENT_PROFILE_INCOMPATIBLE`（`status 400`，`L314`）；工具仅在「有资料或资产」且策略非空时启用（`L389`）。
 
 ### 生图与资产落盘（`createArtAsset` `L177`、`serveArtAsset` `L230`）
 - `clientRequestId` 先按 `^[A-Za-z0-9-]{8,80}$` 校验，再用 `listArtAssets()` 全表扫描找同 ID 资产，命中直接返回旧资产（`L180`–`L183`）。
