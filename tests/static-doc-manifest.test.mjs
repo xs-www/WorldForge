@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { hashBytes, shortHash, verifyManifest } from '../static-doc-manifest.mjs';
+import { hashBytes, nonEmptyString, shortHash, verifyManifest } from '../static-doc-manifest.mjs';
 
 // 静态文档清单门禁：清单哈希必须与磁盘字节一致，否则文档会静默过期。
 // 这些用例只在内存里构造清单与内容，不读写真实仓库。
@@ -106,6 +106,23 @@ test('a non-string sha256 is reported and skips the comparison', () => {
     assert.equal(result.errors.filter(error => error.code === 'HASH_MISMATCH').length, 0);
     assert.doesNotThrow(() => verifyManifest({ manifest, contents, rewrite: true }));
   }
+});
+
+test('a blank sha256 stops the comparison and is never auto-repaired', () => {
+  // 空串与纯空白是字符串，但仍是结构非法：不能比较、也不能被 --write 补写。
+  const { manifest, contents } = fixture();
+  for (const value of ['', '   ', '\t\n']) {
+    manifest.files[1].sha256 = value;
+    const checked = verifyManifest({ manifest, contents });
+    assert.ok(checked.errors.some(error => error.code === 'MANIFEST_INVALID' && /sha256/.test(error.message)), `${JSON.stringify(value)} 应报 MANIFEST_INVALID`);
+    assert.equal(checked.errors.filter(error => error.code === 'HASH_MISMATCH').length, 0, `${JSON.stringify(value)} 不得再报 HASH_MISMATCH`);
+    assert.deepEqual(verifyManifest({ manifest, contents, rewrite: true }).updates, [], `${JSON.stringify(value)} 不得被 --write 补写`);
+  }
+});
+
+test('nonEmptyString is the single stop condition for field validity', () => {
+  for (const value of ['abc', ' a ']) assert.equal(nonEmptyString(value), true, `${JSON.stringify(value)} 应有效`);
+  for (const value of ['', '   ', null, undefined, 123, {}]) assert.equal(nonEmptyString(value), false, `${JSON.stringify(value)} 应无效`);
 });
 
 test('short hashes are formatted safely for non-string values', () => {

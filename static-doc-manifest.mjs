@@ -28,6 +28,11 @@ export function shortHash(value) {
   return typeof value === 'string' ? `${value.slice(0, 12)}…` : `（非字符串：${typeof value}）`;
 }
 
+/** 字段是否可用：必须是去掉空白后仍非空的字符串。空串与纯空白同样视为结构非法。 */
+export function nonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function unsafePath(path) {
   if (typeof path !== 'string' || !path.trim()) return true;
   if (isAbsolute(path) || /^[A-Za-z]:/.test(path) || path.startsWith('/') || path.startsWith('\\')) return true;
@@ -54,8 +59,10 @@ export function verifyManifest({ manifest, contents, rewrite = false } = {}) {
   files.forEach((entry, index) => {
     const label = entry?.source || `files[${index}]`;
     if (!entry || typeof entry !== 'object') { errors.push({ code: 'MANIFEST_INVALID', message: `${label} 不是对象` }); return; }
+    // 「有效哈希」与非空字符串是同一个条件：缺失、数字、null、空串与纯空白都算结构非法。
+    const hasHash = nonEmptyString(entry.sha256);
     for (const field of ['source', 'doc', 'status', 'sha256']) {
-      if (typeof entry[field] !== 'string' || !entry[field].trim()) errors.push({ code: 'MANIFEST_INVALID', message: `${label} 缺少 ${field}` });
+      if (!nonEmptyString(entry[field])) errors.push({ code: 'MANIFEST_INVALID', message: `${label} 缺少 ${field}` });
     }
     if (!STATUSES.includes(entry.status)) errors.push({ code: 'MANIFEST_INVALID', message: `${label} 的 status 非法：${entry.status}` });
     else tally[entry.status] += 1;
@@ -69,8 +76,8 @@ export function verifyManifest({ manifest, contents, rewrite = false } = {}) {
     const body = lookup.get(entry.source);
     if (body === undefined || body === null) {
       errors.push({ code: 'FILE_MISSING', message: `${entry.source} 在仓库中不存在（清单仍列着它）` });
-    } else if (typeof entry.sha256 !== 'string') {
-      // 结构已坏：不再比较哈希（上面已记 MANIFEST_INVALID）。`--write` 也不修，缺失字段属于需要人工确认的问题。
+    } else if (!hasHash) {
+      // 结构已坏：不再比较哈希（上面已记 MANIFEST_INVALID）。`--write` 也不修，缺失/空白字段属于需要人工确认的问题。
     } else {
       const actual = hashBytes(Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8'));
       if (actual !== entry.sha256) {
