@@ -190,3 +190,33 @@ test('导出 / 导入的路由不会命中其他 API 分支', async () => {
   assert.equal(health.database.databasePath, undefined);
   assert.equal(health.database.schemaVersion, 3);
 });
+
+test('原画跟随目标世界：列表与导出带 worldId，解除绑定后清空（ADR-0034）', async () => {
+  const saved = await request(server.port, '/api/content', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Worldforge-Content': '1' },
+    body: {
+      expectedRevision: 3,
+      loreEntries: [{ id: 'W09', type: 'world', name: '新宇宙', worldId: 'W09', status: 'proposed', truthScope: 'objective' }],
+      cardDrafts: [{ id: 'CARD-W09-0001', name: '新宇宙的卡', type: 'minion', worldId: 'W09' }],
+      keywords: [], loreGroups: [], notes: {}
+    }
+  });
+  assert.equal(saved.status, 200, saved.body);
+
+  const asset = { id: 'ART-AAAA-BBBB', targetType: 'card', targetId: 'CARD-W09-0001', purpose: 'card_art', prompt: '提示词', model: 'seedream', size: '2K', mimeType: 'image/png', fileName: 'ART-AAAA-BBBB.png', status: 'proposed', createdAt: '2026-10-21T00:00:00.000Z' };
+  const imported = await request(server.port, '/api/import', { method: 'POST', headers: importHeaders, body: { mode: 'merge', payload: { artAssets: [asset] } } });
+  assert.equal(imported.status, 200, imported.body);
+
+  const listed = parse(await request(server.port, '/api/art-assets'));
+  assert.equal(listed.assets.length, 1);
+  // 服务端按绑定目标现算世界：导入包里的资产元数据没有 worldId，也必须出现在正确的世界下。
+  assert.equal(listed.assets[0].worldId, 'W09');
+
+  const exported = parse(await request(server.port, '/api/export'));
+  assert.equal(exported.artAssets[0].worldId, 'W09', '导出必须带上世界归属');
+
+  const unbound = await request(server.port, '/api/art-assets/ART-AAAA-BBBB/unbind', { method: 'POST', headers: { 'X-Worldforge-Image': '1' } });
+  assert.equal(unbound.status, 200, unbound.body);
+  assert.equal(parse(await request(server.port, '/api/art-assets')).assets[0].worldId, '', '解除绑定后不再属于任何世界');
+});

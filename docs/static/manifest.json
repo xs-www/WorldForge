@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "fda8c26eb98d056646f7a3f9ce68715fb456f553d18e19499e35975508c93b39"
+      "sha256": "27269b701fc030b91c2d06e9cc9f61af3830a3fa9358780fc5a5df5877c302fd"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,13 +294,13 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "9679234889c294362611ece1aa9d54c7c870f8d4e6131de3495ff948409b2a2b"
+      "sha256": "0f51856b152ecf00f367a0e7cd0c7a310d89189c322daac901b562af11d27759"
     },
     {
       "source": "dist/login.html",
       "doc": "docs/static/dist/login.html.md",
       "status": "documented",
-      "sha256": "4abfeb74627fc69f20acb8784192bafe67ee2d53931933715f381cc09c89d91e"
+      "sha256": "3bc20e4cc25bbb6217236be3321def0424a4bfb69f93217e1026856ba2ec88f6"
     },
     {
       "source": "dist/login.js",
@@ -330,7 +330,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "1acc2df6246e3dc4672d4a10b7f2f30ab1636a562fb57d713335f7a28c1e813f"
+      "sha256": "9974792dffbf42512d7a7a1de621da7a128b4bfa9b9ef1e748b978f31bdd0d6b"
     },
     {
       "source": "dist/world-scope.js",
@@ -354,7 +354,7 @@
       "source": "docs/static/anchors.json",
       "doc": "docs/static/server.mjs.md",
       "status": "config",
-      "sha256": "7a7c8b308fc6b8e0a689a2c7d6abe4976fde754665e4d90c77d83469fcdd5ee6"
+      "sha256": "1d3c86673fcf82b4f7d9ad7399f19a70068afe7047c5bb864ef3ab03c66bd755"
     },
     {
       "source": "image-context.mjs",
@@ -390,7 +390,7 @@
       "source": "package.json",
       "doc": "docs/static/package.json.md",
       "status": "documented",
-      "sha256": "80e97da8988e0a04538997e69cabd26e9022a456a8404052a9583b9d04449dfc"
+      "sha256": "274c82eb50251769beef9a7e1a9666926edf5f163eb0f24010797fddd7efda92"
     },
     {
       "source": "prompt-settings.mjs",
@@ -432,7 +432,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "db7bfb7c8ced6703d20ac5d1087dd72bdf77cb92a98c15bb9e108b5f85d61962"
+      "sha256": "c1d7fb52305e013778c6040fd536199ad46d30c2f0ed0c97f55b15c8a2b47152"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -594,7 +594,7 @@
       "source": "storage.mjs",
       "doc": "docs/static/storage.mjs.md",
       "status": "documented",
-      "sha256": "db6311954cd496d08db597d922df4420a370496fec1bd1fa1d4a14f2b774acd4"
+      "sha256": "3ea4b607e18db2ae319114766ecff033e14b5adddee0e3db5c3103f16f72d3f5"
     },
     {
       "source": "tests/agent-loop.test.mjs",
@@ -714,13 +714,13 @@
       "source": "tests/data-transfer-api.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "a2eef84c68f430ea6d6bba235b0331ce7300513bd105372d241bd3e78bf4208d"
+      "sha256": "4af681925a9c897e233b0c186d91bad893df4027953ef665a385d187d75f4f7f"
     },
     {
       "source": "tests/data-transfer.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "99f7502f71f2cd424e073264624bd77b5351574f9f88965b6b9fea25b09d710d"
+      "sha256": "7c038276088f0c8265a20405b5c8e071d1229c1e9f6a317a55a69eca4921d5dd"
     },
     {
       "source": "tests/docker-packaging.test.mjs",
@@ -918,7 +918,7 @@
       "source": "tests/README.md",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "c5d1229d2298b4c19b590daf075256792f8e23b54f791f1389f822c5d653380c"
+      "sha256": "6adf5fd8d04f73200d6d363f34ee450a695c2fd119d2d15d614a68e04ce91395"
     },
     {
       "source": "tests/reference-assets.test.mjs",
@@ -978,7 +978,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "5b7156683cd287b862668b35566627a6d7a7bedb455e01c67e003c6f4db226e5"
+      "sha256": "b1e87e7178059ba099e7af29935fd4d6bc71571f9b9af8b991b09a9b5b77340b"
     },
     {
       "source": "tests/world-package.test.mjs",

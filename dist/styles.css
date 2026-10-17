@@ -310,3 +310,8 @@
 .lore-bulk-bar select{flex:1;min-width:0;height:28px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);font-size:11px;padding:0 6px}
 .lore-bulk-bar .button{height:28px;padding:0 8px;font-size:10px}
 .lore-bulk-bar .text-action{padding:0;border:0;background:transparent;color:var(--primary);font-size:10px;cursor:pointer}
+.beta-tag{display:inline-block;margin-left:6px;padding:0 5px;border:1px solid #c9a227;border-radius:4px;color:#8a6b12;background:#fdf6d8;font-size:9px;font-weight:700;letter-spacing:.4px;line-height:14px;vertical-align:middle;text-transform:uppercase}
+[data-theme="dark"] .beta-tag{border-color:#6b5a1e;background:#2d2814;color:#e2c766}
+.card-world-chip{position:absolute;top:6px;left:6px;max-width:calc(100% - 12px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 6px;border-radius:999px;background:rgba(23,28,38,.72);color:#fff;font-size:9px;font-weight:600;pointer-events:none}
+.artwork-world{display:inline-block;margin:0 0 5px;padding:1px 7px;border:1px solid var(--border);border-radius:999px;background:var(--surface-subtle);color:var(--muted);font-size:9px;font-weight:600}
+

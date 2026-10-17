@@ -9,7 +9,7 @@
 | `ContentConflictError` | 版本冲突错误，`status = 409`；PostgreSQL 驱动复用同一个类 | `L9` |
 | `validateContentSnapshot(value)` | 校验 `{loreEntries, cardDrafts, keywords, loreGroups, notes}`，返回只含这五个字段的新对象 | `L43` |
 | `createContentStore(databasePath)` | 打开库、跑迁移、预编译语句；返回 `{ read, replace, health, createArtAsset, listArtAssets, getArtAsset, setArtAssetTarget, close }` | `L61` |
-| `normalizeArtAsset(value)`（内部） | 推导 `unbound / targetType / targetId / cardId / purpose` 的规范形态 | `L167` |
+| `normalizeArtAsset(value)`（内部） | 推导 `unbound / targetType / targetId / worldId / cardId / purpose` 的规范形态 | `L167` |
 
 ## 重点逻辑
 
@@ -27,8 +27,9 @@
 ### 美术资产（`createArtAsset` `L162`、`setArtAssetTarget` `L172`）
 - 写入前要求 `id / prompt / model / size / mimeType / fileName / status / createdAt` 均非空；`targetId` 只在**绑定态**要求非空（`unbound` 资产本来就没有目标，导入一份含「未使用原画」的库不能整批失败）。`id` 必须匹配 `^ART-[A-F0-9-]+$`、`fileName` 匹配 `^[A-Za-z0-9._-]+$`；失败抛普通 `Error`（无 `status`）。
 - 同一 `id` 或 `fileName` 由 SQLite 主键与 `file_name UNIQUE` 约束拒绝，本模块不做去重或幂等判断。
-- `setArtAssetTarget(id, target)`：目标缺少 `targetId` 即置 `unbound = true` 并清空 `targetType / targetId / cardId`，资产仍留在库中；资产不存在返回 `null`。
+- `setArtAssetTarget(id, target)`：目标缺少 `targetId` 即置 `unbound = true` 并清空 `targetType / targetId / cardId / worldId`，资产仍留在库中；绑定态写入目标传来的 `worldId`（缺省保留原值）。资产不存在返回 `null`。
 - `normalizeArtAsset` 的 `unbound` 也接受存量数据的 `targetType === ''`，因此旧记录读取时会被重新归类。
+- `worldId` 只做归一化（`stringField(...).trim()`，`unbound` 时为空），**不校验世界是否存在**：原画归属由 `server.mjs` 按内容库现算（ADR-0034），存储层不引入第二份真相。
 
 ## 重要约束
 - `replace` 是「清空内容表 + 重建」而非增量 diff：每次保存都重写全部行，`position` 完全由数组顺序决定。

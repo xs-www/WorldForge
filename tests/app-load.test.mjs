@@ -261,3 +261,73 @@ test('默认新增组只属于当前世界；共享组只能在设置里建', as
   assert.equal(sandbox.loreGroupsView().some(group => group.label === '历法'), true, '共享组跨世界可见');
   assert.equal(sandbox.loreGroupsView().some(group => group.label === '本世界势力'), false, '本世界的组不外泄');
 });
+
+test('卡牌必须归属世界：没有世界拒绝保存，选了世界后写入 worldId', async () => {
+  const { sandbox } = await boot();
+  sandbox.enterWorld('W01');
+  sandbox.resetCardEditor();
+  const worldSelect = sandbox.document.querySelector('#cardWorldId');
+  assert.equal(worldSelect.value, 'W01', '进入世界后新卡牌默认属于当前世界');
+  assert.ok([...worldSelect.children].some(option => option.value === 'W01'), '世界下拉必须列出已有世界');
+
+  sandbox.document.querySelector('#cardName').value = '甲卡';
+  worldSelect.value = '';
+  await sandbox.saveCurrentCard();
+  assert.equal(sandbox.readCards().length, 0, '没有所属世界时不能保存');
+
+  worldSelect.value = 'W01';
+  await sandbox.saveCurrentCard();
+  assert.equal(sandbox.readCards().length, 1, '选了世界后应保存成功');
+  assert.equal(sandbox.readCards()[0].worldId, 'W01');
+});
+
+test('卡牌库按世界筛选，并在卡面显示世界徽标', async () => {
+  const { sandbox } = await boot();
+  sandbox.localStorage.setItem('worldforge-card-drafts-v1', JSON.stringify([
+    { id: 'CARD-W01-0001', name: '甲卡', type: 'minion', worldId: 'W01', rarity: 'common', keywordUsages: [] },
+    { id: 'CARD-X-0001', name: '散卡', type: 'spell', worldId: '', rarity: 'rare', keywordUsages: [] }
+  ]));
+  const list = () => sandbox.document.querySelector('#cardList');
+  sandbox.renderCards();
+  assert.equal(list().children.length, 2, '默认「全部世界」显示所有卡牌');
+  assert.equal(list().children[0].children[1].textContent, '甲世界', '卡面徽标写世界名');
+  assert.equal(list().children[1].children[1].textContent, '未归属');
+
+  sandbox.document.querySelector('#cardLibraryWorld').value = 'W01';
+  sandbox.renderCards();
+  assert.equal(list().children.length, 1, '按世界筛选后只剩该世界的卡牌');
+  assert.equal(list().children[0].dataset.world, 'W01');
+
+  sandbox.document.querySelector('#cardLibraryWorld').value = '';
+  sandbox.renderCards();
+  assert.equal(list().children.length, 1, '未归属筛选只显示没有世界的卡牌');
+  assert.equal(list().children[0].dataset.world, '');
+});
+
+test('原画跟随绑定目标的世界，并可按世界筛选', async () => {
+  const { sandbox } = await boot();
+  const assetId = 'ART-00000000-0000-0000-0000-000000000001';
+  sandbox.localStorage.setItem('worldforge-card-drafts-v1', JSON.stringify([
+    { id: 'CARD-W01-0001', name: '甲卡', type: 'minion', worldId: 'W01', rarity: 'common', keywordUsages: [], artAssetId: assetId }
+  ]));
+  sandbox.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ assets: [{ id: assetId, targetType: 'card', targetId: 'CARD-W01-0001', purpose: 'card_art', prompt: 'p', model: 'm', size: '2K', mimeType: 'image/png', fileName: 'a.png', status: 'proposed', provenance: 'ai_generated', createdAt: '2026-10-21T00:00:00.000Z', worldId: 'W01' }] }),
+    text: async () => ''
+  });
+  await sandbox.refreshArtAssets();
+  const entries = sandbox.artworkEntries();
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].worldId, 'W01', '原画继承绑定卡牌的世界');
+  assert.equal(entries[0].worldName, '甲世界');
+
+  sandbox.document.querySelector('#artworkWorld').value = 'W02';
+  sandbox.renderArtworkGallery();
+  assert.match(String(sandbox.document.querySelector('#artworkCount').textContent), /^0 \/ 1/, '其它世界筛选下不显示');
+  sandbox.document.querySelector('#artworkWorld').value = 'W01';
+  sandbox.renderArtworkGallery();
+  assert.match(String(sandbox.document.querySelector('#artworkCount').textContent), /^1 \/ 1/);
+  const article = sandbox.document.querySelector('#artworkGallery').children[0];
+  assert.equal(article.dataset.world, 'W01');
+});

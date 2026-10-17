@@ -6,7 +6,7 @@
 
 | 容器 | 作用 | 位置 |
 | --- | --- | --- |
-| `header.app-header` + `nav.module-tabs` | 5 个 `[data-module]` 标签（world/cards/battle/free/simulation）、`#storageStatus`（SQLite 状态徽标）、`#appVersion`、账号相关 `#currentUser` / `#changePasswordButton` / `#logoutButton`、`#openSettings`、`#exportData` | `L17–L27` |
+| `header.app-header` + `nav.module-tabs` | 5 个 `[data-module]` 标签（world/cards/battle/free/simulation）、`#storageStatus`（SQLite 状态徽标）、`#appVersion`、账号相关 `#currentUser` / `#changePasswordButton` / `#logoutButton`、`#openSettings`、`#exportData`；battle 与 simulation 标签各带一个 `.beta-tag`（ADR-0034） | `L17–L27` |
 | `section#worldModule[data-page=world]` | 内含两级视图：`#worldHub`（世界卡片网格）与 `#worldDetail`（资料工作区），二者用 `hidden` 互斥 | `L30–L183` |
 | `#worldDetail` 三栏 | `lore-library-panel`（列表 + 地理/编年史入口）｜`lore-editor-panel`（`#loreForm`）｜`ai-panel`（AI 助手，含收起态 `#openAiPanel`） | `L74–L181` |
 | `#loreDetails` | 「详细设定」是内置块：固定在名称下方的多行输入框，不随资料组字段变化 | `L113` |
@@ -15,6 +15,9 @@
 | `.lore-bulk-bar`（`#loreBulkBar`） | 资料列表底部的批量条：`#loreBulkCount`（已选 N 条）、`#loreBulkGroup`（目标组下拉）、`#loreBulkMove`（归入）、`#loreBulkClear`（清空）；未选中时整条隐藏 | `L76–L80` |
 | `#loreGroupSelect` | 编辑器里的「资料组」下拉：改选后保存即把条目移到目标组，表单按目标组形态切换；`collectLoreForm` 用它决定 type | `L98` |
 | `section#cardsModule[data-page=cards]` | `[data-card-tab]` 二级页签 + 三块 `[data-card-panel]`：`library` / `editor` / `artwork`，同时只有一块可见 | `L185–L241` |
+| `.card-library-toolbar` 的 `#cardLibraryWorld` | 卡牌库的世界筛选（全部世界 / 未归属 / 各世界），与类型、稀有度筛选和分页并列；卡面左上角另有 `.card-world-chip` 世界徽标 | `L186` |
+| `#cardWorldId` + `#cardWorldHint` | 编辑器「所属世界」下拉（必选，保存前没选会被拦下）与提示：引用其他世界的设定时只警告、不阻止保存（ADR-0034） | `L229` |
+| `.artwork-toolbar` 的 `#artworkWorld` | 原画集的世界筛选：原画跟随它绑定的卡牌或设定条目继承世界，未绑定资产归「未归属」 | `L242` |
 | `#cardPreview`（`.editable-card`） | 可编辑卡面预览；脚本写 `data-card-type` 供 CSS 按类型调整画框（`styles.css L56`），与 `compileCardPng` 输出保持同一排布 | `L213–L222` |
 | `section#battleModule[data-page=battle]` | 对战台 + 侧栏（关键词说明、`#battleLog`） | `L243–L265` |
 | `section#freeModule[data-page=free]` | 对话区 + 工具区（名称生成器） | `L267–L298` |
@@ -30,8 +33,8 @@
 
 ## 脚本装配顺序与缓存版本
 
-`<head>`：`styles.css?v=49`（`L14`）。`</body>` 前依次为
-`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=66`。
+`<head>`：`styles.css?v=50`（`L14`）。`</body>` 前依次为
+`geography.js?v=2` → `chronicle.js?v=1` → `world-scope.js?v=2` → `relation-picker.js?v=2` → `lore-groups.js?v=3` → `cards.js?v=7` → `battle.js?v=1` → `battle-ui.js?v=1` → `macro.js?v=3` → `card-agent-apply.js?v=1` → `app.js?v=67`。
 
 - 顺序不可调整：`app.js` 末尾同步执行 `bootstrap()`，依赖前 5 个脚本暴露的 `Worldforge*` 全局；`battle-ui.js` 依赖 `battle.js`。
 - 所有脚本都必须位于 `</body>` 前，因为 `battle-ui.js`、`macro.js`、`app.js` 在加载时就查询 DOM 并绑定事件。

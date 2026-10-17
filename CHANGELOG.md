@@ -2,11 +2,16 @@
 
 本文件记录 Worldforge 的重要变更。日期采用 `YYYY-MM-DD`。
 
-## [未发布] - 2026-10-21
+## [0.3.2] - 2026-10-21
 
-设定导入（ADR-0033，proposed，待作者裁定）：主界面可以把一篇长篇设定原文解析并改写为资料库条目，确认后建立一个新世界。
+设定导入（ADR-0033）与「卡牌 / 原画归属世界」（ADR-0034）：主界面可以把一篇长篇设定原文解析并改写为资料库条目，确认后建立一个新世界；卡牌必须属于世界，原画跟随它的绑定目标继承世界。
 
 ### Added
+- **卡牌必须归属世界**：编辑器的 `#cardWorldId` 从自由文本改为世界下拉（列出全部世界 + 未归属占位），没有选择世界就拒绝保存并提示去世界观模块新建；进入世界后新建卡牌默认该世界；旧数据缺世界的卡牌显示为「未归属」，补选后才归属，编号仍复用 `CARD-W##-DRAFT-*`。
+- **卡牌库按世界筛选**：`#cardLibraryWorld`（全部世界 / 未归属 / 具体世界），每张卡面左上角显示世界徽标，`aria-label` 与 `data-world` 都带世界信息；卡牌 Agent 的草案上下文新增 `worldId`（此前服务端校验了 `draft.worldId`，但前端从未发送）。
+- **原画归属世界**：`GET /api/art-assets` 与 `GET /api/export` 按绑定目标现算 `worldId`（卡牌 → 卡牌世界，设定条目 → 条目世界，解除绑定 → 空），生成时也把 `worldId` 写进资产元数据；原画集新增 `#artworkWorld` 筛选与 `.artwork-world` 徽标，说明文案改为「跟随绑定目标归属世界」。
+- **Beta 标记**：「测试对战」与「世界模拟」的导航标签加上 `.beta-tag`（`title` 说明实验性质），样式区分亮/暗主题。
+- 版本号升到 **0.3.2**（`package.json`、`dist/index.html` 的 `worldforge-version`、README、导出包 `productVersion`）。
 - `lore-import.mjs`：设定导入的纯变换层——原文规范化与确定性切分（9000 字/段、最多 10 段、按段落/句末断点）、记录格式字段契约与第 4–6 层提示词、模型输出收敛、跨段「类型 + 名称」合并、世界与条目编号分配、改写成 `values` / `location` / `chronicle` / `relationIds`，以及落库前复核（新建世界 / 并入已有世界两种语义）。
 - `POST /api/lore-import/parse`：按段调用「设定助手」入口的 preset 解析原文，返回预览计划（世界编号、条目、告警、统计、Agent 快照、`mode`），**不写库**；每段计入一次 AI 配额，单段失败只告警，全部失败才报错。
 - `POST /api/lore-import/commit`：沿用 `contentStore.replace` 与 `expectedRevision` 乐观锁，只**追加**资料；要求 `x-worldforge-lore-import: 1`，新建世界时编号冲突 409，审计动作 `content.import_lore`。

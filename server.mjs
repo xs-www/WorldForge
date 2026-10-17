@@ -335,6 +335,24 @@ async function resolveAgentImages(value, maximum = AGENT_LIMITS.maxImages) {
   return { images, attached, missing };
 }
 
+/**
+ * 卡牌与设定条目各自属于一个世界，原画按绑定目标继承该世界。
+ * 这里从内容库现算映射，而不是相信客户端传入的 worldId：
+ * 卡牌换世界或条目迁世界后，原画的归属必须跟着变。
+ */
+async function artAssetWorldMap() {
+  const content = await contentStore.read(), map = new Map();
+  for (const card of Array.isArray(content?.cardDrafts) ? content.cardDrafts : []) if (card?.id) map.set(`card:${card.id}`, String(card.worldId || ''));
+  for (const entry of Array.isArray(content?.loreEntries) ? content.loreEntries : []) if (entry?.id) map.set(`lore:${entry.id}`, String(entry.worldId || ''));
+  return map;
+}
+
+function artAssetWithWorld(asset, map) {
+  const unbound = asset?.unbound === true || !asset?.targetId;
+  const key = unbound ? '' : `${asset?.targetType === 'lore' ? 'lore' : 'card'}:${asset.targetId}`;
+  return { ...asset, worldId: key ? (map.get(key) ?? String(asset?.worldId || '')) : '' };
+}
+
 async function createArtAsset(payload) {
   const clientRequestId = String(payload?.clientRequestId || '').trim();
   if (clientRequestId && !/^[A-Za-z0-9-]{8,80}$/.test(clientRequestId)) throw new Error('图片请求 ID 无效');
@@ -368,6 +386,7 @@ async function createArtAsset(payload) {
     targetType:generated.request.targetType,
     targetId:generated.request.targetId,
     cardId:generated.request.cardId,
+    worldId:String((await artAssetWorldMap()).get(`${generated.request.targetType === 'lore' ? 'lore' : 'card'}:${generated.request.targetId}`) || ''),
     purpose:generated.request.purpose,
     prompt: generated.request.prompt,
     promptKey:composed.key,
@@ -1206,7 +1225,8 @@ createServer(async (req, res) => {
     // 导出 / 导入：导出是普通成员可用的读取；导入会整库覆盖，路由前已由 apiNeedsAdmin 限制为管理员。
     if (req.method === 'GET' && pathname === '/api/export') {
       const includeImages = requestUrl.searchParams.get('images') === '1';
-      const content = await contentStore.read(), artAssets = await contentStore.listArtAssets();
+      const content = await contentStore.read(), worldMap = await artAssetWorldMap();
+      const artAssets = (await contentStore.listArtAssets()).map(asset => artAssetWithWorld(asset, worldMap));
       const bundle = buildExportBundle({ content, artAssets, images: includeImages ? await collectExportImages(artAssets) : [], productVersion: PRODUCT_VERSION });
       const fileName = `worldforge-export-${String(bundle.exportedAt).slice(0, 10)}.json`;
       res.writeHead(200, { ...securityHeaders, 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="${fileName}"`, 'Cache-Control': 'no-store' });
@@ -1227,7 +1247,10 @@ createServer(async (req, res) => {
       if (!result.dryRun && auth) await auth.audit({ actor: session?.username || 'anonymous', action: 'content.import', detail: { mode: result.summary.mode, lore: result.summary.loreEntries.total, revision: result.revision } });
       return json(res, 200, result);
     }
-    if (req.method === 'GET' && req.url === '/api/art-assets') return json(res, 200, { assets: await contentStore.listArtAssets() });
+    if (req.method === 'GET' && req.url === '/api/art-assets') {
+      const worldMap = await artAssetWorldMap();
+      return json(res, 200, { assets: (await contentStore.listArtAssets()).map(asset => artAssetWithWorld(asset, worldMap)) });
+    }
     if (req.method === 'POST' && req.url === '/api/reference-assets') {
       if (req.headers['x-worldforge-image'] !== '1') return json(res, 403, { error: '缺少图片上传请求标记' });
       return json(res, 201, { asset: await createReferenceAsset(await readBody(req, 12 * 1024 * 1024)) });

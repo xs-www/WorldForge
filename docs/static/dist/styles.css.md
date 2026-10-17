@@ -1,6 +1,6 @@
 # `dist/styles.css`
 
-> 作用：全站单文件样式（312 行、约 90 KB，绝大多数压缩成超长行）。无 `@import`、无 `@layer`，完全靠书写顺序与选择器权重分层。
+> 作用：全站单文件样式（317 行、约 90 KB，绝大多数压缩成超长行）。无 `@import`、无 `@layer`，完全靠书写顺序与选择器权重分层。
 
 - **令牌层**：`L1` 的 `:root` 定义颜色/间距/圆角等自定义属性；`L2` 的 `[data-theme="dark"]` 只覆盖同名变量，故新增颜色必须先在 `:root` 定义再在暗色块补值。
 - **基础层**：`L3` 是 reset + `body` + 通用组件（按钮、面板、徽标、卡面底座）的混合长行；页面级排版从这里继承。
@@ -13,3 +13,4 @@
 - **设定导入对话框**：`L262` 起的 `.lore-import-*` / `.import-*` 段是独立追加的一段（不压缩成单行），包含对话框宽度、原文文本域、文件读取行、逐条勾选列表与告警块；`.import-review[hidden]` 必须显式写 `display:none`，因为 `.import-review{display:grid}` 会覆盖浏览器对 `[hidden]` 的默认样式。
 - **条目批量条**：`L308`–`L310` 的 `.lore-pick`（列表行勾选框，`flex:0 0 auto`）与 `.lore-bulk-bar`（`display:flex`、下边框、10px 字号）。批量条靠 `app.js` 切换 `hidden` 显示；因为它是 flex 容器，若给 `[hidden]` 追加 `display` 规则必须同时处理 `[hidden]` 覆盖问题（与 `.import-review` 同类）。
 - **组作用范围行**：`#groupScopeRow` 早期带 `hidden` 且被 `display:grid` 覆盖，导致「作用范围」下拉虽可见却 `disabled`；现已改为始终显示（固定组才只读），样式上不要再给该行加 `[hidden]` 依赖。
+- **Beta 标记与世界徽标（`L314`–`L317`，ADR-0034）**：`.beta-tag` 是导航标签里的小胶囊（金色描边，`line-height:14px` 不撑高按钮），暗色主题用 `[data-theme="dark"] .beta-tag` 单独覆盖配色；`.card-world-chip` 绝对定位在卡面左上角、`pointer-events:none`（避免挡住卡牌的点击），`.artwork-world` 是原画卡片内的 inline 胶囊。三者都是追加行，不压缩成单行。

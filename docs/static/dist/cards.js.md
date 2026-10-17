@@ -33,7 +33,7 @@
 - 关键词 ID 在 `keywords`（Map 或数组）中不存在时静默丢弃，不报错。
 
 ### `normalize(card)`（`L62`–`L66`）
-- `status` 固定 `proposed`、`balanceStatus` 固定 `untested`；`worldId` 缺省为**空串**（未归属），不再回落到某个默认世界。
+- `status` 固定 `proposed`、`balanceStatus` 固定 `untested`；`worldId` 缺省为**空串**（未归属），不再回落到某个默认世界。编辑器层要求必选世界（ADR-0034），但 `normalize` 仍允许空串，让旧数据保留「未归属」而不是被静默指派到某个世界。
 - `keywordUsages` 以 ID 去重（后写覆盖先写），并同步派生出 `keywordIds`；旧字段 `keywordIds` 会被升级成空 `detail`。
 - `artCrop` 钳制为 `x/y ∈ [0,100]`、`zoom ∈ [1,2.5]`（默认 `50/50/1`）；`referenceAssetIds` 去重后截断为 10 个。
 

@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Worldforge 世界观与卡牌设计工具">
   <meta name="theme-color" content="#ffffff">
-  <meta name="worldforge-version" content="0.3.1">
+  <meta name="worldforge-version" content="0.3.2">
   <script>
     const pageSegment = location.pathname.split('/').pop();
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=49">
+  <link rel="stylesheet" href="./styles.css?v=50">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -20,9 +20,9 @@
     <nav class="module-tabs" aria-label="功能模块">
       <button class="module-tab active" type="button" data-module="world"><span class="tab-icon" aria-hidden="true">◫</span>世界观架构</button>
       <button class="module-tab" type="button" data-module="cards"><span class="tab-icon" aria-hidden="true">▤</span>卡牌设计</button>
-      <button class="module-tab" type="button" data-module="battle"><span class="tab-icon" aria-hidden="true">⚔</span>测试对战</button>
+      <button class="module-tab" type="button" data-module="battle"><span class="tab-icon" aria-hidden="true">⚔</span>测试对战<span class="beta-tag" title="实验模块：规则数值与界面都可能调整">Beta</span></button>
       <button class="module-tab" type="button" data-module="free"><span class="tab-icon" aria-hidden="true">✦</span>自由创作</button>
-      <button class="module-tab" type="button" data-module="simulation"><span class="tab-icon" aria-hidden="true">◉</span>世界模拟</button>
+      <button class="module-tab" type="button" data-module="simulation"><span class="tab-icon" aria-hidden="true">◉</span>世界模拟<span class="beta-tag" title="实验模块：规则数值与界面都可能调整">Beta</span></button>
     </nav>
     <div class="header-actions"><span class="local-status saving" id="storageStatus"><i></i><span>正在连接 SQLite…</span></span><span class="version-chip" id="appVersion" title="Worldforge 版本">v—</span><span class="user-chip" id="currentUser" hidden></span><button class="button secondary compact" id="changePasswordButton" type="button" hidden>改口令</button><button class="button secondary compact" id="logoutButton" type="button" hidden>退出</button><button class="button secondary compact" id="openSettings" type="button">设置</button><button class="button secondary compact" id="exportData" type="button">导出数据</button></div>
   </header>
@@ -183,7 +183,7 @@
 
       <nav class="card-subtabs" aria-label="卡牌功能"><button class="card-subtab active" type="button" data-card-tab="library">卡牌库</button><button class="card-subtab" type="button" data-card-tab="artwork">原画集</button></nav>
 
-      <section class="panel card-library-page" data-card-panel="library"><div class="card-library-toolbar"><label class="search-box"><span aria-hidden="true">⌕</span><input type="search" placeholder="搜索名称、描述或关键词" data-search-input="cards" aria-label="搜索卡牌库"></label><label>类型<select id="cardLibraryType"><option value="all">全部类型</option><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select></label><label>稀有度<select id="cardLibraryRarity"><option value="all">全部稀有度</option><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select></label><span id="savedCardLabel">0 张</span></div><div class="card-collection-grid" id="cardList"></div><div class="saved-card-empty" id="cardEmpty"><strong>暂无卡牌</strong><p>点击“创建卡牌”进入独立编辑界面。</p></div><p class="no-results" id="cardNoResults" hidden>没有匹配的卡牌。</p><nav class="card-pagination" aria-label="卡牌库分页"><button class="button secondary compact" id="cardPagePrev" type="button">上一页</button><span id="cardPageLabel">第 1 / 1 页</span><button class="button secondary compact" id="cardPageNext" type="button">下一页</button></nav></section>
+      <section class="panel card-library-page" data-card-panel="library"><div class="card-library-toolbar"><label class="search-box"><span aria-hidden="true">⌕</span><input type="search" placeholder="搜索名称、描述或关键词" data-search-input="cards" aria-label="搜索卡牌库"></label><label>世界<select id="cardLibraryWorld"><option value="all">全部世界</option><option value="">未归属</option></select></label><label>类型<select id="cardLibraryType"><option value="all">全部类型</option><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select></label><label>稀有度<select id="cardLibraryRarity"><option value="all">全部稀有度</option><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select></label><span id="savedCardLabel">0 张</span></div><div class="card-collection-grid" id="cardList"></div><div class="saved-card-empty" id="cardEmpty"><strong>暂无卡牌</strong><p>点击“创建卡牌”进入独立编辑界面。</p></div><p class="no-results" id="cardNoResults" hidden>没有匹配的卡牌。</p><nav class="card-pagination" aria-label="卡牌库分页"><button class="button secondary compact" id="cardPagePrev" type="button">上一页</button><span id="cardPageLabel">第 1 / 1 页</span><button class="button secondary compact" id="cardPageNext" type="button">下一页</button></nav></section>
 
       <div class="card-workspace" data-card-panel="editor" hidden>
         <aside class="panel keyword-panel">
@@ -226,7 +226,7 @@
             </div>
 
             <div class="card-options">
-              <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select><label for="cardSubtype" id="cardSubtypeLabel">种族</label><select id="cardSubtype" aria-label="随从种族"></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><input id="cardWorldId" maxlength="20" placeholder="选择或填写世界编号"></div>
+              <div class="option-group card-basics"><label for="cardType">卡牌类型</label><select id="cardType"><option value="minion">随从</option><option value="spell">法术</option><option value="equipment">武器</option></select><label for="cardSubtype" id="cardSubtypeLabel">种族</label><select id="cardSubtype" aria-label="随从种族"></select><label for="cardRarity">稀有度</label><select id="cardRarity"><option value="common">普通</option><option value="rare">稀有</option><option value="epic">史诗</option><option value="legendary">传说</option></select><label for="cardWorldId">所属世界</label><select id="cardWorldId" aria-label="卡牌所属世界"></select><p class="field-help" id="cardWorldHint">卡牌与它的原画都属于同一个世界：不同世界的画风与视觉语言不共享。</p></div>
               <div class="option-group"><span>设定来源</span><div class="relation-chips" id="cardLoreRefSummary"></div><div class="relation-field-actions"><button class="button secondary compact" id="openCardLoreRefPicker" type="button">选择设定来源</button><small id="cardLoreHelp">可关联多个设定条目；从世界观生成时只预填草案，需要你保存才生效。</small></div></div>
               <div class="option-group"><label for="cardRules">普通文本描述</label><textarea id="cardRules" class="card-flavor-input" rows="4" maxlength="1000" placeholder="写入关键词之后显示的普通规则文本……"></textarea><p class="field-help">保存与卡面显示会自动编译为：独立关键词 → 带附加描述关键词 → 普通文本。支持 <code>&lt;b&gt;粗体&lt;/b&gt;</code>、<code>&lt;i&gt;斜体&lt;/i&gt;</code>、<code>**粗体**</code> 与 <code>*斜体*</code>。</p></div>
               <div class="option-group"><span>已选关键词</span><div class="selected-keywords" id="selectedKeywords"><p>未选择关键词</p></div></div>
@@ -239,7 +239,7 @@
         </section>
 
       </div>
-      <section class="panel card-artwork-gallery" data-card-panel="artwork" hidden><div class="panel-title"><div><h2>全量原画集</h2><small>素材库全部原画，含未使用素材</small></div><span id="artworkCount">0 幅</span></div><div class="artwork-toolbar"><label>分类<select id="artworkFilter"><option value="used">已使用原画</option><option value="unused">未使用原画</option><option value="all">全部原画</option></select></label><p class="field-help" id="artworkHelp">已使用 = 已被某张卡牌绑定，或仍绑定到存在的设定条目；未使用素材可查看并重新选用。</p></div><div class="artwork-grid" id="artworkGallery"></div><div class="saved-card-empty" id="artworkEmpty"><strong id="artworkEmptyTitle">暂无已使用原画</strong><p id="artworkEmptyText">在卡牌编辑器中选择原画后，这里会自动汇集。</p></div></section>
+      <section class="panel card-artwork-gallery" data-card-panel="artwork" hidden><div class="panel-title"><div><h2>全量原画集</h2><small>素材库全部原画，按所属世界归档</small></div><span id="artworkCount">0 幅</span></div><div class="artwork-toolbar"><label>世界<select id="artworkWorld"><option value="all">全部世界</option><option value="">未归属</option></select></label><label>分类<select id="artworkFilter"><option value="used">已使用原画</option><option value="unused">未使用原画</option><option value="all">全部原画</option></select></label><p class="field-help" id="artworkHelp">原画跟随它绑定的卡牌或设定条目归属世界；已使用 = 已被某张卡牌绑定，或仍绑定到存在的设定条目。</p></div><div class="artwork-grid" id="artworkGallery"></div><div class="saved-card-empty" id="artworkEmpty"><strong id="artworkEmptyTitle">暂无已使用原画</strong><p id="artworkEmptyText">在卡牌编辑器中选择原画后，这里会自动汇集。</p></div></section>
     </section>
 
     <section class="module-page battle-page" id="battleModule" data-page="battle" aria-labelledby="battleTitle" hidden>
@@ -499,6 +499,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=66"></script>
+  <script src="./app.js?v=67"></script>
 </body>
 </html>

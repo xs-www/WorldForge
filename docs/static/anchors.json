@@ -849,6 +849,16 @@
       "lines": [
         "async function requestModel("
       ]
+    },
+    "art-asset-world-map": {
+      "lines": [
+        "async function artAssetWorldMap()"
+      ]
+    },
+    "art-asset-with-world": {
+      "lines": [
+        "function artAssetWithWorld(asset, map)"
+      ]
     }
   }
 }

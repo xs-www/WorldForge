@@ -16,9 +16,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'lore-import/parse', 'lore-import/commit', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=66/);
+  assert.match(htmlSource, /app\.js\?v=67/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=49/);
+  assert.match(htmlSource, /styles\.css\?v=50/);
   assert.match(htmlSource, /cards\.js\?v=7/);
   assert.match(htmlSource, /world-scope\.js\?v=2/);
   assert.match(htmlSource, /relation-picker\.js\?v=2/);
@@ -110,6 +110,7 @@ test('card library, artwork, and editor stay independent', () => {
   assert.match(htmlSource, /data-card-tab="library"/);
   assert.match(htmlSource, /data-card-panel="artwork" hidden/);
   assert.match(htmlSource, /data-card-panel="editor" hidden/);
+  assert.match(htmlSource, /id="cardLibraryWorld"/);
   assert.match(htmlSource, /id="cardLibraryType"/);
   assert.match(htmlSource, /id="cardLibraryRarity"/);
   assert.match(htmlSource, /id="cardPagePrev"/);
@@ -366,6 +367,38 @@ test('artwork gallery covers the whole asset library with a used/unused filter',
   assert.match(appSource, /artwork-item\$\{entry\.used\?'':' unused'\}/);
   assert.match(styleSource, /\.artwork-item\.unused\{/);
   assert.match(styleSource, /\.artwork-toolbar\{/);
+});
+
+test('卡牌与原画归属世界（ADR-0034）', () => {
+  // 编辑器：所属世界是下拉必选项，不是可以随便填的文本框。
+  assert.match(htmlSource, /<label for="cardWorldId">所属世界<\/label><select id="cardWorldId"/);
+  assert.match(htmlSource, /id="cardWorldHint"/);
+  assert.match(appSource, /function fillWorldSelect\(select,\{all=false,selected='',fallback=false\}=\{\}\)/);
+  assert.match(appSource, /function selectCardWorld\(worldId\)/);
+  assert.match(appSource, /if\(!worldId\)return showToast\('请先为卡牌选择所属世界/);
+  assert.match(appSource, /worldId:q\('#cardWorldId'\)\.value\.trim\(\),type:/);
+  // 卡牌库与原画集都能按世界筛选，并显示世界徽标。
+  assert.match(htmlSource, /id="cardLibraryWorld"/);
+  assert.match(htmlSource, /id="artworkWorld"/);
+  assert.match(appSource, /world=q\('#cardLibraryWorld'\)\?\.value\?\?'all'/);
+  assert.match(appSource, /world=q\('#artworkWorld'\)\?\.value\?\?'all'/);
+  assert.match(appSource, /card-world-chip/);
+  assert.match(appSource, /artwork-world/);
+  assert.match(styleSource, /\.card-world-chip\{position:absolute/);
+  assert.match(styleSource, /\.artwork-world\{display:inline-block/);
+  // 服务端按绑定目标现算世界，而不是听客户端怎么说。
+  assert.match(serverSource, /async function artAssetWorldMap\(\)/);
+  assert.match(serverSource, /function artAssetWithWorld\(asset, map\)/);
+  assert.match(serverSource, /assets: \(await contentStore\.listArtAssets\(\)\)\.map\(asset => artAssetWithWorld\(asset, worldMap\)\)/);
+  assert.match(serverSource, /worldId:String\(\(await artAssetWorldMap\(\)\)\.get/);
+});
+
+test('测试对战与世界模拟标注 Beta（0.3.2）', () => {
+  assert.match(htmlSource, /data-module="battle">.*?测试对战<span class="beta-tag"/);
+  assert.match(htmlSource, /data-module="simulation">.*?世界模拟<span class="beta-tag"/);
+  assert.match(htmlSource, /<meta name="worldforge-version" content="0\.3\.2">/);
+  assert.match(styleSource, /\.beta-tag\{display:inline-block/);
+  assert.match(styleSource, /\[data-theme="dark"\] \.beta-tag\{/);
 });
 
 test('设定导入从主界面入口走到预览、勾选与确认保存（ADR-0033）', () => {

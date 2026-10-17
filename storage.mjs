@@ -147,7 +147,7 @@ export function createContentStore(databasePath) {
     const unbound=asset.unbound===true||asset.targetType==='';
     const targetType=unbound?'':(asset.targetType==='lore'?'lore':'card');
     const targetId=unbound?'':stringField(asset.targetId||asset.cardId).trim();
-    return{...asset,unbound,targetType,targetId,purpose:stringField(asset.purpose,targetType==='card'?'card_art':'concept'),cardId:targetType==='card'?targetId:''};
+    return{...asset,unbound,targetType,targetId,worldId:unbound?'':stringField(asset.worldId).trim(),purpose:stringField(asset.purpose,targetType==='card'?'card_art':'concept'),cardId:targetType==='card'?targetId:''};
   }
 
   // target 为 null 或缺少 targetId 时解除绑定；否则重新绑定到指定目标。
@@ -155,7 +155,7 @@ export function createContentStore(databasePath) {
     const current = getArtAsset(id);
     if (!current) return null;
     const targetId = target && stringField(target.targetId).trim();
-    const next = normalizeArtAsset({ ...current, unbound: !targetId, targetType: targetId ? target.targetType : '', targetId: targetId || '' });
+    const next = normalizeArtAsset({ ...current, unbound: !targetId, targetType: targetId ? target.targetType : '', targetId: targetId || '', worldId: targetId ? stringField(target?.worldId ?? current.worldId).trim() : '' });
     updateArtAssetTarget.run(next.cardId || '', JSON.stringify(next), next.id);
     return next;
   }

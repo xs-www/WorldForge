@@ -6,12 +6,12 @@
 | 测试文件 | 覆盖的契约 / 回归点 | 关键手法 |
 | --- | --- | --- |
 | `data-transfer.test.mjs` | 导入导出交换格式：整包字段、往返无损、格式/版本/图片上限拒绝、`merge`/`replace` 统计、美术资产只补不覆盖 | 纯函数直接调用，不落盘 |
-| `data-transfer-api.test.mjs` | `/api/export` 与 `/api/import` 端到端：下载头、`?images=1`、缺标记 403、`dryRun` 不写库、merge 保留未提及条目、replace 清空、坏文件 400 | 真实 `server.mjs` 子进程 + 临时数据目录 |
+| `data-transfer-api.test.mjs` | `/api/export` 与 `/api/import` 端到端：下载头、`?images=1`、缺标记 403、`dryRun` 不写库、merge 保留未提及条目、replace 清空、坏文件 400、**原画 `worldId` 由服务端按绑定目标现算且解除绑定后清空（ADR-0034）** | 真实 `server.mjs` 子进程 + 临时数据目录 |
 | `lore-groups.test.mjs` | 六个固定组（含「设定」未分类落点）、自定义组规范化与上限、稳定 id 生成、旧类型派生、提示词档位收敛、服务端包装层与浏览器侧同源 | 直接 `import` `dist/lore-groups.js` 与 `lore-groups.mjs` |
 | `lore-import.test.mjs` | 设定导入纯变换层（ADR-0033）：原文规范化与按段落截断、切分确定性与块长上限、提示词 4→5→6 顺序且原文只出现一次、记录格式契约与字段清单一致、模型返回收敛（记录格式 / JSON 外壳 / 围栏 / 未转义换行 / 尾逗号 / 截断 / 空响应）、跨段同名合并、世界/条目编号避让、关联名称解析与告警、编年史容器补建、地理孤儿、`分类` 解析成已有组 / 旧类型 id / 新建 `cat-<hash>` 组、目标世界内同名同类型条目跳过、落库复核（强制 proposed、保存前跳过重复、剔除越界引用、编号冲突 409） | 纯函数 + 固定 `now`，不联网不落盘 |
 | `model-json-normalizer.test.mjs` | 通用「模型输出 → JSON」规范化层：合法 JSON 原样通过、围栏与散文、字符串内未转义换行、尾逗号 / 注释 / 全角标点、截断恢复、JSONL、双层 JSON、不可解析返回 `undefined`；记录格式的段落 / 多行正文 / 列表 / 数字 / 占位词清空 / `##` 与 `【】` 标记；JSON 优先于记录格式 | 纯字符串变换，不联网 |
 | `lore-import-api.test.mjs` | 设定导入端到端：记录格式一次调用即落成条目且不发送 `json_schema`、默认 `thinking:{type:'disabled'}` 与供应商拒绝时回退、chat/responses 形状互通、跳过 reasoning 项、首段空内容切换 API 类型、解析不写库、跨段同名合并、关系解析成编号、未知 preset 前置 400、全部段落失败整体报错、确认导入只追加新世界、**分类自动新建资料组并落库、同一份设定二次导入跳过重复条目**、缺标记头 403、重复世界编号 409、坏计划 400、**并入已有世界只追加条目且不新建/不改世界条目、目标世界不存在 400**；文件读取路由（缺标记 403、DOCX+ZIP 转文本、不写库不计模型调用、坏 base64 400、RAR 明确拒绝） | 真实 `server.mjs` 子进程 + 本地假模型 + 临时数据目录 |
-| `app-load.test.mjs` | 真实脚本装配下的界面行为：世界视图与资料组对话框可加载、资料组字段回填、**世界内新建组默认仅当前世界且可改选共享、世界内导入设定默认并入当前世界而列表页仍新建、单条改分组、批量归入** | `node:vm` + 最小 DOM 替身，不需要浏览器 |
+| `app-load.test.mjs` | 真实脚本装配下的界面行为：世界视图与资料组对话框可加载、资料组字段回填、**世界内新建组默认仅当前世界且可改选共享、世界内导入设定默认并入当前世界而列表页仍新建、单条改分组、批量归入、卡牌必须选世界、卡牌库与原画集按世界筛选** | `node:vm` + 最小 DOM 替身，不需要浏览器 |
 | `lore-import-files.test.mjs` | 文件输入层：UTF-8/BOM/UTF-16/GBK 文本识别、按签名而非扩展名识别格式、DOCX 段落/表格/脚注/实体、XLSX 共享与内联字符串/布尔/多工作表、ZIP 内格式校验（跳过 exe/png、路径穿越、加密条目、声明超大的炸弹、一层嵌套与深度上限）、旧版 doc/xls 尽力抽取、RTF、RAR/PDF 明确拒绝、扩展名与内容不符、超长截断与上传边界 | 在内存里按 ZIP/OOXML 规范写真实字节夹具（`tests/helpers/document-fixtures.mjs`），解析路径不做 mock |
 | `storage-postgres.test.mjs` | 缺连接串即失败、连接目标脱敏、迁移版本与 SQLite 对齐；设 `WORLDFORGE_TEST_PG_URL` 时跑真库往返 | 无数据库时 1 条 `skip`，需要真库的用例不阻塞 CI |
 | `frontend-dom-contract.test.mjs` | `app.js` 引用的每个 `#id` 都存在于 `index.html`、加载顺序、无默认世界种子、数据面板与资料组管理接线 | 源码级正则断言，不需要浏览器 |

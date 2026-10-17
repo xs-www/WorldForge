@@ -34,7 +34,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 1. **作者编辑**：`dist/*.js` 从 `document.currentScript` 解析出 `api/` 前缀 → `fetch` 到 `server.mjs` 的 `/api/content` → `storage.mjs`（SQLite）或 `storage-postgres.mjs`（PostgreSQL）写入内容库。浏览器 `localStorage` 只作缓存与旧数据迁移来源，不是真值。资料组（含自定义组）随整库一起读写。
 2. **账号与访问控制**：存在 `users.json` 时，`server.mjs` 在所有 API 之前校验 `wf_session` 会话；登录页（`dist/login.html` + `login.js`）提交到 `/api/auth/login`，`auth.mjs` 用 scrypt 校验口令并签发 HMAC 会话；`admin` 才能改设置与账号，成员按 UTC 日配额调用 AI/生图，内容保存记录 `lastSavedBy`。
 3. **AI 生成**：入口（设定助手 / 自由创作 / 卡牌 Agent）→ `server.mjs` 解析 preset 并拼三层指令 + 用户侧 `<untrusted_context>` → `ai-agent.mjs` 调用外部模型（轮次与工具硬上限）→ 逐候选校验 → 回填表单；候选不会自动晋升 `canon`。
-4. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID；连接中断只按请求 ID 找回，不自动重发付费请求。
+4. **生图**：卡牌/设定页 → `/api/images/generate` → `seedream.mjs` 或 `comfyui.mjs` → 结果图落盘为美术资产并记录参考资源 ID，同时按目标所在世界写入 `worldId`（ADR-0034）；连接中断只按请求 ID 找回，不自动重发付费请求。
 5. **数据搬运**：`GET /api/export`（可选内嵌图片）→ 交换格式 JSON；`POST /api/import` → `data-transfer.mjs` 解析/合并 → 同一个内容库 → 图片落盘并登记美术元数据。预检与真实导入共用校验。
 6. **模拟**：JSON 发布清单 → `scripts/compile-world-package.mjs` → 带内容哈希的只读 World Package → `simulation/storage/instance-store.mjs` 实例化到独立 SQLite（`worldforge-simulation.sqlite`）→ `simulation/runtime/` 确定性 Tick → `dashboard-service.mjs` / `macro-simulation-service.mjs` 投影为 `/api/simulation`、`/api/macro`。
 7. **设定导入**：主界面粘贴长篇原文或上传文档 → `POST /api/lore-import/extract`（`lore-import-files.mjs`：docx/xlsx/md/txt/zip 读成文本，压缩包逐条校验内部格式；不写库、不计配额）→ `POST /api/lore-import/parse`（`lore-import.mjs` 切分 + 设定入口 preset 分段抽取 + 确定性合并 + 分类落组 + 跳过重复 → 预览计划，不写库、按段计费）→ 作者逐条勾选 → `POST /api/lore-import/commit`（复核后追加一个新世界或并入当前世界，`expectedRevision` 乐观锁）。导入结果全部 `proposed`。
@@ -42,6 +42,7 @@ WorldForge 是一个零依赖 Node 22 ESM 本地应用：`server.mjs` 提供 HTT
 ## 全局不变量（跨模块）
 
 - **没有默认世界**：新装实例不含任何世界或题材种子；缺失的世界归属显示为「未归属资料」桶，而不是算进某个默认世界。
+- **卡牌与原画按世界归属（ADR-0034）**：卡牌草案必须带 `worldId`（编辑器下拉必选，旧数据缺世界时显示「未归属」等待补选）；原画不存独立世界字段，而是在 `GET /api/art-assets` 与导出时按绑定目标（卡牌 / 设定条目）从内容库现算，解除绑定即清空。卡牌库与原画集都提供世界筛选，跨世界引用设定只提示、不阻止。
 - **作者主权**：`canon` / `proposed` / `deprecated` 与 `objective` / `in_world_belief` / `unknown` 由作者裁定；代码只在 `proposed` 一侧生成候选。
 - **导入只追加且不重复**：设定导入（`/api/lore-import/commit`）只写入一个新世界（或并入目标世界）及其 `proposed` 条目，不改动任何既有条目、不写 canon、不写回仓库；解析阶段（`/api/lore-import/parse`）不写库，只在作者确认后才落盘。解析与确认各做一次「目标世界内同类型 + 同名」去重，因此同一份设定可以分多次导入补齐。
 - **模拟域隔离**：模拟只读 Git 投影出的 JSON 发布清单，不写作者内容表；W97/W98/W99 是合成实验，不是正史。
