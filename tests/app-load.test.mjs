@@ -132,6 +132,62 @@ test('资料组字段与旧字段回填在真实数据形态下可见', async ()
   assert.equal(values.attributeA, 'A');
 });
 
+test('资料组作用范围：世界内新建默认仅当前世界，且可以改选共享', async () => {
+  const { sandbox } = await boot();
+  const stored = () => JSON.parse(sandbox.localStorage.getItem('worldforge-lore-groups-v1') || '[]');
+  sandbox.enterWorld('W01');
+
+  sandbox.openLoreGroupDialog('create');
+  const scope = sandbox.document.querySelector('#groupScope');
+  assert.equal(scope.value, '__world__', '世界内新建的组默认只属于当前世界');
+  assert.equal(scope.disabled, false, '作用范围必须可操作，而不是看起来能点却点不动');
+  sandbox.document.querySelector('#groupLabel').value = '本世界势力';
+  sandbox.saveLoreGroupFromDialog();
+  assert.equal(stored().find(group => group.label === '本世界势力').worldId, 'W01');
+
+  // 作者主动改选「所有世界共享」后保存：写入共享组
+  sandbox.openLoreGroupDialog('create');
+  sandbox.document.querySelector('#groupLabel').value = '共享历法';
+  sandbox.document.querySelector('#groupScope').value = '__shared__';
+  sandbox.updateGroupScopeHint();
+  sandbox.saveLoreGroupFromDialog();
+  assert.equal(stored().find(group => group.label === '共享历法').worldId, '');
+});
+
+test('世界内导入设定：默认并入当前世界，列表页仍是新建世界', async () => {
+  const { sandbox } = await boot();
+  const calls = [];
+  sandbox.fetch = async (url, options = {}) => {
+    const href = String(url);
+    let body = {};
+    try { body = options.body ? JSON.parse(options.body) : {}; } catch { body = {}; }
+    calls.push({ href, body, method: options.method || 'GET' });
+    const reply = payload => ({ ok: true, status: 200, json: async () => payload, text: async () => JSON.stringify(payload) });
+    if (href.endsWith('lore-import/parse')) return reply({ mode: 'existing', worldId: 'W01', world: { name: '甲世界', summary: '', details: '' }, entries: [], groups: [], warnings: [], stats: { chunks: 1, characters: 4, counts: {}, total: 0 }, agent: { presetId: 'lore-writer' }, model: 'fake' });
+    if (href.endsWith('lore-import/commit')) return reply({ mode: 'existing', worldId: 'W01', world: { id: 'W01' }, entries: [], warnings: [], revision: 9 });
+    return reply({ schemaVersion: 3, initialized: true, revision: 1, loreEntries: [], cardDrafts: [], keywords: [], loreGroups: [], notes: {} });
+  };
+
+  sandbox.enterWorld('W01');
+  sandbox.openLoreImport('W01');
+  assert.equal(sandbox.document.querySelector('#loreImportWorldNameRow').hidden, true, '并入已有世界时不再询问世界名');
+  assert.match(String(sandbox.document.querySelector('#loreImportTarget').textContent), /W01/);
+
+  sandbox.document.querySelector('#loreImportSource').value = '一段设定';
+  await sandbox.parseLoreImport();
+  const parseCall = calls.find(call => call.href.endsWith('lore-import/parse'));
+  assert.equal(parseCall.body.intoWorld, 'W01', '解析请求必须带上目标世界');
+
+  await sandbox.saveLoreImport();
+  const commitCall = calls.find(call => call.href.endsWith('lore-import/commit'));
+  assert.equal(commitCall.body.mode, 'existing', '保存时必须使用并入模式');
+  assert.equal(commitCall.body.plan.worldId, 'W01');
+
+  sandbox.openLoreImport();
+  assert.equal(sandbox.document.querySelector('#loreImportWorldNameRow').hidden, false);
+  assert.match(String(sandbox.document.querySelector('#loreImportTarget').textContent), /将建立新世界/);
+});
+
 test('默认新增组只属于当前世界；共享组只能在设置里建', async () => {
   const { sandbox } = await boot();
   const stored = () => JSON.parse(sandbox.localStorage.getItem('worldforge-lore-groups-v1') || '[]');

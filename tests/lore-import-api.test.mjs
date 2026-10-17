@@ -420,6 +420,61 @@ test('确认导入：结构不合格的计划返回 400 而不是写入半套数
   assert.equal(content.loreEntries.some(entry => entry.worldId === 'W03'), false);
 });
 
+test('解析：指定 intoWorld 时用它作为世界编号，并为条目分配不冲突的编号', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '@@ 条目\n类型：character\n名称：首席议员\n正文：主持议会。\n' } }] } }));
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '首席议员主持议会。', intoWorld: 'W01' } });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  assert.equal(data.mode, 'existing');
+  assert.equal(data.worldId, 'W01');
+  assert.deepEqual(data.entries.map(item => item.id), ['CHR-W01-002'], '必须避开已有的 CHR-W01-001');
+  assert.equal(data.entries[0].worldId, 'W01');
+});
+
+test('解析：目标世界不存在时 400，且不调用模型', async () => {
+  fakeModel.reset();
+  const response = await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '一段设定文本。', intoWorld: 'W99' } });
+  assert.equal(response.status, 400, response.body);
+  assert.match(String(parse(response).error), /目标世界不存在/);
+  assert.equal(fakeModel.requests.length, 0);
+});
+
+test('确认导入：并入已有世界只追加条目，不改世界条目、不新建世界', async () => {
+  fakeModel.reset();
+  fakeModel.setBehavior(() => ({ status: 200, json: { choices: [{ message: { content: '@@ 条目\n类型：character\n名称：首席议员\n正文：主持议会。\n' } }] } }));
+  const parsed = parse(await request(server.port, '/api/lore-import/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { text: '首席议员主持议会。', intoWorld: 'W01' } }));
+  const before = parse(await request(server.port, '/api/content'));
+  const response = await request(server.port, '/api/lore-import/commit', {
+    method: 'POST', headers: importHeaders,
+    body: { mode: 'existing', worldId: 'W01', plan: { worldId: parsed.worldId, world: parsed.world, entries: parsed.entries }, expectedRevision: before.revision }
+  });
+  assert.equal(response.status, 200, response.body);
+  const data = parse(response);
+  assert.equal(data.mode, 'existing');
+  assert.equal(data.worldId, 'W01');
+  assert.equal(data.world.id, 'W01');
+  assert.equal(data.revision, before.revision + 1);
+
+  const after = parse(await request(server.port, '/api/content'));
+  const world = after.loreEntries.find(entry => entry.id === 'W01');
+  assert.equal(world.name, '甲世界', '世界条目不得被导入内容覆盖');
+  assert.equal(after.loreEntries.filter(entry => entry.type === 'world').length, before.loreEntries.filter(entry => entry.type === 'world').length, '不得新建世界条目');
+  const imported = after.loreEntries.find(entry => entry.id === 'CHR-W01-002');
+  assert.ok(imported, '条目应以目标世界的编号追加');
+  assert.equal(imported.worldId, 'W01');
+  assert.equal(imported.status, 'proposed');
+});
+
+test('确认导入：并入不存在的世界返回 400', async () => {
+  const response = await request(server.port, '/api/lore-import/commit', {
+    method: 'POST', headers: importHeaders,
+    body: { mode: 'existing', worldId: 'W98', plan: { worldId: 'W98', world: { name: '幽灵世界' }, entries: [] } }
+  });
+  assert.equal(response.status, 400, response.body);
+  assert.match(String(parse(response).error), /目标世界不存在/);
+});
+
 test('文件读取：缺标记头 403，DOCX 与压缩包被转成文本且不写库、不计模型调用', async () => {
   fakeModel.reset();
   const before = parse(await request(server.port, '/api/content'));

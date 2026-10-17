@@ -905,10 +905,17 @@ async function callLoreImport(payload, session) {
   // 与设定助手共用「设定」入口的 preset：导入不另开一套 persona 选择。
   const profile = resolveSurfaceProfile('lore', payload?.presetId);
   const agent = agentSnapshot(profile);
+  // 目标世界：不传则新建；传了就必须是已存在的世界（并入它而不是再造一个）。
+  const intoWorld = String(payload?.intoWorld || '').trim();
+  if (intoWorld && !/^W\d{2,}$/.test(intoWorld)) throw Object.assign(new Error('目标世界编号无效'), { status: 400 });
+  const current = await contentStore.read();
+  if (intoWorld && !current.loreEntries.some(entry => (entry.type === 'world' && entry.id === intoWorld) || String(entry.worldId || '') === intoWorld)) {
+    throw Object.assign(new Error(`目标世界不存在：${intoWorld}`), { status: 400 });
+  }
   const source = normalizeImportSource(payload?.text);
   const split = splitImportSource(source.text);
   const chunks = split.chunks;
-  console.log(`[lore-import] start chunks=${chunks.length} characters=${source.characters} truncated=${source.truncated} preset=${profile.id}`);
+  console.log(`[lore-import] start chunks=${chunks.length} characters=${source.characters} truncated=${source.truncated} preset=${profile.id} into=${intoWorld || 'new'}`);
   const instructions = String(payload?.instruction || '').trim().slice(0, 300);
   const promptSettings = await loadPromptSettings();
   const system = agentSystemPrompt(profile, { entryContract: LORE_IMPORT_ENTRY_CONTRACT });
@@ -983,8 +990,8 @@ async function callLoreImport(payload, session) {
     throw new Error(`设定解析失败：${reason}`);
   }
   const merged = mergeExtractions(extractions);
-  const current = await contentStore.read();
-  const worldId = nextWorldIdOf(current.loreEntries);
+  // 世界编号在调用模型前就定了（新建取最小可用；并入用目标世界），这里只复用它。
+  const worldId = intoWorld || nextWorldIdOf(current.loreEntries);
   if (source.truncated) warnings.push({ code: 'SOURCE_TRUNCATED', message: `原文超过 ${LORE_IMPORT_LIMITS.characters} 字，只解析了前面部分（省略 ${source.droppedCharacters} 字）` });
   if (split.truncated) warnings.push({ code: 'SOURCE_TRUNCATED', message: `分段上限为 ${LORE_IMPORT_LIMITS.maxChunks} 段，最后 ${split.droppedCharacters} 字未解析` });
   if (!merged.entries.length) warnings.push({ code: 'EMPTY_EXTRACTION', message: '模型没有整理出任何条目；可以缩短原文或补充更明确的条目名称后重试' });
@@ -999,6 +1006,7 @@ async function callLoreImport(payload, session) {
   });
   return {
     ...plan,
+    mode: intoWorld ? 'existing' : 'new',
     agent,
     model: config.model,
     harnessVersion: HARNESS_VERSION,
@@ -1007,14 +1015,21 @@ async function callLoreImport(payload, session) {
 }
 
 /**
- * 把作者确认过的导入计划写入内容库：追加一个世界条目及其资料，绝不改动既有条目。
- * `expectedRevision` 与 `PUT /api/content` 同一套乐观锁；世界编号冲突返回 409。
+ * 把作者确认过的导入计划写入内容库：默认追加一个新世界，也可以并入一个已有世界。
+ * 两种模式都只追加资料、绝不改写既有条目；`expectedRevision` 与 `PUT /api/content`
+ * 同一套乐观锁，新建世界时编号冲突返回 409。
  */
 async function commitLoreImport(body, { actor = '' } = {}) {
   const current = await contentStore.read();
-  const plan = validateImportPlan(body?.plan ?? body, { existingEntries: current.loreEntries });
+  const mode = body?.mode === 'existing' ? 'existing' : 'new';
+  const intoWorld = mode === 'existing' ? String(body?.worldId || body?.plan?.worldId || '').trim() : '';
+  const plan = validateImportPlan(body?.plan ?? body, { existingEntries: current.loreEntries, intoWorld });
+  if (mode === 'existing') {
+    const exists = current.loreEntries.some(entry => (entry.type === 'world' && entry.id === plan.worldId) || String(entry.worldId || '') === plan.worldId);
+    if (!exists) throw Object.assign(new Error(`目标世界不存在：${plan.worldId}`), { status: 400 });
+  }
   const now = new Date().toISOString();
-  const worldEntry = buildWorldEntry({ worldId: plan.worldId, world: plan.world, now: () => now });
+  const worldEntry = mode === 'new' ? buildWorldEntry({ worldId: plan.worldId, world: plan.world, now: () => now }) : null;
   const groups = [...current.loreGroups];
   const warnings = [...plan.warnings];
   for (const group of plan.groups) {
@@ -1027,15 +1042,16 @@ async function commitLoreImport(body, { actor = '' } = {}) {
     groups.push(group);
   }
   const saved = await contentStore.replace({
-    loreEntries: [...current.loreEntries, worldEntry, ...plan.entries],
+    loreEntries: [...current.loreEntries, ...(worldEntry ? [worldEntry] : []), ...plan.entries],
     cardDrafts: current.cardDrafts,
     keywords: current.keywords,
     loreGroups: groups,
     notes: current.notes,
     expectedRevision: body?.expectedRevision
   }, { actor });
-  console.log(`[lore-import] commit world=${plan.worldId} entries=${plan.entries.length} revision=${saved.revision}`);
-  return { worldId: plan.worldId, world: worldEntry, entries: plan.entries, warnings, revision: saved.revision, lastSavedBy: saved.lastSavedBy };
+  const world = worldEntry || current.loreEntries.find(entry => entry.type === 'world' && entry.id === plan.worldId) || null;
+  console.log(`[lore-import] commit mode=${mode} world=${plan.worldId} entries=${plan.entries.length} revision=${saved.revision}`);
+  return { mode, worldId: plan.worldId, world, entries: plan.entries, warnings, revision: saved.revision, lastSavedBy: saved.lastSavedBy };
 }
 
 // ── 数据导入 / 导出 ─────────────────────────────────────────────────────────

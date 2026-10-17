@@ -664,15 +664,23 @@ function normalizePlanEntry(raw, worldId, now) {
 
 /**
  * 校验客户端回传的导入计划（预览里被作者勾选的条目）并转成待写入的条目。
- * 与 `PUT /api/content` 不同，这里是**追加**语义：编号冲突、世界编号已存在都会拒绝。
+ * 默认是「新建世界」语义：编号冲突、世界编号已存在都会拒绝。
+ * 传 `intoWorld` 则改为「并入已有世界」：世界编号必须等于它，且不再检查编号是否空闲。
  */
-export function validateImportPlan(value, { existingEntries = [], now = () => new Date().toISOString() } = {}) {
+export function validateImportPlan(value, { existingEntries = [], now = () => new Date().toISOString(), intoWorld = '' } = {}) {
   const plan = plainObject(value, '导入计划');
-  const worldId = text(plan.worldId, 20);
+  const target = text(intoWorld, 20);
+  let worldId = text(plan.worldId, 20);
+  if (target) {
+    if (worldId && worldId !== target) throw badRequest('导入计划的目标世界与请求不一致');
+    worldId = target;
+  }
   if (!/^W\d{2,}$/.test(worldId)) throw badRequest('世界编号无效（应为 W01 形式）');
   const current = Array.isArray(existingEntries) ? existingEntries : [];
-  if (current.some(entry => entry?.type === 'world' && entry?.id === worldId)) throw Object.assign(badRequest(`世界编号 ${worldId} 已存在`), { status: 409 });
-  if (current.some(entry => String(entry?.worldId ?? '') === worldId)) throw Object.assign(badRequest(`世界编号 ${worldId} 已被资料占用`), { status: 409 });
+  if (!target) {
+    if (current.some(entry => entry?.type === 'world' && entry?.id === worldId)) throw Object.assign(badRequest(`世界编号 ${worldId} 已存在`), { status: 409 });
+    if (current.some(entry => String(entry?.worldId ?? '') === worldId)) throw Object.assign(badRequest(`世界编号 ${worldId} 已被资料占用`), { status: 409 });
+  }
   const world = plan.world && typeof plan.world === 'object' ? plan.world : {};
   const name = text(world.name, 120) || `导入的世界 ${worldId}`;
   const rawEntries = Array.isArray(plan.entries) ? plan.entries : [];

@@ -16,9 +16,9 @@ test('browser API requests follow the script mount path', () => {
   for (const endpoint of ['settings', 'ai/status', 'ai', 'ai/free', 'ai/tools/names', 'lore-import/parse', 'lore-import/commit', 'content', 'art-assets', 'images/status', 'images/generate', 'images/compose-prompt', 'images/optimize-prompt', 'simulation', 'simulation/advance', 'simulation/run', 'simulation/reset', 'health']) {
     assert.match(appSource, new RegExp(`fetch\\(apiUrl\\('${endpoint.replace('/', '\\/')}'\\)`));
   }
-  assert.match(htmlSource, /app\.js\?v=64/);
+  assert.match(htmlSource, /app\.js\?v=65/);
   assert.match(htmlSource, /macro\.js\?v=3/);
-  assert.match(htmlSource, /styles\.css\?v=47/);
+  assert.match(htmlSource, /styles\.css\?v=48/);
   assert.match(htmlSource, /cards\.js\?v=7/);
   assert.match(htmlSource, /world-scope\.js\?v=2/);
   assert.match(htmlSource, /relation-picker\.js\?v=2/);
@@ -369,16 +369,21 @@ test('artwork gallery covers the whole asset library with a used/unused filter',
 });
 
 test('设定导入从主界面入口走到预览、勾选与确认保存（ADR-0033）', () => {
-  // 入口在世界列表页，和「新建世界」并列；对话框承载原文、预览与保存。
+  // 入口有两处：世界列表页「新建世界」旁，以及世界详情页「并入当前世界」。
   assert.match(htmlSource, /id="openLoreImport"/);
-  for (const id of ['loreImportDialog', 'loreImportSource', 'loreImportCount', 'loreImportWorldName', 'loreImportInstruction', 'loreImportParse', 'loreImportStatus', 'loreImportReview', 'loreImportSummary', 'loreImportAgent', 'loreImportWarnings', 'loreImportEntries', 'loreImportSelectAll', 'loreImportSelectNone', 'loreImportSelected', 'loreImportSave', 'loreImportReviewStatus', 'loreImportFiles', 'loreImportReadFiles', 'loreImportFileStatus']) {
+  assert.match(htmlSource, /id="openWorldImport"/);
+  for (const id of ['loreImportDialog', 'loreImportSource', 'loreImportCount', 'loreImportWorldName', 'loreImportWorldNameRow', 'loreImportInstruction', 'loreImportTarget', 'loreImportParse', 'loreImportStatus', 'loreImportReview', 'loreImportSummary', 'loreImportAgent', 'loreImportWarnings', 'loreImportEntries', 'loreImportSelectAll', 'loreImportSelectNone', 'loreImportSelected', 'loreImportSave', 'loreImportReviewStatus', 'loreImportFiles', 'loreImportReadFiles', 'loreImportFileStatus']) {
     assert.match(htmlSource, new RegExp(`id="${id}"`), `设定导入对话框缺少 #${id}`);
   }
-  assert.match(appSource, /function openLoreImport\(\)/);
+  assert.match(appSource, /function openLoreImport\(worldId=''\)/);
   assert.match(appSource, /async function parseLoreImport\(\)/);
   assert.match(appSource, /function renderLoreImportPlan\(plan\)/);
   assert.match(appSource, /function updateLoreImportSelection\(\)/);
   assert.match(appSource, /async function saveLoreImport\(\)/);
+  // 世界详情页入口把当前世界作为目标；列表页入口仍是新建世界。
+  assert.match(appSource, /q\('#openWorldImport'\)\.onclick=\(\)=>openLoreImport\(currentWorldId\(\)\)/);
+  assert.match(appSource, /intoWorld:loreImportTargetWorld\|\|undefined/);
+  assert.match(appSource, /mode:loreImportTargetWorld\?'existing':'new'/);
   // 解析与保存是两个请求：解析不写库，保存带独立标记头并复用内容库乐观锁。
   assert.match(appSource, /fetch\(apiUrl\('lore-import\/parse'\)/);
   assert.match(appSource, /X-Worldforge-Lore-Import':'1'/);
@@ -391,9 +396,21 @@ test('设定导入从主界面入口走到预览、勾选与确认保存（ADR-0
   assert.match(appSource, /source\.value=data\.text\|\|''/);
   assert.match(styleSource, /\.import-upload\{/);
   assert.match(styleSource, /\.import-file-status\{/);
+  assert.match(styleSource, /\.import-target\{/);
   // 预览条目必须用 createElement/textContent 渲染，不拼 HTML 字符串。
   assert.match(appSource, /function loreImportEntryRow\(entry\)\{const label=document\.createElement\('label'\)/);
   assert.match(appSource, /badge\.textContent=LORE_IMPORT_LABELS\[entry\.type\]\|\|entry\.type/);
   assert.match(styleSource, /\.lore-import-dialog\{/);
   assert.match(styleSource, /\.import-entry\{/);
+});
+
+test('资料组作用范围在世界内可见、可改，默认仅当前世界', () => {
+  // 作用范围行不再是 hidden + disabled：世界内新建默认「仅当前世界」，可主动改为共享。
+  assert.doesNotMatch(htmlSource, /id="groupScopeRow" hidden/);
+  assert.match(htmlSource, /id="groupScopeHint"/);
+  assert.match(appSource, /const fixedGroup=Boolean\(group&&group\.fixed\),shared=group\?\(fixedGroup\|\|!group\.worldId\):sharedGroupMode/);
+  assert.match(appSource, /q\('#groupScope'\)\.value=shared\?'__shared__':'__world__'/);
+  assert.match(appSource, /q\('#groupScope'\)\.disabled=fixedGroup/);
+  assert.match(appSource, /q\('#groupScope'\)\.onchange=updateGroupScopeHint/);
+  assert.match(appSource, /scope==='__shared__'\?'':/);
 });

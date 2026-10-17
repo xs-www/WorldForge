@@ -42,7 +42,8 @@ const apiUrl = path => new URL(path, API_ROOT);
 
 ## 设定导入对话框（ADR-0033）
 
-- 入口是**世界列表页**的「导入设定文本」（与「新建世界」并列），不是模块标签：导入的产物就是一个新世界。
+- 入口有两个：**世界列表页**的「导入设定文本」（导入的产物是一个新世界）与**世界详情页**的「导入设定」（`#openWorldImport`，把条目并入当前世界）。两处打开同一个 `#loreImportDialog`，靠 `loreImportTargetWorld` 区分模式。
+- 并入模式：隐藏 `#loreImportWorldNameRow`（不改世界名）、`#loreImportTarget` 显示目标世界；解析请求带 `intoWorld`，保存带 `mode:"existing"`，成功后回到同一个世界而不是跳进新世界。
 - `#loreImportDialog` 只有一条主流程：`#loreImportParse` 调 `lore-import/parse` → `#loreImportReview` 显示世界名、告警与逐条勾选（`#loreImportEntries`）→ `#loreImportSave` 调 `lore-import/commit`，成功后 `hydrateContent()` → `renderWorldHub()` → `enterWorld()`，因此新世界与条目立即出现在界面里，而不是只写进数据库。
 - **文件上传**是解析之前的独立一步：`#loreImportFiles`（多选，`.md/.markdown/.txt/.docx/.doc/.xlsx/.xls/.zip/.rar/.rtf`）+ `#loreImportReadFiles` 调 `lore-import/extract`，把服务端抽取的文本写进 `#loreImportSource`，逐文件摘要与告警写进 `#loreImportFileStatus`。它不调用模型、不写库、不计配额；文本框里已有内容时会先确认再替换。
 - 预览行由 `loreImportEntryRow` 用 `createElement` + `textContent` 渲染（与卡牌描述一致，不拼 HTML）；勾选状态存在 `loreImportSelectedIds`，取消勾选只影响本次提交，不回写服务端。

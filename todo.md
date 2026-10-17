@@ -7,9 +7,11 @@
 - [x] 设定导入（ADR-0033）：新增 `lore-import.mjs`，主界面「导入设定文本」把长篇原文分段交给已配置的设定 Agent 解析，改写成资料库条目（角色 / 世界地图 / 编年史 / 背景故事 / 世界信息），预览中逐条勾选后只追加一个新世界。解析不写库且按段计入 AI 配额；导入永远 `proposed`，不写 canon、不覆盖既有条目、不写仓库；`npm run check` 全绿（含 21 项新增测试）。
 - [x] 设定导入改为「解析不负责 JSON」（ADR-0033 §10）：新增通用规范化层 `model-json-normalizer.mjs`，导入提示词改成 `@@ 段 + 字段：值` 记录格式、不再发送 `json_schema`（每段一次调用）；规范化层修围栏/散文/未转义换行/尾逗号/注释/全角标点/截断/JSONL/双层 JSON，并在段级告警里回显模型原文片段。修复实测 `deepseek-flash`「1 段 → 0 条资料」的失败形态，新增 11 项规范化测试 + 记录格式端到端测试。
 - [x] 模型调用协议兼容层：机械型入口默认 `thinking:{type:'disabled'}`（思考型模型会把输出预算耗在推理上，导致正文为空），供应商拒绝该参数时自动去掉重试并记住；响应解析覆盖 chat/responses/网关包装形状，导入首段为空时切换 API 类型重试并告警；空响应错误带 `style` / `finish` / 返回字段 / `reasoning_content` 诊断。新增 4 项端到端测试。
-- [x] 修「思考过程被当成正文」：读响应时跳过 `type:"reasoning"` 项（Responses 会把推理排在 message 前），只读 message 文本；只有推理时按「没有正文」处理并触发 API 类型回退；导入提示词首行要求不输出思考、第一个字符必须是 `@`。新增 2 项端到端测试。
+- [x] 设定导入支持**并入已有世界**：世界详情页「导入设定」入口（与列表页「导入设定文本」共用对话框），解析带 `intoWorld`、保存带 `mode:"existing"`；只追加条目、不改世界条目、按该世界已有编号避让；目标世界不存在时 400 且不调用模型。新增 4 项端到端 + 2 项界面测试。
+- [x] 修资料组「作用范围」：世界内新建默认「仅当前世界」且始终可改选共享（此前被设置为共享并禁用，点不动）；预置组固定共享、只读；保存按选择写 `worldId`。
 - [ ] 用真实 `deepseek-flash` 复测长文导入：确认记录格式能稳定抽出条目、思考关闭后正文不再为空，并观察 `STYLE_FALLBACK` 与 `OUTPUT_TRUNCATED` 的实际出现频率；若仍为空，按错误里的「返回字段 / reasoning 项」定位是网关形状还是模型输出上限。
-- [ ] 设定导入的其余待裁定项：是否允许并入**已有世界**、是否把导入暴露为 DSH preset 侧入口、超过 9 万字是否分批续传；以及真实导入后地理树与年表的渲染。
+- [x] 修「思考过程被当成正文」：读响应时跳过 `type:"reasoning"` 项（Responses 会把推理排在 message 前），只读 message 文本；只有推理时按「没有正文」处理并触发 API 类型回退；导入提示词首行要求不输出思考、第一个字符必须是 `@`。新增 2 项端到端测试。
+- [ ] 设定导入的其余待裁定项：是否把导入暴露为 DSH preset 侧入口、超过 9 万字是否分批续传；以及真实导入后地理树与年表的渲染。
 - [x] 将 WorldForge 卡牌设计智能体重构为仓库内可版本化的 DSH Agent preset，并补齐可移植技能与能力边界测试。
 - [x] 将现有结构化设定写作助手与自由创作聊天分别抽离为 `lore-writer`、`free-creator` DSH Agent preset。
 - [x] 完成 `docs/AGENT_PRESET_INTEGRATION_SPRINT_PLAN_2026-10-17.md` 的 Sprint 0 工程实现：兼容矩阵、提示词六层顺序与稳定错误码；新增 `docs/schemas/agent-runtime.schema.json`、`agent-profile-contract.mjs`（契约真值）与提示词层次 snapshot；三个 preset 补齐 `worldforge.runtime.json` + `runtime/system.md`；新增合法/非法夹具与 12 项契约测试。

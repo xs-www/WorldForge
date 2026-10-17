@@ -22,7 +22,7 @@
 | `buildWorldEntry(options)` | 世界条目：名称取作者输入 → 模型识别 → `导入的世界 W##`，固定 `proposed` / `objective` | `L549` |
 | `buildImportGroups(entries, worldId)` | 仅当存在 `info` 条目时产出本世界的 `info` 资料组（复用 `fallbackGroup('info')` 的字段） | `L572` |
 | `buildImportPlan(options)` | 汇总解析结果：世界编号、条目、资料组、告警与统计 | `L582` |
-| `validateImportPlan(value, options)` | 落库前复核客户端回传的计划：强制 `proposed`、剔除越界关联 / 父级、编号冲突 400 与 `409` | `L668` |
+| `validateImportPlan(value, options)` | 落库前复核客户端回传的计划：强制 `proposed`、剔除越界关联 / 父级、编号冲突 400 与 `409`；传 `intoWorld` 时改为「并入已有世界」语义 | `L668` |
 
 ## 重点逻辑
 
@@ -44,9 +44,10 @@
 - 地理条目的 `parentId` / 编年史的 `parentId` 解析不到时留空，条目进入前端「待整理」区域。
 - 产出字段：`id / type / worldId / name / status='proposed' / truthScope / values / tags / relationIds / location / chronicle / updatedAt`；`story` 固定 `unknown` 且不写标签。
 
-### `validateImportPlan(value, { existingEntries, now })`
-- 与 `PUT /api/content` 不同，这里是**追加**语义：世界编号已存在、条目编号与既有内容或同批次重复，都直接拒绝。
-- 结构问题（缺名称、缺正文、非法类型、`values` 键不合法或超长）一律 400；世界编号冲突是 409。
+### `validateImportPlan(value, { existingEntries, now, intoWorld })`
+- 默认是**新建世界**语义：世界编号已存在、条目编号与既有内容或同批次重复，都直接拒绝。
+- 传 `intoWorld` 时是**并入已有世界**：世界编号必须与目标一致（不一致 400），不再检查编号空闲；结构校验与条目编号重复检查不变。
+- 结构问题（缺名称、缺正文、非法类型、`values` 键不合法或超长）一律 400；新建世界时世界编号冲突是 409。
 - 未勾选条目导致的失效关联与父级会被清空并作为 `warnings` 回传，不静默保留悬空引用。
 
 ## 重要约束

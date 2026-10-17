@@ -252,7 +252,7 @@
       "source": "dist/app.js",
       "doc": "docs/static/dist/app.js.md",
       "status": "documented",
-      "sha256": "ede5488f41c54bf7eb41c01de2a1f8a8b3d7872b53677e1c1ed019597aeb6479"
+      "sha256": "c04c7c03da583dcc221ea181ddf44284dc082981221dd94c3e683cb55b50ef11"
     },
     {
       "source": "dist/battle-ui.js",
@@ -294,13 +294,13 @@
       "source": "dist/index.html",
       "doc": "docs/static/dist/index.html.md",
       "status": "documented",
-      "sha256": "712b432d062a6b926356e020a0cb341eaf89c56c583198d33daf7bb9ae722480"
+      "sha256": "cf0d426cf1dbf8272a55408ee07a29b88da62ad3483a0cef3d06c6d16814d6ce"
     },
     {
       "source": "dist/login.html",
       "doc": "docs/static/dist/login.html.md",
       "status": "documented",
-      "sha256": "51513d2d539db9e77c127f43249731a1d67259f36f1ee509751beebf856e5520"
+      "sha256": "ec0d9da0e18b054915251a29b03f8be48274873b1285197699ca496b8c1e17d8"
     },
     {
       "source": "dist/login.js",
@@ -330,7 +330,7 @@
       "source": "dist/styles.css",
       "doc": "docs/static/dist/styles.css.md",
       "status": "documented",
-      "sha256": "a1eddf8268d6df903e60dca0a1455ab92649f6dcff4df193fbe6adb544345d51"
+      "sha256": "5b326294aefe10981e0b3e8bb88facc5ed8494ca29bd319b4d925fe1212c7b17"
     },
     {
       "source": "dist/world-scope.js",
@@ -372,7 +372,7 @@
       "source": "lore-import.mjs",
       "doc": "docs/static/lore-import.mjs.md",
       "status": "documented",
-      "sha256": "e797ceae1da35811f7c16825bf38bba6282d7e053edd5ccb48ee4ece9d3bdfe1"
+      "sha256": "cb6fad5699f5aa624dcc028b5b444d61f084c9ec3fa1552e86db1dbee8d05e06"
     },
     {
       "source": "lore-import-files.mjs",
@@ -432,7 +432,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "4bfa4d65b96197afa4be9f4cfc599010385783d428867baeb233d1ef195d5b66"
+      "sha256": "911b034cf2ae7242d9bd2035ac912be896dcbabb3ed9d43226268d07978565a2"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -882,7 +882,7 @@
       "source": "tests/lore-import-api.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "99ef386e83cc6b09916cafd5fdb68114f918e135b3c22a9487f0bcafc8fc47b2"
+      "sha256": "65b445aa8bc636b1cdaf72c8eacf728522d3453806bbe01f4036a39bcc178d63"
     },
     {
       "source": "tests/lore-import-files.test.mjs",
@@ -918,7 +918,7 @@
       "source": "tests/README.md",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "2ab1fbe2b3708466f8dbf4d509bd37397bb735e0cc74d1fc8855cf3b6c7f36d2"
+      "sha256": "38bbfb92ea62935808e9312c538388b35b0f322df34d7a4994f28dbe36ee922c"
     },
     {
       "source": "tests/reference-assets.test.mjs",
@@ -978,7 +978,7 @@
       "source": "tests/subpath-routing.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "6857269bc5304b62ec13923ec7f9a991cdc142d90a83c6e379027cdfe042e22d"
+      "sha256": "f2bc882bccb2e249d398bf3ca36dca0803c966c7a1aeba58dd1d967f352eab35"
     },
     {
       "source": "tests/world-package.test.mjs",

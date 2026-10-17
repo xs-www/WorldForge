@@ -11,7 +11,7 @@
     if (pageSegment && !pageSegment.includes('.')) location.replace(`${location.pathname}/${location.search}${location.hash}`);
   </script>
   <title>Worldforge</title>
-  <link rel="stylesheet" href="./styles.css?v=47">
+  <link rel="stylesheet" href="./styles.css?v=48">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -53,6 +53,7 @@
           </div>
           <div class="heading-actions">
             <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="loreSearch" placeholder="在本世界内搜索名称、标签或正文" aria-label="搜索设定条目"></label>
+            <button class="button secondary" id="openWorldImport" type="button">导入设定</button>
             <button class="button primary" id="newLoreEntry" type="button">新建资料</button>
           </div>
         </div>
@@ -428,7 +429,7 @@
     <label>组名<input id="groupLabel" maxlength="40" required placeholder="例如：势力、组织、历法"></label>
     <div class="lore-form-row">
       <label>表单形态<select id="groupFormType"><option value="generic">通用资料</option><option value="geography">地理层级</option><option value="chronicle">编年史</option><option value="story">背景故事</option></select><small>决定专属部件（地理树 / 编年史容器 / 只要正文），与内容块无关。</small></label>
-      <label id="groupScopeRow" hidden>作用范围<select id="groupScope"><option value="__shared__">所有世界共享</option><option value="__world__">仅当前世界</option></select><small>共享组的字段对所有世界生效。</small></label>
+      <label id="groupScopeRow">作用范围<select id="groupScope"><option value="__shared__">所有世界共享</option><option value="__world__">仅当前世界</option></select><small id="groupScopeHint">仅当前世界的组只在这一世界出现；共享组的字段与条目对所有世界生效。</small></label>
     </div>
     <div class="group-fields-editor">
       <div class="group-fields-head"><strong>内容块</strong><small>每个条目一定有「名称」和「详细设定」；这里定义额外的块，例如摘要、属性、约束。</small></div>
@@ -465,9 +466,10 @@
         <label class="full">设定原文<textarea id="loreImportSource" rows="12" maxlength="120000" spellcheck="false" placeholder="把世界设定、人物小传、势力介绍、年表……整篇贴进来，或先「读取文件」再整理到此处。Agent 只整理原文写出的信息，不会补写新的设定。"></textarea></label>
         <div class="import-source-meta"><span id="loreImportCount">0 字 · 预计 1 段</span><small id="loreImportLimitHelp">单次最多解析 90000 字（10 段）；超出部分会明确截断并在结果里提示。</small></div>
         <div class="import-source-row">
-          <label>世界名称（可选）<input id="loreImportWorldName" maxlength="80" placeholder="留空则采用原文里的世界名称"></label>
+          <label id="loreImportWorldNameRow">世界名称（可选）<input id="loreImportWorldName" maxlength="80" placeholder="留空则采用原文里的世界名称"></label>
           <label>补充要求（可选）<input id="loreImportInstruction" maxlength="200" placeholder="例如：势力单独整理，不要合并人物"></label>
         </div>
+        <p class="field-help import-target" id="loreImportTarget">将建立新世界</p>
         <div class="import-actions"><button class="button primary" id="loreImportParse" type="button">解析并预览</button><span class="field-help" id="loreImportStatus" role="status">解析会调用已配置的语言模型并按段计费；结果只是 proposed 草案，不会自动成为正史。</span></div>
       </div>
       <section class="import-review" id="loreImportReview" hidden>
@@ -491,6 +493,6 @@
   <script src="./battle-ui.js?v=1"></script>
   <script src="./macro.js?v=3"></script>
   <script src="./card-agent-apply.js?v=1"></script>
-  <script src="./app.js?v=64"></script>
+  <script src="./app.js?v=65"></script>
 </body>
 </html>
