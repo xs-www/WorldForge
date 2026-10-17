@@ -144,7 +144,7 @@
       "source": ".github/workflows/ci.yml",
       "doc": "docs/static/.github/workflows/ci.yml.md",
       "status": "documented",
-      "sha256": "ab1d185b71d68d71b39906f7078e2c1733aff719425d5f00aa5fd134e6c7fc50"
+      "sha256": "7b3860cde4a9e4981d8c17663e1e348d5a79af79d22e7d34e32434e64141c6ee"
     },
     {
       "source": ".openai/hosting.json",

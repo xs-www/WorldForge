@@ -1,7 +1,7 @@
 name: CI
 
 # 三道关，顺序固定：
-#   1. check        —— 全部源码语法检查 + 195 项单元测试（无第三方依赖，秒级完成）；
+#   1. check        —— 全部源码语法检查 + 两道静态文档门禁 + 全部单元测试（无第三方依赖）；失败时把摘要写成注解，便于未登录诊断；
 #   2. image-smoke  —— 真实构建镜像，用生产同款参数启动容器，再跑 scripts/ci/smoke-container.mjs；
 #   3. publish      —— 多架构（amd64 + arm64）构建并推送 GHCR，NAS 只拉不建。
 #
@@ -40,7 +40,18 @@ jobs:
           node -v
           npm -v
       - name: 语法检查与全部单元测试
-        run: npm run check
+        run: |
+          set +e
+          npm run check > check.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            # 仓库日志下载需要认证；把失败摘要写成注解，未登录也能通过 check-runs API 读到。
+            tail -n 60 check.log | while IFS= read -r line; do
+              printf '::error::%s\n' "$line"
+            done
+          fi
+          cat check.log
+          exit "$status"
 
   image-smoke:
     name: 镜像构建与容器冒烟
