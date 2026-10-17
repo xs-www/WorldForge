@@ -159,6 +159,24 @@ test('supplement generation reuses the same preset snapshot', async () => {
   assert.equal(fakeModel.requests.length, 2, '应触发一次差额补生成');
   assert.equal(fakeModel.requests[0].system, fakeModel.requests[1].system, '补生成必须沿用同一 system');
   assert.deepEqual(data.agent, { presetId: 'lore-writer', presetVersion: registry.get('lore-writer').version, presetHash: registry.get('lore-writer').hash, mode: 'structured_lore' });
+
+  // 第二次真实出站请求也必须保持 4 → 5 → 6：补生成任务在第 5 层，
+  // 已验收候选与校验问题在第 6 层最后，不能出现 4→5→6→6→5。
+  const supplement = fakeModel.requests[1].body.messages.filter(item => item.role === 'user').at(-1).content;
+  const order = {
+    author: supplement.indexOf('<author_type_prompt>'),
+    task: supplement.indexOf('目标模块：'),
+    supplementTask: supplement.indexOf('现在只补充缺少的'),
+    examples: supplement.indexOf('<worldforge_examples>'),
+    context: supplement.indexOf('<worldforge_context>'),
+    accepted: supplement.indexOf('<accepted_variants>'),
+    issues: supplement.indexOf('<validation_issues>')
+  };
+  for (const [label, index] of Object.entries(order)) assert.ok(index >= 0, `补生成请求应包含 ${label}`);
+  assert.ok(order.author < order.task && order.task < order.supplementTask, '第 4 层 → 第 5 层（含补生成指令）');
+  assert.ok(order.supplementTask < order.examples, '补生成指令不得晚于第 6 层');
+  assert.ok(order.examples < order.accepted && order.context < order.accepted, '已验收候选属于第 6 层');
+  assert.ok(order.accepted < order.issues, '校验问题数据在最后');
 });
 
 test('the free entry keeps untrusted content out of the system instructions', async () => {

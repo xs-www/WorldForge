@@ -5,6 +5,7 @@ import {
   attachUntrustedContext,
   buildContextBundle,
   buildPrompt,
+  buildSupplementPrompt,
   composeAgentSystemPrompt,
   FREE_AGENT_INSTRUCTIONS,
   FREE_AGENT_TOOL_GUIDE,
@@ -101,6 +102,35 @@ test('the lore request puts layers 4 → 5 → 6 in the frozen order', () => {
   assert.ok(taskIndex > styleIndex, '第 5 层任务要求必须排在作者提示之后');
   assert.ok(examplesIndex > taskIndex && contextIndex > examplesIndex, '第 6 层不可信上下文必须最后');
   assert.ok(prompt.includes('作者的补充要求'), '作者补充要求属于第 5 层');
+});
+
+test('the supplement request keeps layers 4 → 5 → 6 instead of appending after layer 6', () => {
+  // P2 回归：补生成不能把新任务追加到已含第 6 层的初次 prompt 之后（4→5→6→6→5）。
+  const payload = { action: 'brainstorm', variantCount: 2, prompt: '补充要求', typePrompt: '分类提示', personalizedPrompt: '风格提示', draft: { type: 'magic', name: '甲', worldId: 'W01', tags: [] }, selectedBlocks: ['name', 'summary'] };
+  const bundle = buildContextBundle(payload);
+  const prompt = buildSupplementPrompt(payload, bundle, {
+    missingCount: 1,
+    acceptedVariants: [{ key: 'candidate-a', content: { name: '已验收', summary: '摘要' } }],
+    issues: [{ stage: 'initial', index: 0, code: 'INVALID_VARIANT', message: '字段缺失' }]
+  });
+  const order = {
+    author: prompt.indexOf('<author_type_prompt>'),
+    task: prompt.indexOf('目标模块：'),
+    supplementTask: prompt.indexOf('现在只补充缺少的'),
+    examples: prompt.indexOf('<worldforge_examples>'),
+    context: prompt.indexOf('<worldforge_context>'),
+    accepted: prompt.indexOf('<accepted_variants>'),
+    issues: prompt.indexOf('<validation_issues>')
+  };
+  for (const [label, index] of Object.entries(order)) assert.ok(index >= 0, `补生成请求应包含 ${label}`);
+  assert.ok(order.author < order.task, '第 4 层在第 5 层之前');
+  assert.ok(order.task < order.supplementTask, '补生成指令属于第 5 层，紧跟初始任务');
+  assert.ok(order.supplementTask < order.examples, '补生成指令不得出现在第 6 层之后');
+  assert.ok(order.examples < order.accepted && order.context < order.accepted, '已验收候选属于第 6 层，排在示例与资料之后');
+  assert.ok(order.accepted < order.issues, '校验问题数据在最后');
+  // 所有任务指令都必须早于任何不可信块。
+  const firstUntrusted = Math.min(order.examples, order.context, order.accepted, order.issues);
+  for (const marker of ['现在只补充缺少的', '目标模块：']) assert.ok(prompt.indexOf(marker) < firstUntrusted, `${marker} 不得晚于不可信块`);
 });
 
 test('the composed system plus prompt covers all six layers in order', () => {

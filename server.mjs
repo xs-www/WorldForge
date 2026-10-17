@@ -325,7 +325,8 @@ async function callAi(payload) {
   }
   const result = await completeAiVariants({ raw, payload: validationPayload, expectedCount, requestSupplement: async ({ missingCount, acceptedVariants, issues }) => {
     const supplementPayload = { ...payload, variantCount: missingCount };
-    const supplementPrompt = buildSupplementPrompt(prompt, missingCount, acceptedVariants, issues);
+    // 补生成与初次请求共用同一层结构（4 → 5 → 6），不把新任务追加到第 6 层之后。
+    const supplementPrompt = buildSupplementPrompt(payload, bundle, { missingCount, acceptedVariants, issues });
     const supplementSchema = createLoreResponseSchema(supplementPayload);
     if (!structured) return requestModel(config, `${supplementPrompt}\n严格只返回 JSON 对象。`, { structured: false, payload: supplementPayload, ...modelOptions });
     try { return await requestModel(config, supplementPrompt, { structured: true, schema: supplementSchema, payload: supplementPayload, ...modelOptions }); }

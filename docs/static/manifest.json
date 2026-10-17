@@ -185,7 +185,7 @@
       "source": "ai-harness.mjs",
       "doc": "docs/static/ai-harness.mjs.md",
       "status": "documented",
-      "sha256": "8690ce1a43f897a3b572d46e78d9f05cec0379e50ed3fb726681be995bca030e"
+      "sha256": "1041b02151a5cef834cb16a3f29af5c6c0e90613f9f4729791191f632975ec75"
     },
     {
       "source": "ai-tools.mjs",
@@ -341,7 +341,7 @@
       "source": "server.mjs",
       "doc": "docs/static/server.mjs.md",
       "status": "documented",
-      "sha256": "b4a8b3c1c899299065738506d83a13f0f8023af6568d21d6972b4d71b7007507"
+      "sha256": "94d11a145deaf02ff3973bf7457531d0a282e4e8f900f6e38b058b887f70617f"
     },
     {
       "source": "simulation/agents/rule-agent.mjs",
@@ -521,13 +521,13 @@
       "source": "tests/agent-prompt-layers.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "eaf750752137a6784685cdb7f0aefc8a8846d410412c5fb71ae92f214fd037cc"
+      "sha256": "773478e6a361731971842577b03eac49891037c373ba2cc192a2707cab67f409"
     },
     {
       "source": "tests/agent-surface-integration.test.mjs",
       "doc": "docs/static/tests/README.md",
       "status": "aggregated",
-      "sha256": "150c743bd14521a758b729aff23a90494a60eb54a5872ecf4982fc43d7e12e08"
+      "sha256": "3273f32f6d380992b437e4bc42c9be0f84cdace7710cc9c190b02ab05b45474a"
     },
     {
       "source": "tests/agent-tools.test.mjs",

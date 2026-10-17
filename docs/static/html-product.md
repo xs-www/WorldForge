@@ -1,5 +1,34 @@
 # HTML 产品静态文档
 
+## 2026-10-17 Sprint 2 复审第三轮修正（差额补生成层序）
+
+复审发现 `buildSupplementPrompt` 把 `<accepted_variants>`、校验问题摘要与「现在只补充……」追加在**已含第 6 层**的初次 prompt 之后，实际顺序变成 4→5→6→6→5，违反 ADR-0029 §7，而差额补生成路径会真实执行这里。测试此前只断言初次 `buildPrompt` 的层序，没有覆盖补生成请求。
+
+修正（不改行为语义，只改请求结构与签名）：
+
+- 抽出 `lorePromptSections(payload, bundle)`，返回 `{ authorPrompts, taskRequest, untrusted }`；初次与补生成共用同一分段来源，避免两条路径各自演化。
+- `buildPrompt` 只负责按 4→5→6 拼接三段。
+- `buildSupplementPrompt(payload, bundle, { missingCount, acceptedVariants, issues })` 改为按层重排：第 4 层作者提示 → 第 5 层（初始任务 + 补生成指令）→ 第 6 层（示例与资料，随后 `<accepted_variants>`、`<validation_issues>`）。
+- 签名不再接受「初始 prompt 字符串」，从结构上排除「在尾部追加」这种写法；`server.mjs` 调用同步改为 `buildSupplementPrompt(payload, bundle, { missingCount, acceptedVariants, issues })`。
+
+实测两次出站请求的标记位置（`indexOf`）：
+
+```
+初次  : <author_type_prompt>@0 目标模块：@110 <worldforge_examples>@391 <worldforge_context>@483
+补生成: <author_type_prompt>@0 目标模块：@110 现在只补充缺少的@391 <worldforge_examples>@487 <worldforge_context>@579 <accepted_variants>@1297 <validation_issues>@1442
+```
+
+补生成请求内标记下标严格单调递增；补生成指令早于任何不可信块。
+
+测试：
+
+- `tests/agent-prompt-layers.test.mjs`（10 → 11 项）：新增「补生成请求保持 4→5→6」，断言 7 个标记齐备且顺序递增，并断言所有任务指令早于任何不可信块。
+- `tests/agent-surface-integration.test.mjs`：差额补生成用例增加对**第二次真实出站请求**的完整层序断言，覆盖 [4 层][5 层含补生成指令][6 层：示例/资料 → 已验收候选 → 校验问题]。
+
+文档：ADR-0029 §7 补充「同一次生成的所有出站请求都必须保持同一层序，包括补生成」；Sprint 计划 §9.5 增加 S2-13 行；`ai-harness.mjs.md`、`server.mjs.md`、`tests/README.md` 与 `manifest.json` 哈希按增量规则更新。
+
+验证：`npm run check` 全通过（196 项测试）。未验证项不变：真实付费模型端到端、Sprint 3 选择器、Sprint 4 卡牌 Agent。
+
 ## 2026-10-17 GitHub Actions 流水线与 NAS 拉取式部署
 
 本次只增加交付路径，不改动服务端接口、提示词分层契约、SQLite Schema 或任何内容数据。镜像仍由同一份 `Dockerfile` 产出，运行时参数与 `compose.yaml` 一致。

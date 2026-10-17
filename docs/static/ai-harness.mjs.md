@@ -9,9 +9,9 @@
 | 1 | `product_boundary` | `PRODUCT_BOUNDARY_INSTRUCTIONS` | `L12` |
 | 2 | `preset_runtime` | `composeAgentSystemPrompt({ presetPrompt })` | `L70` |
 | 3 | `entry_contract` | `LORE_ENTRY_CONTRACT` / `FREE_ENTRY_CONTRACT` / `FREE_AGENT_TOOL_GUIDE` | `L18` / `L24` / `L28` |
-| 4 | `author_prompts` | `<author_type_prompt>` + `<author_personalized_style>` | `L152` |
-| 5 | `task_request` | 目标模块、action、候选数、已勾选内容块清单 | `L153` |
-| 6 | `untrusted_context` | `<worldforge_examples>` + `<worldforge_context>`；或 `attachUntrustedContext` 追加的 `<untrusted_context>` | `L154` / `L86` |
+| 4 | `author_prompts` | `<author_type_prompt>` + `<author_personalized_style>` | `L154` |
+| 5 | `task_request` | 目标模块、action、候选数、已勾选内容块清单 | `L155` |
+| 6 | `untrusted_context` | `<worldforge_examples>` + `<worldforge_context>`；或 `attachUntrustedContext` 追加的 `<untrusted_context>` | `L156` / `L86` |
 
 - 第 1–3 层只经 `composeAgentSystemPrompt` 进入 system 侧；第 4–6 层只经 `buildPrompt` / `attachUntrustedContext` 进入用户侧，两条路径互不交叉。
 - 层名与优先级常量定义在 `agent-profile-contract.mjs`；本文件只 import 两个 tag 白名单，拼装顺序在此硬编码，不读取 `AGENT_PROMPT_LAYERS`。
@@ -28,11 +28,12 @@
 | `buildContextBundle(payload, budget)` | 资料库清洗、排序、按字符预算装入 examples 与 entries | `L119` |
 | `generationContract(payload)` | 由 `type` + `selectedBlocks` 解析出实际内容块，是 Schema 与校验的共同真值 | `L133` |
 | `createLoreResponseSchema(payload)` | 由 `blockSchema` 生成 `{variants:[{key,content}]}` 的 strict JSON Schema | `L138` |
-| `buildPrompt(payload, bundle)` | 组装第 4→6 层文本 | `L144` |
+| `buildPrompt(payload, bundle)` | 由 `lorePromptSections` 拼出第 4→6 层文本 | `L160` |
+| `lorePromptSections(payload, bundle)` | 内部分段函数，返回 `{authorPrompts, taskRequest, untrusted}`，初次与补生成共用 | `L148` |
 | `validateAiResponse(value, payload)` | 强校验并返回 `{variants, contract}`；失败抛 `Error` | `L159` |
 | `parseAiResponse(raw, payload)` | 去 ``` 围栏后交给 `validateAiResponse`；JSON 语法错误改写为「模型没有返回有效 JSON」 | `L181` |
 | `inspectAiResponse(raw, payload, stage)` | 不抛错的诊断版校验，收集 `INVALID_JSON`/`INVALID_ENVELOPE`/`INVALID_VARIANT` | `L199` |
-| `buildSupplementPrompt(...)` | 生成只补差额的二次请求文本，声明已验收候选不得重写 | `L221` |
+| `buildSupplementPrompt(payload, bundle, {missingCount, acceptedVariants, issues})` | 补生成请求；与初次共用同一层结构，补生成指令并入第 5 层 | `L236` |
 | `completeAiVariants({raw, payload, expectedCount, requestSupplement})` | 初次验收 + 一次补充 + `diagnostics` 汇总 | `L226` |
 | `createModelBody(config, prompt, options)` | 按 `config.style` 产出 chat 或 responses 请求体 | `L271` |
 | `NAME_RESPONSE_SCHEMA` / `parseNameResponse(raw, n)` | 命名请求的 Schema 与数量严格校验（数量不等即抛错） | `L279` / `L280` |
@@ -50,10 +51,15 @@
 - 服务端不保存会话，因此该上下文不会被跨请求累积。
 
 ### `buildPrompt(payload, bundle)`
-- 段顺序被 ADR-0029 §7 冻结：`<author_type_prompt>` → `<author_personalized_style>`（第 4 层）→ 任务要求段（第 5 层）→ `<worldforge_examples>` + `<worldforge_context>`（第 6 层）。
+- 只做拼接：从 `lorePromptSections` 取三段，顺序为 `<author_type_prompt>` → `<author_personalized_style>`（第 4 层）→ 任务要求段（第 5 层）→ `<worldforge_examples>` + `<worldforge_context>`（第 6 层）。
 - 候选数取 `clamp(1, 5, Number(variantCount) || 3)`，与 `createLoreResponseSchema` 的 `minItems/maxItems` 同源计算。
 - `action` 只映射到 5 条固定指引（`brainstorm`/`polish`/`conflict_check`/`relations`/`background_story`），未知值回落为「提供彼此有实质差异的候选」。
 - 第 6 层内容用 `JSON.stringify(…, null, 2)` 原样嵌入，只以标签包裹，不做转义；`userExamples` 被截到 6000 字符。
+
+### `buildSupplementPrompt(payload, bundle, {missingCount, acceptedVariants, issues})`
+- 与初次请求共用 `lorePromptSections`，输出顺序为：第 4 层作者提示 → 第 5 层（初始任务 + 补生成指令）→ 第 6 层（示例/资料，随后是 `<accepted_variants>` 与 `<validation_issues>`）。
+- 不接受「初始 prompt 字符串」作为入参：早期版本把内容追加到已含第 6 层的 prompt 尾部，形成 4→5→6→6→5；当前签名从结构上排除了这种拼接方式。
+- 已验收候选与校验问题属于第 6 层最后区块；`issues` 只取前 8 条，为空时回落为「- 返回条数不足」。
 
 ### `buildContextBundle(payload, budget = 60000)`
 - 资料库先 `sanitizeEntry` 并按 `id` 去重、剔除草稿自身，原始库最多取 500 条。

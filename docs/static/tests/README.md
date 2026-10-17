@@ -10,8 +10,8 @@
 | `agent-profile-api.test.mjs` | `GET /api/ai/presets` 只返回脱敏元数据与 `defaults`；损坏投影、符号链接 preset、缺入口、重复 ID 均**拒绝启动**；镜像只带 6 个投影文件；部署的 schema 与设计树一致 | 真实 `server.mjs` 子进程 + 临时目录 + 空闲端口 + `symlink` 夹具 |
 | `agent-profile-contract.test.mjs` | 冻结枚举与 `additionalProperties:false`、三 preset 与兼容矩阵、`tests/fixtures/agent-profiles/` 合法/拒绝夹具、prompt 路径不越 preset 根、代码常量 vs schema vs ADR、提示层顺序 vs 快照 | 读盘遍历 + 夹具逐目录断言错误码 |
 | `agent-profile-registry.test.mjs` | Registry 完整性门：每个声明的错误码都必须**真被产出**、深冻结（嵌套数组不可写）、指纹确定性且随清单/提示变化、投影不泄露、路径逃逸与符号链接拒绝、缺 preset 拒绝启动 | 临时 preset 根 + 复制 shipped 投影 + `symlink` + 篡改清单 |
-| `agent-prompt-layers.test.mjs` | 六层提示按 1→2→3→4→5→6 拼装、preset 不能伪造产品层、作者注记与库文本进不了指令层、不可信上下文只挂最后一条 user 消息、产品侧投影只含第 2 层 | 纯函数组合 + 保留标记注入夹具 |
-| `agent-surface-integration.test.mjs` | 三个入口服务端**实际发出**的提示层次、preset 快照权威性、非法/跨入口 preset 在模型调用前失败、preset 不能放宽服务端硬限制 | 真实 `server.mjs` 子进程 + 本地假模型 HTTP 服务记录每次请求 |
+| `agent-prompt-layers.test.mjs` | 六层提示按 1→2→3 / 4→5→6 各自递增且两通道互不串层、**补生成请求同样保持 4→5→6**（不出现 4→5→6→6→5）、preset 不能伪造产品层、作者注记与库文本进不了指令层、不可信上下文只挂最后一条 user 消息、产品侧投影只含第 2 层 | 纯函数组合 + 保留标记与不可信标记注入夹具 |
+| `agent-surface-integration.test.mjs` | 三个入口服务端**实际发出**的提示层次（含第二次补生成请求的完整层序）、preset 快照权威性、非法/跨入口 preset 在模型调用前失败、preset 不能放宽服务端硬限制、system 不含不可信正文 | 真实 `server.mjs` 子进程 + 本地假模型 HTTP 服务记录每次请求 |
 | `agent-tools.test.mjs` | 只读、命名空间化的工具集：`search_lore`/`get_lore_entry`/`list_lore`、art 资产工具、过滤与 limit 夹取、超长输出显式裁剪、未知工具与坏参数可恢复 | 内存 library 直接调 `runToolCall`，不联网 |
 | `ai-harness.test.mjs` | 上下文取证（同世界 canon 优先、异世界隔离）、13 类内容块契约、动态 Schema、逐候选校验与「只补缺」、部分失败仍返回可见诊断 | 纯函数 + 可注入的补全实现 |
 | `card-battle.test.mjs` | 同种子洗牌确定、费用与入场攻击限制、关键词（疾启/护持/隔绝/余响）语义、规则 AI 回合有界、未知关键词与任意 effect 不可执行 | `import '../dist/battle.js'` 后读 `globalThis.WorldforgeBattle` |

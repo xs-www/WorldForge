@@ -63,9 +63,9 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 
 ### `callAi(payload)`（`L302`）与 `callFreeAgent(payload)`（`L340`）：preset 解析与提示词分层
 - preset 在模型调用之前解析（`L306`/`L343`）；`resolveSurfaceProfile` 把 `AgentProfileError` 统一改写为 `status = 400`（`L283`），因此未知或不兼容 preset 不产生外部调用。
-- 回显的 `agent` 快照只含 `presetId / presetVersion / presetHash / mode`（`L289`）；差额补生成沿用同一 `system` 与快照（`L316`–`L317`）。
+- 回显的 `agent` 快照只含 `presetId / presetVersion / presetHash / mode`（`L289`）；差额补生成沿用同一 `system` 与快照（`L316`–`L317`），并用 `buildSupplementPrompt(payload, bundle, …)` 重新按层拼装补生成请求（`L329`），而不是在初次 prompt 尾部追加。
 - 结构化输出失败（HTTP 400/404/422）时降级为「严格只返回 JSON 对象」的非结构化重试（`L322`–`L325`）；`callFreeAgent` 另有工具不可用时的单轮降级，把前 120 条资料索引放进用户侧 `<library_context>`（`L412`–`L416`）。
-- 第 1–3 层只由 `composeAgentSystemPrompt` 拼装；作者笔记、资料库正文只用 `attachUntrustedContext` 附到用户侧消息（`L382`/`L415`）。
+- 第 1–3 层只由 `composeAgentSystemPrompt` 拼装；作者笔记、资料库正文只用 `attachUntrustedContext` 附到用户侧消息（`L382`/`L416`）。
 - 工具策略：`free_lore_readonly` → `FREE_AGENT_TOOLS`，`none` → `[]`，其它值抛 `AGENT_PROFILE_INCOMPATIBLE`（`status 400`，`L296`–`L299`）；工具仅在「有资料或资产」且策略非空时启用（`L367`）。
 
 ### 生图与资产落盘（`createArtAsset` `L177`、`serveArtAsset` `L230`）
