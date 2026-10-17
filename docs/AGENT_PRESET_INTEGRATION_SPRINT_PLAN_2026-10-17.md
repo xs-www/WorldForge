@@ -791,7 +791,12 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | 质量门 | 本地 `npm run check` 262 项全绿；锚点 101 处唯一命中；清单 139 个条目一致 |
 | Git 标签 | `v0.2.0`（推送至 `nas` 与 `origin`） |
 
-**CI 事故与 0.2.1（同日）**：0.2.0 推送后 GitHub Actions 的 `check` 关变红（`image-smoke` 通过，`publish` 被跳过），原因是清单哈希按**原始字节**计算，而本地 Windows 工作树是「部分 LF、部分 CRLF」的混合状态——同一个提交在 Linux（LF）检出下得到不同哈希，报 118 处 `HASH_MISMATCH`。复现方式：把整树转为 LF 后重跑，确认除该门外其余 262 项测试全绿。修复为内容哈希（先归一化 CRLF/CR 为 LF 再求 SHA-256），重算 24 个条目哈希，并用「整树 LF 副本」与真实克隆各验证一次；随后发布 `0.2.1`（`package.json`、页面 meta、`README`、`PROJECT_DESIGN` 同步，标签 `v0.2.1`）。
+**CI 事故与 0.2.1 / 0.2.2（同日）**：0.2.0 推送后 GitHub Actions 的 `check` 关变红（`image-smoke` 通过，`publish` 被跳过）。叠加两条平台问题：
+
+1. 清单哈希按**原始字节**计算，而本地 Windows 工作树是「部分 LF、部分 CRLF」的混合状态——同一提交在 Linux（LF）检出下得到不同哈希，报 118 处 `HASH_MISMATCH`。复现方式：把整树转为 LF 后重跑，确认除该门外其余 262 项测试全绿。修复为内容哈希（先归一化 CRLF/CR 为 LF 再求 SHA-256），重算 24 个条目哈希 → `0.2.1`。
+2. `tests/agent-profile-registry.test.mjs` 有一条**只在 Windows 成立**的断言：把 `AGENT_RUNTIME_SCHEMA_PATH` 断言成 `/[A-Za-z]:\\/`（盘符形式），在 ubuntu-24.04（`/home/runner/…`）必然失败。改为平台中立断言（`isAbsolute` 为真、对外视图不含 schema 绝对路径与本机仓库根路径）→ `0.2.2`。
+
+诊断过程同时补上了一项能力：CI 的 `check` 关失败时无法在未登录状态下读日志（日志下载 403），现在把失败用例与错误上下文写成 **check-run 注解**，可直接经 GitHub API 读取。最终 `v0.2.2` 的主干推送与标签推送两轮 CI **全绿**，`publish` 关成功执行（多架构镜像已推 GHCR）。本地镜像 `worldforge:0.2.2`（ID `8cc8135425b4`）重建并运行，`/api/health` 报 `version=0.2.2`。
 
 #### 仍未验证
 
