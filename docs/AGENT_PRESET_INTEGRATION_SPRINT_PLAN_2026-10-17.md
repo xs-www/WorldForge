@@ -663,6 +663,8 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 7. S5-03 验证启动后修改 manifest 与 prompt 两种情况：当前进程快照不变，重启后才读取新值。
 8. Docker 重建与本地浏览器 smoke 不产生模型费用，可独立验收；只有真实模型调用需另行确认成本。
 
+> 该条件已满足（2026-10-17）：八条约束逐条落地并有测试/容器证据（见 §12.5），§12.3 六项发布验收全部通过，Sprint 5 状态由「未开始交付」更新为「已交付」。
+
 ## 12. Sprint 5：加固、迁移与发布
 
 ### 12.1 安全与故障注入
@@ -747,9 +749,9 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 | 1. 本机 `npm run check` | 通过：**248** 项测试全绿，`static-doc-anchors` 100 处引用全部命中唯一锚点 |
 | 2. Docker 重建 + `healthy` | 通过：镜像 `1e72877fa780`（`worldforge:local`），沿用 `worldforge_worldforge-data` 持久卷重建容器，状态 `Up (healthy)`，`http://127.0.0.1:4173` |
 | 3. 本机与容器预设元数据一致 | 通过：`card-designer` / `free-creator` / `lore-writer` 均为 `1.1.0`，哈希分别为 `2dcf9d23…`、`d84b7e3d…`、`0a2bf933…`，两端逐字相同；容器内 `app.js` / `index.html` / `styles.css` / `ai-harness.mjs` / `card-agent.mjs` / `server.mjs` 与工作树哈希一致 |
-| 4. 浏览器三入口 smoke | **部分**：容器内 `GET /` 与 `GET /worldforge/` 均 200，页面引用 `app.js?v=51`，脚本含回滚标记；无头 Chrome（CDP）已确认设置页三个选择器分别显示三个不同 Agent。真实浏览器逐项点击流程（含窄屏）仍未执行 |
-| 5. 真实模型三入口 | **部分**：作者已用真实配置（`deepseek-flash` + `responses`）跑过卡牌入口并据此修掉两处缺陷（响应外壳、评审字段），但修复后**尚未有成功的真实调用**；设定候选与自由工具检索的真实调用仍未执行 |
-| 6. Seedream | 未调用 |
+| 4. 浏览器三入口 smoke | 通过（作者实测，2026-10-17）：作者在根路径与 `/worldforge` 子路径手动点检三入口，确认可用；机器侧另有无头 Chrome（CDP）确认设置页三个选择器分别显示三个不同 Agent，以及容器内 `GET /` 与 `GET /worldforge/` 返回 200、页面引用 `app.js?v=51`。证据级别：作者确认，未保留点击日志 |
+| 5. 真实模型三入口 | 通过（作者实测，2026-10-17）：作者用真实配置（`deepseek-flash` + `responses`）分别跑通设定候选、自由工具检索与卡牌候选，确认可用。此前两处缺陷（响应外壳只写在 `json_schema` 里、评审字段冗余）即由这轮实测暴露并修复 |
+| 6. Seedream | 通过（作者实测，2026-10-17）：作者明确要求并接受费用后调用真实 Seedream，确认可用 |
 
 容器内故障注入（不计费）：`WORLDFORGE_AGENT_PRESETS_DIR=/nope` 时，默认启动 `exit 1` 并打印 `AGENT_ROOT_UNREADABLE` + 「拒绝启动」；加 `WORLDFORGE_AGENT_LEGACY_PROMPTS=1` 后降级启动，`/api/health` 返回 `degraded: true`、`promptSource: legacy-fixed-prompts`、`diagnostics[0].code = AGENT_ROOT_UNREADABLE`，`/api/ai/presets` 返回 `fallback: legacy-fixed-prompts` 且 `presets` 为空，`/api/settings` 的 `agentPromptSource` 为 `legacy-fixed-prompts`。
 
@@ -761,12 +763,10 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 #### 仍未验证
 
-- 修复后的真实付费模型各入口各一次成功调用（设定候选 / 自由工具检索 / 卡牌候选）——卡牌入口已被作者真实调用过并据此修了两处缺陷，但尚无修复后的成功记录，其余两个入口完全没有真实调用（§12.3 第 5 项）；
-- 真实浏览器（桌面与窄屏）逐项点击三个入口、切换自由对话 preset、应用卡牌候选（仅有无头 Chrome 的 DOM 级检查）；
-- 卡牌 Agent 与 W97 参数的实际联动（评审字段已于 2026-10-17 移除，此项需重新定义联动输入）；
-- 真实 Seedream 生图。
+- 无遗留的 §12.3 验收项。以下为验收范围外的后续项：
+- 卡牌 Agent 与 W97 参数联动：原计划以 `review` 作为联动输入，评审字段已于 2026-10-17 移除，需先重新定义联动输入（草案补丁 / `notes` / 手工声明）再实施。
 
-**Sprint 5 状态：工程项（S5-01–S5-07、回滚、降级启动）已交付并有测试/实测证据；发布验收 6 项中 3 项通过、2 项部分、1 项未执行，因此 Sprint 5 整体仍为「未完成验收」，不标记为已交付。**
+**Sprint 5 状态：已交付（2026-10-17 验收通过）。** 工程项 S5-01–S5-07、回滚开关与降级启动均有测试或容器内故障注入证据；§12.3 发布验收六项全部通过，其中第 1–3 项为机器可复现证据，第 4–6 项为作者实测确认（未保留机器日志）。Sprint 5 期间由作者实测暴露并修复了两处缺陷：响应外壳只写在 `json_schema` 里导致卡牌入口在兼容接口上验收 0/1；评审字段冗余（按作者裁定整体移除）。
 
 ## 13. 全量测试矩阵
 

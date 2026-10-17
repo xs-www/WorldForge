@@ -13,7 +13,8 @@
 - [x] 按同一计划实现 Sprint 5 的回滚与冻结部分：新增 `agent-legacy.mjs`（`WORLDFORGE_AGENT_LEGACY_PROMPTS` 仅精确 `1` 生效，只替换第 2 层 persona）、Registry 损坏时默认拒绝启动 / 显式开关下降级启动、`/api/health` 的 `degraded` 与 `/api/ai/presets` 的 `fallback` 报告、前端「固定提示（回滚模式）」、四组启动模式与 S5-03 冻结测试（`tests/agent-legacy-rollback.test.mjs` 9 项）；`Dockerfile` COPY 闭包补齐新模块，镜像重建后容器 `healthy`，本机与容器预设 ID/版本/哈希一致。
 - [x] 按作者裁定移除卡牌 Agent 的评审字段（撤销 S4-06）：候选只含 `{key, patch}`，三个只产出评审的操作改为补全规则文本 / 调整数值 / 对齐设定；契约、Schema、校验、面板、CSS 与测试同步，ADR-0029 §5 与计划已记录改判。`npm run check` 248 项全绿。
 - [x] 修正作者实测报出的卡牌 Agent 不可用（`deepseek-flash` + `responses` 端点忽略 `json_schema`）：两个入口固定在第 5 层写响应外壳，解析侧新增 `parseLooseJson` / `coerceVariants` / `withFallbackKey` 宽松收敛（裸候选、数组、围栏、缺 `key`），`INVALID_JSON`/`INVALID_ENVELOPE` 诊断带模型原文片段，`callCardAgent` 降级回传 `fallbackReason` 并在面板显示；新增 4 项测试，`npm run check` 248 项全绿，镜像已重建（`app.js?v=50`）。
-- [ ] Sprint 5 剩余验收：真实配置模型的三入口各一次（需外发/付费授权）、浏览器（桌面与窄屏）点击流程与卡牌候选回填、卡牌 Agent ↔ W97 参数联动、真实 Seedream 生图；未执行项已在计划 §12.5 记录，不以 mock 代替。
+- [x] Sprint 5 发布验收（§12.3 六项）全部通过：`npm run check` 248 项 + 100 处锚点、Docker 重建 `healthy`（镜像 `1e72877f`）、本机与容器 preset 元数据一致；第 4/5/6 项（浏览器三入口 smoke、真实模型三入口、Seedream 生图）由作者于 2026-10-17 实测确认为可用（证据级别：作者确认，非机器日志）。Sprint 5 据此标记为已交付。
+- [ ] 卡牌 Agent ↔ W97 参数联动：原计划以 `review` 作为联动输入，评审字段已于 2026-10-17 按作者裁定移除，需先重新定义联动输入（草案补丁 / notes / 手工声明）再实施；不作为 Sprint 5 验收项。
 - [x] Sprint 5 第一项：静态文档可验证化。新增 `static-doc-anchors.mjs` 与 `docs/static/anchors.json`，每个 `L###` 必须命中唯一锚点（期望源码子串），区间校验起止顺序，`--write` 生成行号；已接入 `npm run check`，并用 9 项夹具覆盖错误子串、歧义、倒置区间与源码漂移；`server.mjs.md` 的引用当时 83 处、补齐回滚章节后为 100 处，全部重新生成并通过。
 - [x] 新增 GitHub Actions 流水线：`check`（语法检查 + 195 项单元测试）、`image-smoke`（真实构建镜像 + 容器内 HTTP 断言）、`publish`（前两关通过后构建 amd64/arm64 并推送 GHCR）；新增 `scripts/ci/smoke-container.mjs` 与只拉不建的 `compose.nas.yaml`，NAS 不再需要源码或在本地编译。
 - [ ] 上机验证交付链路：在 GitHub 上真实跑一次 Actions，用 `docker buildx imagetools inspect` 确认 GHCR 标签与双架构，并在 NAS 上跑通 `docker compose -f compose.nas.yaml up -d`（绑定挂载权限、端口占用、GHCR 登录态、ARM 拉取均未实机验证）。
