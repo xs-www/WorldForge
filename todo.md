@@ -9,6 +9,8 @@
 - [x] 完成 Sprint 1 并修正只读验收问题：新增 `agent-profile-registry.mjs`（Schema 校验、安全路径、确定性 SHA-256 指纹、深度冻结只读快照、三入口完整性门）与仓库根 Schema 部署副本；`server.mjs` 启动时加载并在任何投影损坏或入口缺失时拒绝启动并退出；新增 `GET /api/ai/presets` 与 `/api/health` 的 `agentProfiles` 摘要；`Dockerfile` 只打包 6 个投影文件；已真实 `docker build` 比对本机与容器的 ID、版本与哈希一致。
 - [x] 完成 Sprint 2：设定助手与自由创作真正使用 Registry 中的 preset。新增第 1 层安全边界、第 3 层入口契约与 `composeAgentSystemPrompt`；`lore-writer` / `free-creator` 投影裁剪到 `1.1.0` 并保持关键纪律各出现一次；未知或不兼容 preset 在模型调用前 400；三个响应回显 `agent` 快照；差额补生成与工具降级沿用同一快照；工具白名单与 6 轮 / 12 次 / 4 图硬上限不变；前端显示本轮实际 preset；Registry 拒绝含产品保留标记的 prompt。
 - [ ] 按同一计划实现 Sprint 3–5：分入口 preset 选择器、`agent-settings.json` 与会话切换语义、卡牌文字 Agent、安全加固与发布验收。当前所有请求仍使用服务端默认 `lore-writer` / `free-creator`，界面还不能改选。
+- [x] 新增 GitHub Actions 流水线：`check`（语法检查 + 195 项单元测试）、`image-smoke`（真实构建镜像 + 容器内 HTTP 断言）、`publish`（前两关通过后构建 amd64/arm64 并推送 GHCR）；新增 `scripts/ci/smoke-container.mjs` 与只拉不建的 `compose.nas.yaml`，NAS 不再需要源码或在本地编译。
+- [ ] 上机验证交付链路：在 GitHub 上真实跑一次 Actions，用 `docker buildx imagetools inspect` 确认 GHCR 标签与双架构，并在 NAS 上跑通 `docker compose -f compose.nas.yaml up -d`（绑定挂载权限、端口占用、GHCR 登录态、ARM 拉取均未实机验证）。
 
 - [x] 完成 M0 仓库骨架与基础模板。
 - [x] 交付可直接使用的 HTML 世界设计工作台。

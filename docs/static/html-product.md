@@ -1,5 +1,66 @@
 # HTML 产品静态文档
 
+## 2026-10-17 GitHub Actions 流水线与 NAS 拉取式部署
+
+本次只增加交付路径，不改动服务端接口、提示词分层契约、SQLite Schema 或任何内容数据。镜像仍由同一份 `Dockerfile` 产出，运行时参数与 `compose.yaml` 一致。
+
+### `.github/workflows/ci.yml`（新增，三关顺序执行）
+
+| 任务 | 触发 | 关键步骤 | 失败含义 |
+| --- | --- | --- | --- |
+| `check` | 所有 push / PR | `actions/setup-node` 固定 `22.23.2`（与 `engines >= 22.5` 及开发机一致）→ `npm run check` | 语法或 195 项单元测试之一失败 |
+| `image-smoke` | 所有 push / PR | `buildx` 构建 `worldforge:ci`（`type=gha` 缓存）→ `docker run --read-only --tmpfs /tmp -v <临时目录>:/data` → `node scripts/ci/smoke-container.mjs` | 镜像可构建但不可运行：模块闭包缺失、preset 投影缺失、`/data` 不可写或接口回归 |
+| `publish` | `main` 推送与 `v*` 标签，且 `needs: [check, image-smoke]` | `setup-qemu` → `setup-buildx` → `login ghcr` → `metadata-action` → `build-push-action --platform linux/amd64,linux/arm64 --push` | 前两关任一失败即不产出可部署镜像 |
+
+- **为什么发布要等冒烟**：`Dockerfile` 用显式白名单 `COPY` 服务端模块（`tests/docker-packaging.test.mjs` 只校验传递闭包是否登记），漏登记时 `docker build` 成功而容器启动抛 `ERR_MODULE_NOT_FOUND`；preset 投影漏拷则命中 Registry 完整性门，进程 `process.exit(1)`。这两类缺陷都无法由「构建是否成功」发现，因此把「起容器 + 打接口」放进发布门。
+- **权限**：顶层只给 `contents: read`；`publish` 用 job 级 `packages: write` 配合 `secrets.GITHUB_TOKEN`，不引入任何仓库密钥。
+- **并发**：`concurrency` 按 ref 分组并 `cancel-in-progress`，同一 ref 的新推送取消上一轮。
+- **镜像名**：`ghcr.io/${{ github.repository }}`，由 `metadata-action` 统一小写化（仓库名含大写字母，直接拼接会得到非法 tag）。
+- **标签**：`latest`（仅默认分支）、分支名、`sha-<短哈希>`、`{{version}}` 与 `{{major}}.{{minor}}`（`v*` 标签）。PR 不推送镜像。
+- **未做**：没有 `workflow_run` 串联、没有外部 registry 推送、除 provenance 外没有额外的漏洞扫描步骤。
+
+### `scripts/ci/smoke-container.mjs`（新增，零依赖，不进镜像）
+
+容器运行期冒烟。`.dockerignore` 已排除 `scripts`（仅 `!scripts/compile-world-package.mjs` 例外），因此该文件只在 runner 上执行，通过 HTTP 断言已启动的容器，不进入镜像、也不读取容器文件系统。
+
+| 函数 | 签名摘要 | 出参 | 功能 | 边缘条件 |
+| --- | --- | --- | --- | --- |
+| `record(ok, name, detail?)` | `(boolean, string, string?) => void` | `void` | 记录并打印一条断言结果 | 失败时累加 `failed`，直接决定退出码 |
+| `request(pathname, accept?)` | `(string, string?) => Promise<{status, contentType, body}>` | 响应对象 | GET 并整体读取文本 | 网络错误直接抛出，由调用方决定重试或失败 |
+| `requestJson(pathname)` | `(string) => Promise<unknown>` | 解析后的 JSON | 读取并解析 JSON | 非 JSON 响应抛错并截断前 200 字符；非 2xx 抛错并带响应体 |
+| `waitForHealth()` | `() => Promise<object>` | `/api/health` 响应 | 每 1 秒轮询直到成功或 `SMOKE_TIMEOUT_MS`（默认 90 秒）超时 | 超时抛错并附最后一次错误；容器冷启动需先跑完 SQLite 迁移与 preset 加载 |
+| `main()` | `() => Promise<void>` | `void` | 执行 14 项断言并汇总 | 任一失败置 `process.exitCode = 1`，不做进程内 `process.exit` |
+
+**断言覆盖（14 项）**：`/api/health` 的 `status`、`database.ok`（`quick_check` 通过即证明 `/data` 挂载可写且迁移完成）、`database.migration.applied` 结构；三个 preset 全部加载、ID 与仓库发布清单一致、`diagnostics` 为空、`countBySurface` 三个入口各至少一个；`/api/ai/presets` 返回三份脱敏投影、三个入口默认映射都能解析到已发布投影、浏览器投影不命中 `systemPrompt` / `runtime/system.md` / `.agent-presets` / `agent.cordis.yml` / `skills/` / `toolPolicy`、每个投影带 `sha256:<64 位十六进制>` 指纹；静态界面可访问；`/api/content` 可读；`/api/simulation` 可用。
+
+**边界**：只做只读 GET，不调用任何模型或生图接口（CI 无密钥，也不应产生付费请求）；不写入内容库，因此不改变容器数据卷的 `revision`。
+
+### `compose.nas.yaml`（新增，拉取式）
+
+与 `compose.yaml` 共用同一套环境变量契约，差异仅三处：`image:` 取代 `build:`（NAS 只拉不建）；`ports` 由 `127.0.0.1:4173:8080` 改为 `${WORLDFORGE_PORT:-4173}:8080`，绑定全部网卡以支持局域网与 tailnet 访问；`volumes` 由命名卷改为 `${WORLDFORGE_DATA_DIR:-./data}:/data` 绑定挂载，便于 NAS 快照与备份。
+
+保留项：五条 `WORLDFORGE_*` 路径不变；`COMFYUI_BASE_URL` 与 `extra_hosts: host.docker.internal:host-gateway` 按作者要求保留（Linux 内核的 Docker 默认不解析该主机名，缺这行默认地址连不上）；`read_only`、`tmpfs /tmp`、`no-new-privileges:true`、`restart: unless-stopped` 与镜像内 `HEALTHCHECK` 沿用。
+
+**未预置 Watchtower**：它需要挂载 `docker.sock`、扩大攻击面，升级方式在文件内注释为手动 `pull && up -d` 或 NAS 自带任务计划。
+
+### `.dockerignore` 与 `package.json`
+
+- `.dockerignore` 新增 `.github` 与 `compose.nas.yaml`：两者都不进入构建上下文；原有 `.git` / `.env.local` / `docs` / `tests` 四条被 `tests/docker-packaging.test.mjs` 断言的条目未改动。
+- `npm run check` 增加 `node --check scripts/ci/smoke-container.mjs`，与既有模块语法检查同等对待。
+
+### 验证
+
+- 本地 `node --experimental-test-isolation=none --test tests/*.test.mjs`：195 项全部通过。本机沙箱禁止子进程管道，默认隔离会全量 `spawn EPERM`，故改用 in-band 隔离；CI 中走默认隔离。
+- 本地以 `PORT=8123 node server.mjs` 启动服务后执行 `node scripts/ci/smoke-container.mjs http://127.0.0.1:8123`：14/14 通过，退出码 0。
+- 两份 YAML 经 PyYAML 解析通过；`compose.nas.yaml` 额外断言无 `build:` 段，`image` / `ports` / `volumes` / `extra_hosts` / `read_only` 与六个环境变量键齐全。
+
+### 未验证
+
+- **没有在 GitHub 上真实执行过该工作流**：本次环境无法运行 Actions，`publish` 产出的 GHCR 标签与双架构需在首次推送后用 `docker buildx imagetools inspect` 确认。
+- **没有在真实 NAS 上执行过 `compose.nas.yaml`**：绑定挂载目录的属主与权限、端口占用、GHCR 登录态、ARM 机型拉取均未实机验证。
+- **GHCR 包可见性未确认**：仓库公开与否未核实，因此 README 同时写了「改 public」和「NAS 上 `docker login`」两条路径。
+- **`nas` 远端（Forgejo）不在覆盖范围内**：两个 remote 并存，Actions 只对 `origin`（GitHub）生效。
+
 ## 2026-10-17 Sprint 2 复审修正归档（不可信层与第 4/5 层顺序）
 
 复审发现两个阻断项，均为契约实现偏离，现已修正。测试 192 → 195 项，全部通过。

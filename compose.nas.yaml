@@ -1,0 +1,51 @@
+# NAS 部署用 Compose：只拉取 CI 构建好的镜像，不在 NAS 上构建，也不需要把源码放到 NAS。
+#
+# 镜像由 `.github/workflows/ci.yml` 的 publish 任务产出，同一个标签下同时提供
+# linux/amd64 与 linux/arm64，因此 x86 与 ARM 机型都不用改任何一行。
+#
+# 用法（在 NAS 上，与本文件同目录）：
+#   docker compose -f compose.nas.yaml pull
+#   docker compose -f compose.nas.yaml up -d
+# 群晖 Container Manager / QNAP Container Station：新建「项目」时把本文件内容
+# 粘贴进 YAML 编辑框即可，项目会按同样的方式拉取镜像。
+#
+# 若 GHCR 包是私有的，先登录一次（PAT 勾选 read:packages）：
+#   echo <PAT> | docker login ghcr.io -u <GitHub 用户名> --password-stdin
+services:
+  worldforge:
+    image: ${WORLDFORGE_IMAGE:-ghcr.io/xs-www/worldforge:latest}
+    container_name: worldforge
+    # 原来的 compose.yaml 只绑 127.0.0.1，NAS 上局域网设备连不进来；这里绑定全部网卡。
+    # 注意：本应用没有登录与权限控制，设置页可直接改写 API Key，不要映射到公网。
+    # 只想让 tailnet 访问时，可把端口映射改回 "127.0.0.1:4173:8080" 并走 tailscale serve。
+    ports:
+      - "${WORLDFORGE_PORT:-4173}:8080"
+    environment:
+      WORLDFORGE_CONFIG_PATH: /data/.env.local
+      WORLDFORGE_DB_PATH: /data/worldforge.sqlite
+      WORLDFORGE_ASSETS_PATH: /data/assets/cards
+      WORLDFORGE_COMFY_WORKFLOW_PATH: /data/comfyui-workflow.json
+      WORLDFORGE_PROMPT_SETTINGS_PATH: /data/prompt-settings.json
+      # ComfyUI 通道按作者要求保留：NAS 侧暂时用不到生图，但配置位与工作流入口照旧可用。
+      # 真要在这台机器上出图时，把地址改成能访问到 ComfyUI 主机的地址（局域网 IP 或宿主机）。
+      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://host.docker.internal:8188}
+    # Linux 内核的 Docker 默认不解析 host.docker.internal；缺这行上面那个默认地址会直接连不上。
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      # 首次启动前手动建好该目录。必须落在 NAS 本地磁盘卷上：
+      # 不要指向 SMB/NFS 网络共享或 CloudSync 之类的同步目录——SQLite 依赖 POSIX
+      # 文件锁，在网络文件系统上会锁坏并损坏数据库。
+      - ${WORLDFORGE_DATA_DIR:-./data}:/data
+    security_opt:
+      - no-new-privileges:true
+    # 健康检查沿用镜像内的 HEALTHCHECK（wget /api/health），这里不重复定义。
+    #
+    # 升级方式（二选一）：
+    #   手动：docker compose -f compose.nas.yaml pull && docker compose -f compose.nas.yaml up -d
+    #   自动：用 NAS 自带的任务计划定时执行上面的命令，或自行接入升级工具。
+    #   这里不预置 Watchtower：它需要挂载 docker.sock，会扩大攻击面，默认交给作者决定。
