@@ -628,6 +628,26 @@ Docker 真实比对结论（2026-10-17，本机 `docker compose up -d --build`�
 
 验证：`npm run check` 全通过（225 项测试；`tests/card-agent.test.mjs` 11 项 + UI 静态断言）。未验证：真实付费模型端到端、浏览器点击流程、卡牌 Agent 与 W97 参数的实际联动。
 
+### 12.0 静态文档可验证化（Sprint 5 第一项，已完成）
+
+问题：`docs/static/server.mjs.md` 的位置索引曾多次漂移，人工刷新又引入语义错配。
+
+方案：把「行号」变成可执行契约。每个 `L###` 必须归属一个锚点，锚点由**期望源码子串**组成并必须唯一命中；`static-doc-anchors.mjs` 负责校验或重写（`--write`），已接入 `npm run check`。锚点表在 `docs/static/anchors.json`，与文档一起评审。
+
+验收对应：
+
+| 验收项 | 实现 |
+|---|---|
+| 校验器入库并接入 `npm run check` | `static-doc-anchors.mjs` + `package.json` 的 `--check` |
+| 每个锚点唯一匹配，零/多匹配都失败 | `resolveAnchor` 的 `ANCHOR_MISSING`/`ANCHOR_AMBIGUOUS`；重复构造用 `count`/`nth` |
+| 单行引用验证全部期望子串 | `anchor.lines` 全部 `includes` |
+| 区间分别验证起止且起点早于终点 | 破折号连接的引用才视为区间；`区间倒置` 报错 |
+| `L###` 由校验器生成或核对 | `--write` 重写；`--check` 不一致即失败；无法归属即失败 |
+| 错误夹具 | `tests/static-doc-anchors.test.mjs` 9 项：错误子串、歧义、倒置区间、源码漂移 |
+| 重新生成并验证 server.mjs.md | `--write` 后 `--check` 通过：83 处引用全部命中唯一锚点 |
+
+`npm run check` 现在会在测试前运行该校验器，文档行号漂移会直接使检查失败。
+
 ## 12. Sprint 5：加固、迁移与发布
 
 ### 12.1 安全与故障注入

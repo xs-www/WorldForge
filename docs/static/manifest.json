@@ -8,9 +8,10 @@
   "baseCommitDate": "2026-10-17",
   "generatedAt": "2026-10-17",
   "counts": {
-    "sources": 134,
-    "documented": 57,
-    "aggregated": 77
+    "sources": 136,
+    "documented": 58,
+    "aggregated": 77,
+    "config": 1
   },
   "files": [
     {
@@ -360,6 +361,18 @@
       "doc": "docs/static/seedream.mjs.md",
       "status": "documented",
       "sha256": "68aab7a9f7fd94657d240b7c2d330ce2ebf3791850d35a18b5d73c834d048127"
+    },
+    {
+      "source": "docs/static/anchors.json",
+      "doc": "docs/static/server.mjs.md",
+      "status": "config",
+      "sha256": "a144c949458be7f65db39099676744b6a29a30dc43316d1ad265407fd8d5e87a"
+    },
+    {
+      "source": "static-doc-anchors.mjs",
+      "doc": "docs/static/static-doc-anchors.mjs.md",
+      "status": "documented",
+      "sha256": "2aba426bf37e55cca38f3d75ecbde14c50a1cabafca837b257cfa1a77a255134"
     },
     {
       "source": "server.mjs",

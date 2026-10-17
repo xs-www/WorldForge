@@ -1,0 +1,591 @@
+{
+  "source": "server.mjs",
+  "anchors": {
+    "loadLocalEnv": {
+      "lines": [
+        "function loadLocalEnv("
+      ]
+    },
+    "saveLocalEnv": {
+      "lines": [
+        "function saveLocalEnv("
+      ]
+    },
+    "readBody": {
+      "lines": [
+        "function readBody("
+      ]
+    },
+    "buildCardContext": {
+      "lines": [
+        "function buildCardContext("
+      ]
+    },
+    "callCardAgent": {
+      "lines": [
+        "function callCardAgent("
+      ]
+    },
+    "validateSettings": {
+      "lines": [
+        "function validateSettings("
+      ]
+    },
+    "createReferenceAsset": {
+      "lines": [
+        "function createReferenceAsset("
+      ]
+    },
+    "createArtAsset": {
+      "lines": [
+        "function createArtAsset("
+      ]
+    },
+    "serveArtAsset": {
+      "lines": [
+        "function serveArtAsset("
+      ]
+    },
+    "resolveAgentImages": {
+      "lines": [
+        "function resolveAgentImages("
+      ]
+    },
+    "resolveSurfaceProfile": {
+      "lines": [
+        "function resolveSurfaceProfile("
+      ]
+    },
+    "toolsForPolicy": {
+      "lines": [
+        "function toolsForPolicy("
+      ]
+    },
+    "callAi": {
+      "lines": [
+        "function callAi("
+      ]
+    },
+    "callFreeAgent": {
+      "lines": [
+        "function callFreeAgent("
+      ]
+    },
+    "callNameGenerator": {
+      "lines": [
+        "function callNameGenerator("
+      ]
+    },
+    "callMacroProposal": {
+      "lines": [
+        "function callMacroProposal("
+      ]
+    },
+    "serveStatic": {
+      "lines": [
+        "function serveStatic("
+      ]
+    },
+    "resolveReferenceImages": {
+      "lines": [
+        "function resolveReferenceImages("
+      ]
+    },
+    "/api/health": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/health'"
+      ]
+    },
+    "/api/macro": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/macro'"
+      ]
+    },
+    "/api/macro/step": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/step'"
+      ]
+    },
+    "/api/macro/run": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/run'"
+      ]
+    },
+    "/api/macro/reset": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/reset'"
+      ]
+    },
+    "/api/macro/local-proposal": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/local-proposal'"
+      ]
+    },
+    "/api/simulation": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/simulation'"
+      ]
+    },
+    "/api/simulation/advance": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/simulation/advance'"
+      ]
+    },
+    "/api/simulation/run": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/simulation/run'"
+      ]
+    },
+    "/api/simulation/reset": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/simulation/reset'"
+      ]
+    },
+    "/api/seedream/status": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/seedream/status'"
+      ]
+    },
+    "/api/images/status": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/images/status'"
+      ]
+    },
+    "/api/images/generate": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/images/generate'"
+      ]
+    },
+    "/api/images/compose-prompt": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/images/compose-prompt'"
+      ]
+    },
+    "/api/images/optimize-prompt": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/images/optimize-prompt'"
+      ]
+    },
+    "/api/ai/status": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/ai/status'"
+      ]
+    },
+    "/api/ai/presets": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/ai/presets'"
+      ]
+    },
+    "/api/ai/card": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai/card'"
+      ]
+    },
+    "/api/ai/free": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai/free'"
+      ]
+    },
+    "/api/ai/tools/names": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai/tools/names'"
+      ]
+    },
+    "/api/ai": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai'"
+      ]
+    },
+    "bad-method-fallback": {
+      "lines": [
+        "req.method !== 'GET'",
+        "405"
+      ]
+    },
+    "static-fallback": {
+      "lines": [
+        "return serveStatic(req, res)"
+      ]
+    },
+    "boot-start": {
+      "lines": [
+        "await loadLocalEnv();"
+      ]
+    },
+    "boot-end": {
+      "lines": [
+        "process.exit(1);"
+      ],
+      "count": 1
+    },
+    "content-store": {
+      "lines": [
+        "const contentStore = createContentStore"
+      ]
+    },
+    "sim-dashboard": {
+      "lines": [
+        "const simulationDashboard = createSimulationDashboardService"
+      ]
+    },
+    "sim-macro": {
+      "lines": [
+        "const macroSimulation = createMacroSimulationService"
+      ]
+    },
+    "profiles-load": {
+      "lines": [
+        "agentProfiles = await loadAgentProfiles();"
+      ]
+    },
+    "assets-mkdir": {
+      "lines": [
+        "await mkdir(assetsPath"
+      ]
+    },
+    "settings-load": {
+      "lines": [
+        "let agentSettings = await loadAgentSettings"
+      ]
+    },
+    "callAi-def": {
+      "lines": [
+        "function callAi("
+      ]
+    },
+    "callFreeAgent-def": {
+      "lines": [
+        "function callFreeAgent("
+      ]
+    },
+    "preset-resolve-lore": {
+      "lines": [
+        "resolveSurfaceProfile('lore'"
+      ]
+    },
+    "preset-resolve-free": {
+      "lines": [
+        "resolveSurfaceProfile('free'"
+      ]
+    },
+    "resolveSurfaceProfile-def": {
+      "lines": [
+        "function resolveSurfaceProfile("
+      ]
+    },
+    "agent-snapshot-call": {
+      "lines": [
+        "const agent = agentSnapshot(profile);"
+      ],
+      "count": 3,
+      "nth": 1
+    },
+    "agent-snapshot-call-free": {
+      "lines": [
+        "const agent = agentSnapshot(profile);"
+      ],
+      "count": 3,
+      "nth": 2
+    },
+    "prompt-payload": {
+      "lines": [
+        "const promptPayload = { ...payload, typePrompt"
+      ]
+    },
+    "initial-build-prompt": {
+      "lines": [
+        "const prompt = buildPrompt(promptPayload, bundle);"
+      ]
+    },
+    "supplement-start": {
+      "lines": [
+        "const result = await completeAiVariants({ raw, payload: validationPayload"
+      ]
+    },
+    "supplement-fallback": {
+      "lines": [
+        "return requestModel(config, supplementFor(true)"
+      ],
+      "count": 2,
+      "nth": 2
+    },
+    "attach-main": {
+      "lines": [
+        "const loopMessages = attachUntrustedContext"
+      ]
+    },
+    "attach-fallback": {
+      "lines": [
+        "const fallbackMessages = attachUntrustedContext"
+      ]
+    },
+    "toolsForPolicy-def": {
+      "lines": [
+        "function toolsForPolicy("
+      ]
+    },
+    "tool-gate": {
+      "lines": [
+        "const available = library.length > 0 || artAssets.length > 0"
+      ]
+    },
+    "client-request-id": {
+      "lines": [
+        "const clientRequestId = String(payload?.clientRequestId"
+      ]
+    },
+    "client-request-id-reuse": {
+      "lines": [
+        "contentStore.listArtAssets().find(asset => asset.clientRequestId"
+      ]
+    },
+    "resolve-reference-images": {
+      "lines": [
+        "await resolveReferenceImages(payload?.referenceAssetIds)"
+      ]
+    },
+    "asset-tmp-write": {
+      "lines": [
+        "await writeFile(temporary"
+      ],
+      "count": 5,
+      "nth": 5
+    },
+    "asset-rename": {
+      "lines": [
+        "await rename(temporary"
+      ],
+      "count": 5,
+      "nth": 5
+    },
+    "asset-unlink": {
+      "lines": [
+        "await unlink("
+      ],
+      "count": 3,
+      "nth": 3
+    },
+    "init-structured": {
+      "lines": [
+        "try { raw = await requestModel(config, prompt, { structured: true, schema"
+      ],
+      "count": 4,
+      "nth": 1
+    },
+    "createArtAsset-def": {
+      "lines": [
+        "function createArtAsset("
+      ]
+    },
+    "serveArtAsset-def": {
+      "lines": [
+        "function serveArtAsset("
+      ]
+    },
+    "GET /api/health": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/health'"
+      ]
+    },
+    "GET /api/macro": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/macro'"
+      ]
+    },
+    "POST /api/macro/step": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/step'"
+      ]
+    },
+    "POST /api/macro/run": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/run'"
+      ]
+    },
+    "POST /api/macro/reset": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/reset'"
+      ]
+    },
+    "POST /api/macro/local-proposal": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/macro/local-proposal'"
+      ]
+    },
+    "GET /api/simulation": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/simulation'"
+      ]
+    },
+    "POST /api/simulation/advance": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/simulation/advance'"
+      ]
+    },
+    "POST /api/simulation/run": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/simulation/run'"
+      ]
+    },
+    "POST /api/simulation/reset": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/simulation/reset'"
+      ]
+    },
+    "GET /api/content": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/content'"
+      ]
+    },
+    "PUT /api/content": {
+      "lines": [
+        "req.method === 'PUT'",
+        "'/api/content'"
+      ]
+    },
+    "GET /api/art-assets": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/art-assets'"
+      ]
+    },
+    "POST /api/reference-assets": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/reference-assets'"
+      ]
+    },
+    "GET /api/seedream/status": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/seedream/status'"
+      ]
+    },
+    "GET /api/images/status": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/images/status'"
+      ]
+    },
+    "POST /api/images/generate": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/images/generate'"
+      ]
+    },
+    "POST /api/images/compose-prompt": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/images/compose-prompt'"
+      ]
+    },
+    "POST /api/images/optimize-prompt": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/images/optimize-prompt'"
+      ]
+    },
+    "GET /api/ai/status": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/ai/status'"
+      ]
+    },
+    "GET /api/ai/presets": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/ai/presets'"
+      ]
+    },
+    "GET /api/settings": {
+      "lines": [
+        "req.method === 'GET'",
+        "'/api/settings'"
+      ]
+    },
+    "POST /api/settings": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/settings'"
+      ]
+    },
+    "POST /api/ai/card": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai/card'"
+      ]
+    },
+    "POST /api/ai/free": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai/free'"
+      ]
+    },
+    "POST /api/ai/tools/names": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai/tools/names'"
+      ]
+    },
+    "POST /api/ai": {
+      "lines": [
+        "req.method === 'POST'",
+        "'/api/ai'"
+      ]
+    },
+    "GET /api/art-assets/:id/file": {
+      "lines": [
+        "artMatch",
+        "serveArtAsset(artMatch[1]"
+      ]
+    },
+    "POST /api/art-assets/:id/unbind": {
+      "lines": [
+        "artUnbindMatch",
+        "setArtAssetTarget"
+      ]
+    },
+    "validateSettings-def": {
+      "lines": [
+        "function validateSettings("
+      ]
+    },
+    "saveLocalEnv-def": {
+      "lines": [
+        "function saveLocalEnv("
+      ]
+    }
+  }
+}

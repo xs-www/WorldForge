@@ -11,6 +11,7 @@
 - [x] 完成 Sprint 3：分入口 preset 选择器、`agent-settings.json` 持久化与会话切换语义；设置页可改选，自由对话首轮冻结 preset。
 - [x] 完成 Sprint 4：卡牌文字 Agent（`card-agent.mjs` + `POST /api/ai/card` + 卡牌编辑器面板），只返回受验证补丁与静态评审，固定 proposed / untested。
 - [ ] 按同一计划实现 Sprint 5：安全加固、迁移、Docker 与真实模型/浏览器验收。
+- [x] Sprint 5 第一项：静态文档可验证化。新增 `static-doc-anchors.mjs` 与 `docs/static/anchors.json`，每个 `L###` 必须命中唯一锚点（期望源码子串），区间校验起止顺序，`--write` 生成行号；已接入 `npm run check`，并用 9 项夹具覆盖错误子串、歧义、倒置区间与源码漂移；`server.mjs.md` 的 83 处引用全部重新生成并通过。
 - [x] 新增 GitHub Actions 流水线：`check`（语法检查 + 195 项单元测试）、`image-smoke`（真实构建镜像 + 容器内 HTTP 断言）、`publish`（前两关通过后构建 amd64/arm64 并推送 GHCR）；新增 `scripts/ci/smoke-container.mjs` 与只拉不建的 `compose.nas.yaml`，NAS 不再需要源码或在本地编译。
 - [ ] 上机验证交付链路：在 GitHub 上真实跑一次 Actions，用 `docker buildx imagetools inspect` 确认 GHCR 标签与双架构，并在 NAS 上跑通 `docker compose -f compose.nas.yaml up -d`（绑定挂载权限、端口占用、GHCR 登录态、ARM 拉取均未实机验证）。
 - [x] 按实际使用流程完成界面级回归测试（隔离空库 + 容器数据副本，Chrome CDP 驱动），产出 `docs/USAGE_FLOW_TEST_2026-10-17.md`：确认 15 项缺陷，其中 3 项阻断级。

@@ -36,11 +36,11 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 | POST | `/api/simulation/run` 🔒 | `L609` | 批量运行 | 403 |
 | POST | `/api/simulation/reset` 🔒 | `L613` | 重置 | 403 |
 | GET | `/api/content` | `L617` | 读取整库快照 | 200 |
-| PUT | `/api/content` 🔒`x-worldforge-content` | `L617` | 全量替换，支持 `expectedRevision` 乐观锁 | 403 / 409 |
+| PUT | `/api/content` 🔒`x-worldforge-content` | `L618` | 全量替换，支持 `expectedRevision` 乐观锁 | 403 / 409 |
 | GET | `/api/art-assets` | `L622` | 美术资产列表 | 200 |
 | POST | `/api/reference-assets` 🔒`x-worldforge-image` | `L623` | 上传参考图（body 上限 12 MB） | 201 / 403 |
-| GET | `/api/art-assets/:id/file` | `L511` | 读资产文件；`?download=1` 加 `Content-Disposition` | 404 / 403 |
-| POST | `/api/art-assets/:id/unbind` 🔒`x-worldforge-image` | `L513` | 解除资产绑定 | 200 / 404 / 403 |
+| GET | `/api/art-assets/:id/file` | `L628` | 读资产文件；`?download=1` 加 `Content-Disposition` | 404 / 403 |
+| POST | `/api/art-assets/:id/unbind` 🔒`x-worldforge-image` | `L632` | 解除资产绑定 | 200 / 404 / 403 |
 | GET | `/api/seedream/status` | `L636` | Seedream 配置状态 | 200 |
 | GET | `/api/images/status` | `L637` | Seedream + ComfyUI 状态（是否已配置 workflow） | 200 |
 | POST | `/api/images/generate` 🔒`x-worldforge-image` | `L638` | 生图并落盘，`clientRequestId` 幂等 | 403 / `error.status` 或 500 |
@@ -49,37 +49,37 @@ API 行全部用 `req.url` 整串相等比较（含 query），带 `?x=1` 的 AP
 | GET | `/api/ai/status` | `L659` | LLM 配置状态（不含 key） | 200 |
 | GET | `/api/ai/presets` | `L661` | `publicRegistryView` 脱敏预设视图 | 200 |
 | GET | `/api/settings` | `L662` | 设置 + 提示词默认值 + workflow 文本 + `agentPresets` / `agentPresetDefaults` / `agentSettingsSource` | 200 |
-| POST | `/api/settings` 🔒`x-worldforge-settings` | `L662` | 写 `.env.local`、workflow、提示词设置；`agentPresets` 部分更新 `agent-settings.json` | 400 / 403 |
+| POST | `/api/settings` 🔒`x-worldforge-settings` | `L663` | 写 `.env.local`、workflow、提示词设置；`agentPresets` 部分更新 `agent-settings.json` | 400 / 403 |
 | POST | `/api/ai/card` | `L683` | 卡牌文字 Agent：只返回字段补丁与静态评审，不保存、不生成图片、不改 canon | 400 / 500 |
 | POST | `/api/ai/free` | `L681` | 自由创作 Agent（可选工具循环） | 200 |
 | POST | `/api/ai/tools/names` | `L684` | 名称生成 | 200 |
 | POST | `/api/ai` | `L685` | 结构化设定补全 | 200 |
-| 非 GET/HEAD | 未匹配任何分支 | `L561` | 405「不支持的请求方法」 | 405 |
-| GET/HEAD | 未匹配任何分支 | `L570` | `serveStatic`，文件缺失回退 `index.html` | 200（无 404 兜底） |
+| 非 GET/HEAD | 未匹配任何分支 | `L686` | 405「不支持的请求方法」 | 405 | <!-- anchor:bad-method-fallback -->
+| GET/HEAD | 未匹配任何分支 | `L687` | `serveStatic`，文件缺失回退 `index.html` | 200（无 404 兜底） | <!-- anchor:static-fallback -->
 
 ## 重点逻辑
 
-### 启动序列（`L44`–`L68`）
+### 启动序列（`L44`–`L68`） <!-- anchor:boot-start boot-end -->
 - 顶层 `await loadLocalEnv()` 先于所有 `WORLDFORGE_*` 路径解析，因此 `.env.local` 可覆盖 DB／资产／模拟库路径；`.env.local`、ComfyUI workflow、提示词设置三个文件默认同目录（`dirname(envPath)`）。
-- `createContentStore`（`L47`）打开 SQLite 并跑迁移；随后创建两个模拟服务（`L49`–`L50`）并 `mkdir(assetsPath)`（`L47`）。
-- `loadAgentProfiles()` 在这之后执行（`L58`）；失败时打印 `code: message` 与逐条 details，再 `process.exit(1)`（`L64`）——注释说明仅 `throw` 会让已打开的事件循环与 SQLite 锁继续存活。
-- 随后加载 `agent-settings.json`（`L73`，路径由 `WORLDFORGE_AGENT_SETTINGS_PATH` 或配置同目录决定）；`reason` 为 `missing`/`corrupt` 时回落默认值并 `console.warn`，不阻止启动。
+- `createContentStore`（`L47`）打开 SQLite 并跑迁移；随后创建两个模拟服务（`L49`–`L50`）并 `mkdir(assetsPath)`（`L51`）。 <!-- anchor:content-store sim-dashboard sim-macro assets-mkdir -->
+- `loadAgentProfiles()` 在这之后执行（`L58`）；失败时打印 `code: message` 与逐条 details，再 `process.exit(1)`（`L68`）——注释说明仅 `throw` 会让已打开的事件循环与 SQLite 锁继续存活。 <!-- anchor:profiles-load boot-end -->
+- 随后加载 `agent-settings.json`（`L73`，路径由 `WORLDFORGE_AGENT_SETTINGS_PATH` 或配置同目录决定）；`reason` 为 `missing`/`corrupt` 时回落默认值并 `console.warn`，不阻止启动。 <!-- anchor:settings-load -->
 
-### `callAi(payload)`（`L319`）与 `callFreeAgent(payload)`（`L364`）：preset 解析与提示词分层
-- preset 在模型调用之前解析（`L406`/`L439`）；`resolveSurfaceProfile` 把 `AgentProfileError` 统一改写为 `status = 400`（`L291`），因此未知或不兼容 preset 不产生外部调用。请求未带 `presetId` 时取 `agentSettings.selections[surface]`，再回落 `agentProfiles.defaults`（`L291`–`L291`）。
-- 回显的 `agent` 快照只含 `presetId / presetVersion / presetHash / mode`（`L324`）。
-- `promptPayload` 一次性注入第 4 层（分类提示与个性化提示，`L330`），初次请求用 `buildPrompt(promptPayload)`（`L333`）；补生成用 `{ ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`（`L640`–`L640`），因此第 4 层与初次逐字一致、数量口径自洽。早年版本传原始 `payload` 会导致第 4 层丢失并出现「严格返回 2 份」与「只补 1 份」并存。
-- 结构化输出失败（HTTP 400/404/422）时降级为非结构化重试；三条降级分支（初次 `L364`、初次已降级后的补生成、补生成结构化失败）都用 `requireJson: true` 让 JSON 要求进入第 5 层，不再拼接 `${prompt}\n…`，因此降级请求仍是 4→5→6。`callFreeAgent` 另有工具不可用时的单轮降级，把前 120 条资料索引放进用户侧 `<library_context>`（`L364`–`L364`）。
-- 第 1–3 层只由 `composeAgentSystemPrompt` 拼装；作者笔记、资料库正文只用 `attachUntrustedContext` 附到用户侧消息（`L382`/`L416`）。
-- 工具策略：`free_lore_readonly` → `FREE_AGENT_TOOLS`，`none` → `[]`，其它值抛 `AGENT_PROFILE_INCOMPATIBLE`（`status 400`，`L314`）；工具仅在「有资料或资产」且策略非空时启用（`L389`）。
+### `callAi(payload)`（`L319`）与 `callFreeAgent(payload)`（`L364`）：preset 解析与提示词分层 <!-- anchor:callAi-def callFreeAgent-def -->
+- preset 在模型调用之前解析（`L323`/`L367`）；`resolveSurfaceProfile` 把 `AgentProfileError` 统一改写为 `status = 400`（`L291`），因此未知或不兼容 preset 不产生外部调用。请求未带 `presetId` 时取 `agentSettings.selections[surface]`，再回落 `agentProfiles.defaults`。 <!-- anchor:preset-resolve-lore preset-resolve-free resolveSurfaceProfile-def -->
+- 回显的 `agent` 快照只含 `presetId / presetVersion / presetHash / mode`（`L324`）。 <!-- anchor:agent-snapshot-call -->
+- `promptPayload` 一次性注入第 4 层（分类提示与个性化提示，`L330`），初次请求用 `buildPrompt(promptPayload)`（`L331`）；补生成用 `{ ...promptPayload, variantCount: missingCount }` 同时驱动 prompt、Schema 与 `expectedCount`（`L348`–`L358`），因此第 4 层与初次逐字一致、数量口径自洽。 <!-- anchor:prompt-payload initial-build-prompt supplement-start supplement-fallback -->
+- 结构化输出失败（HTTP 400/404/422）时降级为非结构化重试；三条降级分支（`L340`–`L358`）都用 `requireJson: true` 让 JSON 要求进入第 5 层，不再拼接 `${prompt}\n…`，因此降级请求仍是 4→5→6。 <!-- anchor:init-structured supplement-fallback -->
+- 第 1–3 层只由 `composeAgentSystemPrompt` 拼装；作者笔记、资料库正文只用 `attachUntrustedContext` 附到用户侧消息（`L406`/`L439`）。 <!-- anchor:attach-main attach-fallback -->
+- 工具策略：`free_lore_readonly` → `FREE_AGENT_TOOLS`，`none` → `[]`，其它值抛 `AGENT_PROFILE_INCOMPATIBLE`（`status 400`，`L310`）；工具仅在「有资料或资产」且策略非空时启用（`L389`）。 <!-- anchor:toolsForPolicy-def tool-gate -->
 
-### 生图与资产落盘（`createArtAsset` `L191`、`serveArtAsset` `L244`）
-- `clientRequestId` 先按 `^[A-Za-z0-9-]{8,80}$` 校验，再用 `listArtAssets()` 全表扫描找同 ID 资产，命中直接返回旧资产（`L192`–`L192`）。
-- 参考图经 `resolveReferenceImages` 校验 ID、确认资产存在、按 `assetsPath` 前缀校验并读盘；ComfyUI 通道在不支持参考图时直接抛错（`L164`）。
-- 文件先写 `*.tmp`（`mode 0600`）再 `rename`（`L217`–`L218`）；DB 插入失败会 `unlink` 已写文件（`L241`）。
+### 生图与资产落盘（`createArtAsset` `L191`、`serveArtAsset` `L244`） <!-- anchor:createArtAsset-def serveArtAsset-def -->
+- `clientRequestId` 先按 `^[A-Za-z0-9-]{8,80}$` 校验，再用 `listArtAssets()` 全表扫描找同 ID 资产，命中直接返回旧资产（`L192`–`L195`）。 <!-- anchor:client-request-id client-request-id-reuse -->
+- 参考图经 `resolveReferenceImages` 校验 ID、确认资产存在、按 `assetsPath` 前缀校验并读盘；ComfyUI 通道在不支持参考图时直接抛错（`L199`）。 <!-- anchor:resolve-reference-images -->
+- 文件先写 `*.tmp`（`mode 0600`）再 `rename`（`L217`–`L218`）；DB 插入失败会 `unlink` 已写文件（`L241`）。 <!-- anchor:asset-tmp-write asset-rename asset-unlink -->
 - `serveArtAsset` 以 `file.startsWith(assetsPath)` 做前缀校验（失败 403），`ENOENT` 返回 404，成功响应带 `immutable` 一年缓存与安全响应头。
 
-### 设置读写与安全边界（`validateSettings` `L115`、`saveLocalEnv` `L81`）
+### 设置读写与安全边界（`validateSettings` `L115`、`saveLocalEnv` `L81`） <!-- anchor:validateSettings-def saveLocalEnv-def -->
 - API Key 三态：`clearApiKey` → 写空串；字段缺失（`undefined`）→ 不写入，已存密钥保留；否则按字符串校验（≤500 字符、禁 CRLF）。
 - baseUrl 必须匹配 `^https?://\S+$` 且 ≤500 字符；model ≤120 字符且不含 CRLF；写入前统一去掉尾部 `/`。
 - workflow 为 `null` 时 `unlink` 并吞掉 `ENOENT`；提示词设置为 `undefined` 时不做任何写入。
