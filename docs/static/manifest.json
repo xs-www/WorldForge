@@ -150,7 +150,7 @@
       "source": ".github/workflows/acr-mirror.yml",
       "doc": "docs/static/.github/workflows/acr-mirror.yml.md",
       "status": "documented",
-      "sha256": "c023312e8a7729e2dfc90bdcec74985e45f6b107a0bbb1a324058a58285850ba"
+      "sha256": "4c8a51c7c8be57bf9a52d715fb3fb79baa4d72019c23defee61ac7fa06669d66"
     },
     {
       "source": ".openai/hosting.json",

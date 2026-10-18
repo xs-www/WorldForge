@@ -127,15 +127,18 @@ jobs:
           fi
 
           copied=0
+          echo "::notice::目标路径：${ACR_NAMESPACE}/${IMAGE_NAME}（registry 主机来自 ACR_REGISTRY secret）；GHCR 源：${GHCR_IMAGE}"
           for tag in "${tags[@]}"; do
             # 失败原因（not found / unauthorized）原样回报，否则只看到「跳过」会难以定位。
             if ! detail=$(docker buildx imagetools inspect "${GHCR_IMAGE}:${tag}" 2>&1); then
               echo "::warning::GHCR 上没有 ${GHCR_IMAGE}:${tag}，跳过（${detail%%$'\n'*}）"
               continue
             fi
-            # 复制失败时把 stderr 前三行写成注解，避免只能靠认证后的日志定位。
+            # 复制失败时把最后几行（buildkit 的真实原因通常在末尾）写成注解。
+            # 仓库日志要认证才能下载，注解是唯一未登录可见的诊断通道。
             if ! out=$(docker buildx imagetools create --tag "${ACR_IMAGE}:${tag}" "${GHCR_IMAGE}:${tag}" 2>&1); then
-              echo "::error::复制 ${tag} 到 ACR 失败：$(printf '%s' "${out}" | head -n 3 | tr '\n' ' ' | cut -c1-400)"
+              reason=$(printf '%s\n' "${out}" | sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' | grep -v '^$' | tail -n 4 | tr '\n' ' ' | cut -c1-800 || true)
+              echo "::error::复制 ${tag} 到 ACR 失败：${reason}"
               exit 1
             fi
             copied=$((copied + 1))
