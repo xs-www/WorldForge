@@ -94,9 +94,20 @@ jobs:
         run: |
           set -Eeuo pipefail
 
+          # 失败时把行号写成注解：仓库日志需要认证，注解是未登录也能通过 check-runs API 读到的诊断。
+          trap 'code=$?; echo "::error::ACR 同步失败（脚本第 ${LINENO} 行，退出码 ${code}）"' ERR
+
           # GHCR 的仓库名一律小写：docker/metadata-action 推送时已经转成小写，
           # 但 github.repository 保留大小写（xs-www/WorldForge），直接用会 404。
-          GHCR_IMAGE="ghcr.io/${GHCR_REPOSITORY,,}"
+          GHCR_IMAGE="ghcr.io/$(printf '%s' "${GHCR_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+
+          # ACR_REGISTRY 必须是纯主机名：带协议前缀或尾斜杠都会让 docker 引用非法，提前明确报错。
+          case "${ACR_IMAGE}" in
+            http://*|https://*) echo "::error::ACR_REGISTRY 不能带 http(s):// 前缀（当前：${ACR_IMAGE}）"; exit 1 ;;
+          esac
+          case "${ACR_IMAGE}" in
+            *//*) echo "::error::ACR 镜像引用里有空路径段（当前：${ACR_IMAGE}），检查 ACR_REGISTRY 是否带了尾斜杠"; exit 1 ;;
+          esac
 
           # 手动触发：复制指定标签，不再推断。
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
@@ -122,7 +133,11 @@ jobs:
               echo "::warning::GHCR 上没有 ${GHCR_IMAGE}:${tag}，跳过（${detail%%$'\n'*}）"
               continue
             fi
-            docker buildx imagetools create --tag "${ACR_IMAGE}:${tag}" "${GHCR_IMAGE}:${tag}"
+            # 复制失败时把 stderr 前三行写成注解，避免只能靠认证后的日志定位。
+            if ! out=$(docker buildx imagetools create --tag "${ACR_IMAGE}:${tag}" "${GHCR_IMAGE}:${tag}" 2>&1); then
+              echo "::error::复制 ${tag} 到 ACR 失败：$(printf '%s' "${out}" | head -n 3 | tr '\n' ' ' | cut -c1-400)"
+              exit 1
+            fi
             copied=$((copied + 1))
           done
 
