@@ -106,7 +106,7 @@ SQLite 使用 Node 22 内置驱动，本机运行需要 Node.js 22.5 或更高�
 | `check` | 所有 push 与 PR | `npm run check`：全部源码语法检查 + 两道静态文档门禁 + 412 项单元测试（未安装 `pg` 时真库往返用例 skip，不阻塞） |
 | `image-smoke` | 所有 push 与 PR | 真实构建镜像，用 compose 同款参数（`--read-only` + `/data` 挂载）启动容器，再由 `scripts/ci/smoke-container.mjs` 断言健康端点、三个 preset 投影、静态界面、SQLite 与模拟存档 |
 | `publish` | 仅 `main` 推送与 `v*` 标签，且前两关已通过 | 构建 `linux/amd64` + `linux/arm64`，推送 `ghcr.io/xs-www/worldforge` |
-| `acr-mirror`（独立工作流） | 上面三道关全部成功后（`workflow_run`） | 不重新构建：用 `docker buildx imagetools` 把本次 commit 的 `sha-<短哈希>` 与 `latest` 从 GHCR 原样复制到阿里云 ACR，`amd64+arm64` manifest 原样保留 |
+| `acr-mirror`（独立工作流） | 上面三道关全部成功后（`workflow_run`） | 不重新构建：用 `docker buildx imagetools` 把本次 commit 的 `sha-<短哈希>` 与 `latest` 从 GHCR 复制到阿里云 ACR，重建索引只保留 `amd64+arm64` 平台镜像（跳过 ACR 不接受的 provenance/SBOM attestation） |
 
 `image-smoke` 存在的理由：`Dockerfile` 用显式白名单 `COPY` 服务端模块，漏登记时镜像仍能构建成功，但容器启动即 `ERR_MODULE_NOT_FOUND`；Preset 投影漏拷则会被 Registry 的完整性门拒绝启动。只检查「构建成功」会把这两类问题留到 NAS 上才暴露。
 

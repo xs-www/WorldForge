@@ -128,6 +128,24 @@ jobs:
 
           copied=0
           echo "::notice::目标路径：${ACR_NAMESPACE}/${IMAGE_NAME}（registry 主机来自 ACR_REGISTRY secret）；GHCR 源：${GHCR_IMAGE}"
+
+          # 只复制真正的平台镜像，重建索引：buildx 默认会在索引里附加 provenance/SBOM 的
+          # attestation manifest（platform=unknown/unknown），阿里云 ACR 会以
+          # 403 unknown manifest class 拒绝它们。GHCR 侧仍保留这些 attestation，只是不镜像。
+          copy_tag() {
+            local src="$1" dst="$2" raw digests=() sources=()
+            if raw=$(docker buildx imagetools inspect --raw "${src}" 2>/dev/null); then
+              mapfile -t digests < <(printf '%s' "${raw}" | jq -r '(.manifests // [])[] | select((.platform.os // "") == "linux" and ((.platform.architecture // "") == "amd64" or (.platform.architecture // "") == "arm64")) | .digest' | sort -u)
+            fi
+            if [ "${#digests[@]}" -gt 0 ]; then
+              for d in "${digests[@]}"; do sources+=("${src}@${d}"); done
+              echo "重建索引：${#sources[@]} 个平台镜像（跳过 attestation 条目）"
+              docker buildx imagetools create --tag "${dst}" "${sources[@]}"
+            else
+              docker buildx imagetools create --tag "${dst}" "${src}"
+            fi
+          }
+
           for tag in "${tags[@]}"; do
             # 失败原因（not found / unauthorized）原样回报，否则只看到「跳过」会难以定位。
             if ! detail=$(docker buildx imagetools inspect "${GHCR_IMAGE}:${tag}" 2>&1); then
@@ -136,7 +154,7 @@ jobs:
             fi
             # 复制失败时把最后几行（buildkit 的真实原因通常在末尾）写成注解。
             # 仓库日志要认证才能下载，注解是唯一未登录可见的诊断通道。
-            if ! out=$(docker buildx imagetools create --tag "${ACR_IMAGE}:${tag}" "${GHCR_IMAGE}:${tag}" 2>&1); then
+            if ! out=$(copy_tag "${GHCR_IMAGE}:${tag}" "${ACR_IMAGE}:${tag}" 2>&1); then
               reason=$(printf '%s\n' "${out}" | sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' | grep -v '^$' | tail -n 4 | tr '\n' ' ' | cut -c1-800 || true)
               echo "::error::复制 ${tag} 到 ACR 失败：${reason}"
               exit 1
